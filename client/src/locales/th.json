@@ -1,0 +1,242 @@
+{
+  "common": {
+    "loading": "กำลังโหลด...",
+    "userFallback": "ผู้ใช้งาน",
+    "clear": "ล้าง",
+    "language": "ภาษา",
+    "switchLanguage": "เปลี่ยนภาษา",
+    "units": {
+      "kg": "กก.",
+      "g": "ก.",
+      "kcal": "แคล",
+      "reps": "ครั้ง",
+      "sets": "เซต"
+    }
+  },
+
+  "header": {
+    "subtitle": "Voice-to-Data Gym Log & Macro Assistant",
+    "profile": "โปรไฟล์",
+    "logout": "ออกจากระบบ"
+  },
+
+  "nav": {
+    "dashboard": "แดชบอร์ด",
+    "programs": "โปรแกรม",
+    "analytics": "สถิติ"
+  },
+
+  "auth": {
+    "headings": {
+      "login": { "title": "ยินดีต้อนรับกลับ", "subtitle": "เข้าสู่ระบบเพื่อบันทึกการออกกำลังกายของคุณ" },
+      "signup": { "title": "สร้างบัญชีใหม่", "subtitle": "เริ่มบันทึกการออกกำลังกายและมื้ออาหารด้วยเสียง" },
+      "verify": { "title": "ยืนยันอีเมลของคุณ", "subtitle": "กรอกรหัส 6 หลักที่ส่งไปยังอีเมล" },
+      "forgot": { "title": "ลืมรหัสผ่าน", "subtitle": "ตั้งรหัสผ่านใหม่ด้วยรหัสยืนยันทางอีเมล" }
+    },
+    "tabs": {
+      "login": "เข้าสู่ระบบ",
+      "signup": "สมัครสมาชิก"
+    },
+    "fields": {
+      "name": "ชื่อที่แสดง",
+      "namePlaceholder": "เช่น สมชาย",
+      "email": "อีเมล",
+      "emailPlaceholder": "you@example.com",
+      "password": "รหัสผ่าน",
+      "passwordPlaceholder": "รหัสผ่านของคุณ",
+      "newPasswordPlaceholder": "อย่างน้อย {{min}} ตัวอักษร",
+      "confirmPassword": "ยืนยันรหัสผ่าน",
+      "confirmPasswordPlaceholder": "กรอกรหัสผ่านอีกครั้ง"
+    },
+    "forgotLink": "ลืมรหัสผ่าน?",
+    "buttons": {
+      "login": "เข้าสู่ระบบ",
+      "signup": "สมัครสมาชิกและส่งรหัส OTP",
+      "verify": "ยืนยันรหัส",
+      "loggingIn": "กำลังเข้าสู่ระบบ...",
+      "creatingAccount": "กำลังสร้างบัญชี...",
+      "checking": "กำลังตรวจสอบ...",
+      "backToEditEmail": "← กลับไปแก้ไขอีเมล"
+    },
+    "codeExpiry": "รหัสมีอายุ 5 นาที",
+    "securityFooter": "ปกป้องบัญชีด้วยการยืนยันตัวตนทางอีเมล",
+    "validation": {
+      "invalidEmail": "รูปแบบอีเมลไม่ถูกต้อง",
+      "passwordTooShort": "รหัสผ่านต้องมีอย่างน้อย {{min}} ตัวอักษร",
+      "passwordMismatch": "รหัสผ่านไม่ตรงกัน",
+      "passwordsMatch": "✓ รหัสผ่านตรงกัน",
+      "passwordAndConfirmMismatch": "รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน",
+      "fillAllFields": "กรุณากรอกข้อมูลให้ถูกต้องครบถ้วน",
+      "emailAndPasswordRequired": "กรุณากรอกอีเมลและรหัสผ่าน"
+    },
+    "toast": {
+      "loginSuccess": "เข้าสู่ระบบสำเร็จ!",
+      "verifySuccess": "รหัสถูกต้อง! ยืนยันอีเมลสำเร็จ กำลังเข้าสู่ระบบ...",
+      "otpResent": "ส่งรหัสยืนยันใหม่แล้ว กรุณาตรวจสอบอีเมล",
+      "invalidCode": "รหัสไม่ถูกต้อง กรุณาลองใหม่",
+      "genericError": "เกิดข้อผิดพลาด กรุณาลองใหม่",
+      "verifyFailed": "ยืนยันรหัสไม่สำเร็จ กรุณาลองใหม่",
+      "resendFailed": "ส่งรหัสใหม่ไม่สำเร็จ กรุณาลองใหม่"
+    }
+  },
+
+  "forgot": {
+    "intro": "กรอกอีเมลที่ใช้สมัครสมาชิก เราจะส่งรหัส 6 หลักสำหรับตั้งรหัสผ่านใหม่ไปให้",
+    "sendCode": "ส่งรหัสรีเซ็ตรหัสผ่าน",
+    "sending": "กำลังส่งรหัส...",
+    "backToLogin": "← กลับไปหน้าเข้าสู่ระบบ",
+    "codeHint": "หากอีเมลนี้มีบัญชีอยู่ รหัสจะถูกส่งไปภายในไม่กี่วินาที · รหัสมีอายุ 5 นาที",
+    "newPassword": "รหัสผ่านใหม่",
+    "confirmNewPassword": "ยืนยันรหัสผ่านใหม่",
+    "confirmNewPasswordPlaceholder": "กรอกรหัสผ่านใหม่อีกครั้ง",
+    "submit": "ตั้งรหัสผ่านใหม่",
+    "saving": "กำลังบันทึก...",
+    "changeEmail": "← เปลี่ยนอีเมล",
+    "checkEmailTitle": "ตรวจสอบอีเมลของคุณ",
+    "successTitle": "ตั้งรหัสผ่านใหม่สำเร็จ",
+    "errors": {
+      "invalidEmail": "กรุณากรอกอีเมลให้ถูกต้อง",
+      "sendFailed": "ส่งรหัสไม่สำเร็จ กรุณาลองใหม่",
+      "incompleteCode": "กรุณากรอกรหัส OTP ให้ครบ 6 หลัก",
+      "passwordTooShort": "รหัสผ่านต้องมีอย่างน้อย {{min}} ตัวอักษร",
+      "mismatch": "รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน",
+      "invalidCode": "รหัส OTP ไม่ถูกต้อง กรุณาลองใหม่",
+      "resetFailed": "ตั้งรหัสผ่านใหม่ไม่สำเร็จ"
+    }
+  },
+
+  "otp": {
+    "groupLabel": "รหัสยืนยัน 6 หลัก",
+    "digitLabel": "หลักที่ {{n}}",
+    "resendIn": "ขอรหัสใหม่ได้ในอีก",
+    "resend": "ส่งรหัสใหม่ (Resend OTP)",
+    "resending": "กำลังส่ง..."
+  },
+
+  "password": {
+    "strength": "ความปลอดภัย: {{level}}",
+    "add": "เพิ่ม: {{hints}}",
+    "levels": ["อ่อนมาก", "อ่อน", "ปานกลาง", "ดี", "แข็งแรงมาก"],
+    "hints": {
+      "length": "อย่างน้อย 8 ตัวอักษร",
+      "case": "ตัวพิมพ์เล็กและพิมพ์ใหญ่",
+      "digit": "ตัวเลข",
+      "symbol": "อักขระพิเศษ"
+    }
+  },
+
+  "toast": {
+    "success": "สำเร็จ",
+    "error": "เกิดข้อผิดพลาด",
+    "info": "แจ้งเพื่อทราบ",
+    "close": "ปิดการแจ้งเตือน"
+  },
+
+  "voice": {
+    "title": "พูดเพื่อบันทึกการออกกำลังกาย / มื้ออาหาร",
+    "tapToStart": "แตะไมค์เพื่อเริ่มพูด",
+    "listening": "กำลังฟัง... พูดได้เลย",
+    "examplesLabel": "เช่น",
+    "examples": "\"สควอท 60 กิโล 5 ครั้ง 3 เซต\" หรือ \"ข้าวไก่ย่าง 450 แคล โปรตีน 35 กรัม\"",
+    "error": "ข้อผิดพลาด: {{error}}",
+    "clear": "ล้างข้อความ",
+    "unsupported": "เบราว์เซอร์นี้ไม่รองรับ Web Speech API กรุณาใช้ Google Chrome"
+  },
+
+  "dashboard": {
+    "feedback": {
+      "backendDown": "เชื่อมต่อ backend ไม่ได้ กรุณาตรวจสอบว่า server กำลังรันอยู่",
+      "notReady": "ยังไม่พร้อมใช้งาน กรุณารอสักครู่",
+      "notUnderstood": "ไม่เข้าใจคำสั่ง: \"{{text}}\"",
+      "workoutSaved": "บันทึก {{name}} เรียบร้อย เริ่มพัก {{seconds}} วินาที",
+      "volumePr": "ยินดีด้วย คุณทำสถิติ Volume Load ใหม่ได้สำเร็จ",
+      "oneRmPr": "และทำสถิติ 1RM ใหม่ได้สำเร็จด้วย",
+      "foodSaved": "บันทึก {{name}} เรียบร้อย",
+      "saveFailed": "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่"
+    },
+    "restOver": "หมดเวลาพัก เริ่มเซตต่อไปได้เลย",
+    "rest": {
+      "title": "พักระหว่างเซต",
+      "skip": "ข้ามการพัก"
+    },
+    "targets": {
+      "title": "เป้าหมายวันนี้",
+      "calories": "แคลอรี",
+      "protein": "โปรตีน"
+    },
+    "logs": {
+      "workoutsToday": "Workout วันนี้ ({{count}})",
+      "mealsToday": "มื้ออาหารวันนี้ ({{count}})",
+      "empty": "ยังไม่มีบันทึกวันนี้",
+      "workoutLine": "{{weight}} กก. × {{reps}} ครั้ง × {{sets}} เซต",
+      "foodLine": "{{calories}} แคล · โปรตีน {{protein}} ก.",
+      "totalToday": "รวมวันนี้ {{calories}} แคล · โปรตีน {{protein}} ก."
+    },
+    "programCard": {
+      "nowPlaying": "กำลังเล่นโปรแกรม",
+      "clear": "✕ ล้าง"
+    }
+  },
+
+  "programs": {
+    "intro": "เลือกโปรแกรมของคนดังที่ชอบ แล้วกด \"Start Workout\" เพื่อโหลดท่าไปที่ Dashboard สำหรับอัดเสียงบันทึกได้ทันที",
+    "by": "โดย {{name}}",
+    "start": "▶ Start Workout",
+    "difficulty": {
+      "beginner": "เริ่มต้น",
+      "intermediate": "ปานกลาง",
+      "advanced": "สูง"
+    },
+    "taglines": {
+      "arnold-golden-six": "โปรแกรมคลาสสิกที่อาร์โนลด์ใช้ปูพื้นฐานตอนเริ่มเล่นเวท เน้นกล้ามเนื้อทั้งตัวใน 6 ท่าหลัก",
+      "hemsworth-thor": "โปรแกรม Functional Training ความเข้มข้นสูงที่คริส เฮมสเวิร์ธใช้ปั้นร่างกายเทพเจ้าสายฟ้า",
+      "cbum-ppl": "โปรแกรม Push / Pull / Legs สไตล์นักเพาะกาย Mr. Olympia Classic Physique",
+      "rock-leg-day": "วันขาสุดโหดที่ขึ้นชื่อเรื่องวอลุ่มสูงและความหนักหน่วง"
+    },
+    "reps": {
+      "toFailure": "{{count}} (หรือจนสุดแรง)",
+      "meters": "{{count}} เมตร",
+      "seconds": "{{count}} วินาที",
+      "perSide": "{{count}} ต่อข้าง"
+    },
+    "muscles": {
+      "abs": "หน้าท้อง",
+      "back": "หลัง",
+      "biceps": "ไบเซป",
+      "calves": "น่อง",
+      "chest": "อก",
+      "core": "แกนกลางลำตัว",
+      "explosive": "พลังระเบิด",
+      "forearms": "ปลายแขน",
+      "fullBody": "ทั้งตัว",
+      "glutes": "ก้น",
+      "grip": "แรงจับ",
+      "hamstrings": "ต้นขาหลัง",
+      "lats": "ปีก",
+      "legs": "ขา",
+      "quads": "ต้นขาหน้า",
+      "rearDelts": "หลังไหล่",
+      "shoulders": "ไหล่",
+      "sideDelts": "ไหล่ข้าง",
+      "thighs": "ต้นขา",
+      "traps": "บ่า",
+      "triceps": "ไตรเซป",
+      "upperChest": "อกบน"
+    }
+  },
+
+  "analytics": {
+    "progressiveOverload": "📈 Progressive Overload",
+    "noWorkoutData": "ยังไม่มีข้อมูล ลองบันทึก Workout ก่อน",
+    "oneRmAxis": "1RM (กก.)",
+    "volumeAxis": "Volume Load (กก.)",
+    "estimated1rm": "1RM โดยประมาณ",
+    "volumeLoad": "Volume Load",
+    "macroHistory": "🍽 ประวัติแคลอรี & โปรตีน",
+    "noFoodData": "ยังไม่มีข้อมูล ลองบันทึกมื้ออาหารก่อน",
+    "caloriesAxis": "แคลอรี",
+    "proteinAxis": "โปรตีน (ก.)",
+    "calories": "แคลอรี",
+    "protein": "โปรตีน"
+  }
+}

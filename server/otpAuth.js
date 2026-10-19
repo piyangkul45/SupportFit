@@ -1,0 +1,242 @@
+require('dotenv').config()
+const crypto = require('crypto')
+const nodemailer = require('nodemailer')
+const bcrypt = require('bcryptjs')
+const supabase = require('./supabaseClient')
+const { renderOtpEmail, renderOtpText } = require('./emailTemplate')
+const { translate } = require('./i18n')
+
+const OTP_LENGTH = 6
+const OTP_TTL_MS = 5 * 60 * 1000
+const RESEND_COOLDOWN_MS = 60 * 1000
+const MAX_VERIFY_ATTEMPTS = 5
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+// AUTH_SECRET ใช้เซ็น session token ถ้าไม่ได้ตั้งไว้จะสุ่มใหม่ทุกครั้งที่ start server
+// (ใช้งานได้ แต่ผู้ใช้ทุกคนจะถูก logout เมื่อ server restart)
+const AUTH_SECRET = process.env.AUTH_SECRET || crypto.randomBytes(32).toString('hex')
+if (!process.env.AUTH_SECRET) {
+  console.warn('⚠️  ไม่พบ AUTH_SECRET ใน server/.env — ใช้คีย์ชั่วคราว (session จะหายเมื่อ restart)')
+}
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+})
+
+function isMailConfigured() {
+  const pass = process.env.EMAIL_PASS || ''
+  return Boolean(process.env.EMAIL_USER) && pass.replace(/\s/g, '').length === 16
+}
+
+// ---- OTP store (ตาราง otp_codes บน Supabase) ----
+// 1 แถวต่ออีเมล: { email, code_hash, expires_at, sent_at, attempts } เก็บเฉพาะ hash ไม่เก็บรหัสจริง
+// อยู่รอดแม้ server restart
+
+const hashCode = (code) => crypto.createHash('sha256').update(String(code)).digest('hex')
+
+function generateOtp() {
+  return String(crypto.randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, '0')
+}
+
+async function findOtp(email) {
+  const { data, error } = await supabase.from('otp_codes').select('*').eq('email', email).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+async function deleteOtp(email) {
+  const { error } = await supabase.from('otp_codes').delete().eq('email', email)
+  if (error) throw error
+}
+
+async function getResendWaitSeconds(email) {
+  const entry = await findOtp(email)
+  if (!entry) return 0
+  const sentAt = new Date(entry.sent_at).getTime()
+  return Math.max(0, Math.ceil((sentAt + RESEND_COOLDOWN_MS - Date.now()) / 1000))
+}
+
+// ข้อความทั้งหมดในอีเมลตามภาษาผู้ใช้ และจุดประสงค์ของรหัส: 'verify' (ยืนยันอีเมลตอนสมัคร) | 'reset' (รีเซ็ตรหัสผ่าน)
+function buildEmailCopy({ lang, purpose, code, email }) {
+  const t = (key, params) => translate(lang, `email.${key}`, params)
+  const minutes = OTP_TTL_MS / 60000
+  return {
+    lang,
+    subject: t(`${purpose}.subject`),
+    heading: t(`${purpose}.heading`),
+    intro: t(`${purpose}.intro`),
+    preheader: t('preheader', { code, minutes }),
+    codeLabel: t('codeLabel'),
+    codeLine: t('codeLine', { code }),
+    expiry: t('expiry', { minutes }),
+    expiryText: t('expiryText', { minutes }),
+    securityNote: t('securityNote'),
+    ignoreNote: t('ignoreNote'),
+    sentTo: t('sentTo', { email }),
+  }
+}
+
+async function sendOtp(email, purpose = 'verify', lang = 'en') {
+  const code = generateOtp()
+  const now = Date.now()
+
+  // บันทึกก่อนส่ง เพื่อให้ผู้ใช้ได้รหัสที่อยู่ในฐานข้อมูลแน่นอน ถ้าส่งไม่ผ่านจะลบทิ้ง (ไม่ติด cooldown)
+  const { error } = await supabase.from('otp_codes').upsert({
+    email,
+    code_hash: hashCode(code),
+    expires_at: new Date(now + OTP_TTL_MS).toISOString(),
+    sent_at: new Date(now).toISOString(),
+    attempts: 0,
+  })
+  if (error) throw error
+
+  try {
+    await mailOtp(email, code, buildEmailCopy({ lang, purpose, code, email }))
+  } catch (mailError) {
+    await deleteOtp(email).catch(() => {})
+    mailError.isMailError = true
+    throw mailError
+  }
+}
+
+async function mailOtp(email, code, copy) {
+  await transporter.sendMail({
+    from: `"SupportFit" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: `${copy.subject}: ${code}`,
+    text: renderOtpText({ copy }),
+    html: renderOtpEmail({ code, copy }),
+  })
+}
+
+// คืนค่า 'ok' | 'not_found' | 'expired' | 'too_many_attempts' | 'invalid'
+async function verifyOtp(email, code) {
+  const entry = await findOtp(email)
+  if (!entry) return 'not_found'
+  if (Date.now() > new Date(entry.expires_at).getTime()) {
+    await deleteOtp(email)
+    return 'expired'
+  }
+  if (entry.attempts >= MAX_VERIFY_ATTEMPTS) {
+    await deleteOtp(email)
+    return 'too_many_attempts'
+  }
+
+  const matches = crypto.timingSafeEqual(
+    Buffer.from(entry.code_hash, 'hex'),
+    Buffer.from(hashCode(code), 'hex')
+  )
+  if (!matches) {
+    const { error } = await supabase
+      .from('otp_codes')
+      .update({ attempts: entry.attempts + 1 })
+      .eq('email', email)
+    if (error) throw error
+    return 'invalid'
+  }
+
+  await deleteOtp(email)
+  return 'ok'
+}
+
+// ล้าง OTP ที่หมดอายุแล้วทุก 10 นาที กันตารางโต
+setInterval(() => {
+  supabase
+    .from('otp_codes')
+    .delete()
+    .lt('expires_at', new Date().toISOString())
+    .then(({ error }) => error && console.error('ล้าง OTP หมดอายุไม่สำเร็จ:', error.message))
+}, 10 * 60 * 1000).unref()
+
+// ---- Password (bcrypt) ----
+// hash ใหม่ทั้งหมดใช้ bcrypt ($2b$...) ส่วน hash แบบเก่า scrypt$<salt>$<hash> ยังตรวจได้
+// เพื่อให้บัญชีที่สมัครก่อนเปลี่ยนมาใช้ bcrypt ล็อกอินได้ตามเดิม
+const BCRYPT_ROUNDS = 10
+const SCRYPT_KEYLEN = 64
+
+function scryptAsync(password, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, SCRYPT_KEYLEN, (error, key) => (error ? reject(error) : resolve(key)))
+  })
+}
+
+function hashPassword(password) {
+  return bcrypt.hash(password, BCRYPT_ROUNDS)
+}
+
+async function verifyPassword(password, stored) {
+  const value = String(stored || '')
+  if (value.startsWith('$2')) return bcrypt.compare(password, value)
+
+  const [scheme, saltHex, hashHex] = value.split('$')
+  if (scheme !== 'scrypt' || !saltHex || !hashHex) return false
+  const key = await scryptAsync(password, Buffer.from(saltHex, 'hex'))
+  const expected = Buffer.from(hashHex, 'hex')
+  return expected.length === key.length && crypto.timingSafeEqual(expected, key)
+}
+
+// ---- Session token ----
+// รูปแบบ <payload base64url>.<HMAC-SHA256 base64url> คล้าย JWT แต่ไม่ต้องพึ่ง library เพิ่ม
+function sign(data) {
+  return crypto.createHmac('sha256', AUTH_SECRET).update(data).digest('base64url')
+}
+
+// ลายนิ้วมือของ password_hash ปัจจุบัน ฝังไว้ใน token (pv) แล้ว requireAuth เทียบกับค่าในฐานข้อมูลทุก request
+// เมื่อเปลี่ยน/รีเซ็ตรหัสผ่าน hash เปลี่ยน -> token เก่าทุกอันบนทุกอุปกรณ์ใช้ไม่ได้ทันที (ไม่ต้องมีตาราง session)
+function passwordFingerprint(passwordHash) {
+  return crypto
+    .createHmac('sha256', AUTH_SECRET)
+    .update(`pv:${passwordHash || ''}`)
+    .digest('base64url')
+    .slice(0, 22)
+}
+
+function createSessionToken(user) {
+  const payload = Buffer.from(
+    JSON.stringify({
+      uid: user.id,
+      email: user.email,
+      pv: passwordFingerprint(user.password_hash),
+      exp: Date.now() + SESSION_TTL_MS,
+    })
+  ).toString('base64url')
+  return `${payload}.${sign(payload)}`
+}
+
+// token ยังตรงกับรหัสผ่านปัจจุบันของผู้ใช้หรือไม่ (เทียบแบบ constant-time)
+function isSessionCurrent(session, passwordHash) {
+  const expected = Buffer.from(passwordFingerprint(passwordHash))
+  const actual = Buffer.from(String(session?.pv || ''))
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual)
+}
+
+function verifySessionToken(token) {
+  const [payload, signature] = String(token).split('.')
+  if (!payload || !signature) return null
+
+  const expected = Buffer.from(sign(payload))
+  const actual = Buffer.from(signature)
+  if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) return null
+
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString())
+    return data.exp > Date.now() ? data : null
+  } catch {
+    return null
+  }
+}
+
+module.exports = {
+  OTP_LENGTH,
+  isMailConfigured,
+  getResendWaitSeconds,
+  sendOtp,
+  verifyOtp,
+  hashPassword,
+  verifyPassword,
+  createSessionToken,
+  verifySessionToken,
+  isSessionCurrent,
+  RESEND_COOLDOWN_SECONDS: RESEND_COOLDOWN_MS / 1000,
+}

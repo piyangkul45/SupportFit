@@ -1,0 +1,242 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "userFallback": "User",
+    "clear": "Clear",
+    "language": "Language",
+    "switchLanguage": "Switch language",
+    "units": {
+      "kg": "kg",
+      "g": "g",
+      "kcal": "kcal",
+      "reps": "reps",
+      "sets": "sets"
+    }
+  },
+
+  "header": {
+    "subtitle": "Voice-to-Data Gym Log & Macro Assistant",
+    "profile": "Profile",
+    "logout": "Log out"
+  },
+
+  "nav": {
+    "dashboard": "Dashboard",
+    "programs": "Programs",
+    "analytics": "Analytics"
+  },
+
+  "auth": {
+    "headings": {
+      "login": { "title": "Welcome back", "subtitle": "Log in to keep tracking your training" },
+      "signup": { "title": "Create your account", "subtitle": "Start logging workouts and meals with your voice" },
+      "verify": { "title": "Verify your email", "subtitle": "Enter the 6-digit code we sent to your email" },
+      "forgot": { "title": "Forgot password", "subtitle": "Set a new password with an email verification code" }
+    },
+    "tabs": {
+      "login": "Log in",
+      "signup": "Sign up"
+    },
+    "fields": {
+      "name": "Display name",
+      "namePlaceholder": "e.g. Alex",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "Your password",
+      "newPasswordPlaceholder": "At least {{min}} characters",
+      "confirmPassword": "Confirm password",
+      "confirmPasswordPlaceholder": "Re-enter your password"
+    },
+    "forgotLink": "Forgot password?",
+    "buttons": {
+      "login": "Log in",
+      "signup": "Sign up & send OTP",
+      "verify": "Verify code",
+      "loggingIn": "Logging in...",
+      "creatingAccount": "Creating account...",
+      "checking": "Checking...",
+      "backToEditEmail": "← Back to edit email"
+    },
+    "codeExpiry": "The code expires in 5 minutes",
+    "securityFooter": "Your account is protected with email verification",
+    "validation": {
+      "invalidEmail": "Invalid email format",
+      "passwordTooShort": "Password must be at least {{min}} characters",
+      "passwordMismatch": "Passwords do not match",
+      "passwordsMatch": "✓ Passwords match",
+      "passwordAndConfirmMismatch": "Password and confirmation do not match",
+      "fillAllFields": "Please fill in all fields correctly",
+      "emailAndPasswordRequired": "Please enter your email and password"
+    },
+    "toast": {
+      "loginSuccess": "Logged in successfully!",
+      "verifySuccess": "Code accepted! Email verified, logging you in...",
+      "otpResent": "A new verification code has been sent. Please check your email.",
+      "invalidCode": "Incorrect code. Please try again.",
+      "genericError": "Something went wrong. Please try again.",
+      "verifyFailed": "Verification failed. Please try again.",
+      "resendFailed": "Could not resend the code. Please try again."
+    }
+  },
+
+  "forgot": {
+    "intro": "Enter the email you signed up with and we'll send you a 6-digit code to set a new password.",
+    "sendCode": "Send reset code",
+    "sending": "Sending code...",
+    "backToLogin": "← Back to log in",
+    "codeHint": "If this email has an account, the code will arrive within a few seconds · The code expires in 5 minutes",
+    "newPassword": "New password",
+    "confirmNewPassword": "Confirm new password",
+    "confirmNewPasswordPlaceholder": "Re-enter your new password",
+    "submit": "Set new password",
+    "saving": "Saving...",
+    "changeEmail": "← Change email",
+    "checkEmailTitle": "Check your email",
+    "successTitle": "Password updated",
+    "errors": {
+      "invalidEmail": "Please enter a valid email",
+      "sendFailed": "Could not send the code. Please try again.",
+      "incompleteCode": "Please enter all 6 digits of the OTP code",
+      "passwordTooShort": "Password must be at least {{min}} characters",
+      "mismatch": "New password and confirmation do not match",
+      "invalidCode": "Incorrect OTP code. Please try again.",
+      "resetFailed": "Could not set the new password"
+    }
+  },
+
+  "otp": {
+    "groupLabel": "6-digit verification code",
+    "digitLabel": "Digit {{n}}",
+    "resendIn": "Request a new code in",
+    "resend": "Resend code",
+    "resending": "Sending..."
+  },
+
+  "password": {
+    "strength": "Strength: {{level}}",
+    "add": "Add: {{hints}}",
+    "levels": ["Very weak", "Weak", "Fair", "Good", "Very strong"],
+    "hints": {
+      "length": "8+ characters",
+      "case": "upper & lower case",
+      "digit": "a number",
+      "symbol": "a symbol"
+    }
+  },
+
+  "toast": {
+    "success": "Success",
+    "error": "Something went wrong",
+    "info": "Heads up",
+    "close": "Close notification"
+  },
+
+  "voice": {
+    "title": "Speak to log a workout / meal",
+    "tapToStart": "Tap the mic to start",
+    "listening": "Listening... go ahead",
+    "examplesLabel": "Speak in Thai, e.g.",
+    "examples": "\"สควอท 60 กิโล 5 ครั้ง 3 เซต\" (Squat 60 kg, 5 reps, 3 sets) or \"ข้าวไก่ย่าง 450 แคล โปรตีน 35 กรัม\" (grilled chicken rice, 450 kcal, 35 g protein)",
+    "error": "Error: {{error}}",
+    "clear": "Clear text",
+    "unsupported": "This browser doesn't support the Web Speech API. Please use Google Chrome."
+  },
+
+  "dashboard": {
+    "feedback": {
+      "backendDown": "Can't reach the backend. Please make sure the server is running.",
+      "notReady": "Not ready yet. Please wait a moment.",
+      "notUnderstood": "Didn't understand: \"{{text}}\"",
+      "workoutSaved": "Logged {{name}}. Resting for {{seconds}} seconds.",
+      "volumePr": "Congrats, new Volume Load record!",
+      "oneRmPr": "And a new 1RM record too!",
+      "foodSaved": "Logged {{name}}.",
+      "saveFailed": "Couldn't save. Please try again."
+    },
+    "restOver": "Rest is over. Start your next set!",
+    "rest": {
+      "title": "Rest between sets",
+      "skip": "Skip rest"
+    },
+    "targets": {
+      "title": "Today's Target",
+      "calories": "Calories",
+      "protein": "Protein"
+    },
+    "logs": {
+      "workoutsToday": "Today's Workout ({{count}})",
+      "mealsToday": "Today's Meals ({{count}})",
+      "empty": "Nothing logged yet today",
+      "workoutLine": "{{weight}} kg × {{reps}} reps × {{sets}} sets",
+      "foodLine": "{{calories}} kcal · {{protein}} g protein",
+      "totalToday": "Total today: {{calories}} kcal · {{protein}} g protein"
+    },
+    "programCard": {
+      "nowPlaying": "Program in progress",
+      "clear": "✕ Clear"
+    }
+  },
+
+  "programs": {
+    "intro": "Pick a celebrity program, then tap \"Start Workout\" to load its exercises onto your Dashboard for voice logging.",
+    "by": "by {{name}}",
+    "start": "▶ Start Workout",
+    "difficulty": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
+    "taglines": {
+      "arnold-golden-six": "The classic routine Arnold used to build his foundation — full-body in 6 core lifts.",
+      "hemsworth-thor": "High-intensity functional training Chris Hemsworth used to build the God of Thunder's physique.",
+      "cbum-ppl": "A Push / Pull / Legs split in the style of the Mr. Olympia Classic Physique champion.",
+      "rock-leg-day": "The notoriously brutal leg day, known for its high volume and intensity."
+    },
+    "reps": {
+      "toFailure": "{{count}} (or to failure)",
+      "meters": "{{count}} m",
+      "seconds": "{{count}} sec",
+      "perSide": "{{count}} per side"
+    },
+    "muscles": {
+      "abs": "Abs",
+      "back": "Back",
+      "biceps": "Biceps",
+      "calves": "Calves",
+      "chest": "Chest",
+      "core": "Core",
+      "explosive": "Explosive power",
+      "forearms": "Forearms",
+      "fullBody": "Full body",
+      "glutes": "Glutes",
+      "grip": "Grip",
+      "hamstrings": "Hamstrings",
+      "lats": "Lats",
+      "legs": "Legs",
+      "quads": "Quads",
+      "rearDelts": "Rear delts",
+      "shoulders": "Shoulders",
+      "sideDelts": "Side delts",
+      "thighs": "Thighs",
+      "traps": "Traps",
+      "triceps": "Triceps",
+      "upperChest": "Upper chest"
+    }
+  },
+
+  "analytics": {
+    "progressiveOverload": "📈 Progressive Overload",
+    "noWorkoutData": "No data yet — log a workout first",
+    "oneRmAxis": "1RM (kg)",
+    "volumeAxis": "Volume Load (kg)",
+    "estimated1rm": "Estimated 1RM",
+    "volumeLoad": "Volume Load",
+    "macroHistory": "🍽 Calories & Protein History",
+    "noFoodData": "No data yet — log a meal first",
+    "caloriesAxis": "Calories",
+    "proteinAxis": "Protein (g)",
+    "calories": "Calories",
+    "protein": "Protein"
+  }
+}
