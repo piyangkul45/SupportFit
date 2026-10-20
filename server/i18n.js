@@ -66,6 +66,24 @@ const MESSAGES = {
       dbNotReady:
         'Database not ready (users.email column or otp_codes table missing). Set DATABASE_URL in server/.env and restart the server, or run npm run migrate',
     },
+    programs: {
+      loadFailed: 'Could not load workout programs',
+      saveFailed: 'Could not save the program',
+      deleteFailed: 'Could not delete the program',
+      activateFailed: 'Could not set the active program',
+      notFound: 'Program not found',
+      presetReadOnly: 'Preset programs cannot be changed. Create a custom program instead.',
+      titleRequired: 'Please enter a program title',
+      titleTooLong: 'Program title must be at most {max} characters',
+      daysRequired: 'Please add at least one day',
+      tooManyDays: 'A program can have at most {max} days',
+      tooManyExercises: 'Day {day} can have at most {max} exercises',
+      noTrainingDays: 'Add at least one exercise to one of the days',
+      unknownExercise: 'Day {day}: "{name}" is not in the exercise list',
+      invalidTarget: 'Day {day}: check the target sets, reps and weight for {name}',
+      dbNotReady:
+        'Database not ready for programs (workout_programs table missing). Run server/sql/schema.sql in the Supabase SQL Editor, or set DATABASE_URL in server/.env and restart the server',
+    },
     email: {
       verify: {
         subject: 'Your SupportFit verification code',
@@ -151,6 +169,24 @@ const MESSAGES = {
       deleteFailed: 'ลบรายการไม่สำเร็จ',
       dbNotReady:
         'ฐานข้อมูลยังไม่พร้อม (ไม่พบคอลัมน์ users.email หรือตาราง otp_codes) กรุณาตั้ง DATABASE_URL ใน server/.env แล้ว restart server หรือรัน npm run migrate',
+    },
+    programs: {
+      loadFailed: 'ไม่สามารถโหลดโปรแกรมฝึกได้',
+      saveFailed: 'บันทึกโปรแกรมไม่สำเร็จ',
+      deleteFailed: 'ลบโปรแกรมไม่สำเร็จ',
+      activateFailed: 'ตั้งโปรแกรมที่ใช้ไม่สำเร็จ',
+      notFound: 'ไม่พบโปรแกรมนี้',
+      presetReadOnly: 'โปรแกรมสำเร็จรูปแก้ไขไม่ได้ กรุณาสร้างโปรแกรมของคุณเอง',
+      titleRequired: 'กรุณากรอกชื่อโปรแกรม',
+      titleTooLong: 'ชื่อโปรแกรมยาวได้ไม่เกิน {max} ตัวอักษร',
+      daysRequired: 'กรุณาเพิ่มอย่างน้อย 1 วัน',
+      tooManyDays: 'โปรแกรมมีได้ไม่เกิน {max} วัน',
+      tooManyExercises: 'วันที่ {day} มีท่าได้ไม่เกิน {max} ท่า',
+      noTrainingDays: 'กรุณาเพิ่มท่าอย่างน้อย 1 ท่าในวันใดวันหนึ่ง',
+      unknownExercise: 'วันที่ {day}: ไม่พบท่า "{name}" ในรายการท่า',
+      invalidTarget: 'วันที่ {day}: กรุณาตรวจเซต ครั้ง และน้ำหนักเป้าหมายของ {name}',
+      dbNotReady:
+        'ฐานข้อมูลยังไม่พร้อมสำหรับโปรแกรมฝึก (ไม่พบตาราง workout_programs) กรุณารัน server/sql/schema.sql ใน Supabase SQL Editor หรือตั้ง DATABASE_URL ใน server/.env แล้ว restart server',
     },
     email: {
       verify: {

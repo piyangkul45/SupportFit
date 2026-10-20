@@ -85,8 +85,9 @@ export const updateProfile = (data) =>
   request('/users/me/profile', { method: 'PUT', body: JSON.stringify(data) })
 
 // แปลงข้อความจากเสียง/พิมพ์เป็น { type: 'workout' | 'food', ... } (422 = ไม่เข้าใจคำสั่ง)
-export const parseCommand = (text) =>
-  request('/parse', { method: 'POST', body: JSON.stringify({ text }) })
+// exerciseHint: ท่าที่เลือกไว้ในตารางฝึกวันนี้ ใช้เมื่อพูดแค่ตัวเลข ("100 kg 8 reps")
+export const parseCommand = (text, exerciseHint) =>
+  request('/parse', { method: 'POST', body: JSON.stringify({ text, exercise_hint: exerciseHint || undefined }) })
 
 export const getWorkoutLogs = (userId) => request(`/workout-logs?user_id=${userId}`)
 
@@ -107,3 +108,28 @@ export const updateFoodLog = (id, data) =>
   request(`/food-logs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 
 export const deleteFoodLog = (id) => request(`/food-logs/${id}`, { method: 'DELETE' })
+
+// ---- โปรแกรมฝึก ----
+// { programs: [...preset, ...ของผู้ใช้], active: { program_id, started_on } | null, db_ready }
+export const getPrograms = () => request('/programs')
+
+export const createProgram = (data) => request('/programs', { method: 'POST', body: JSON.stringify(data) })
+
+export const updateProgram = (id, data) =>
+  request(`/programs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+
+export const deleteProgram = (id) => request(`/programs/${id}`, { method: 'DELETE' })
+
+// programId = null คือเลิกใช้โปรแกรม; วันที่ตามเครื่องผู้ใช้ = วันแรกของรอบ
+export const setActiveProgram = (programId, startedOn) =>
+  request('/users/me/active-program', {
+    method: 'POST',
+    body: JSON.stringify({ program_id: programId, started_on: startedOn }),
+  })
+
+// { program, active, today: { date, day_number, cycle_length, week, is_rest_day, day } } หรือ { program: null }
+export const getTodayRoutine = (date) =>
+  request(`/users/me/active-program/today?date=${encodeURIComponent(date)}`)
+
+// ชื่อท่ามาตรฐาน (ค้นได้ทั้งชื่ออังกฤษและ alias ไทย)
+export const searchExercises = (query) => request(`/exercises?q=${encodeURIComponent(query)}`)

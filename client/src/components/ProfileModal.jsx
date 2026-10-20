@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Activity, Beef, Calculator, Droplet, Flame, Scale, TrendingDown, TrendingUp, UserRound, Wheat, X } from 'lucide-react'
 import AnimatedNumber from './AnimatedNumber'
+import LanguageSwitcher from './LanguageSwitcher'
 import { ButtonLabel } from './Spinner'
 import { ACTIVITY_LEVELS, GENDERS, PROFILE_LIMITS, calculateTargets } from '../utils/macroCalculator'
 
@@ -196,16 +197,20 @@ export default function ProfileModal({ user, mode = 'edit', onSave, onClose }) {
               {t(mode === 'onboarding' ? 'profile.onboardingSubtitle' : 'profile.settingsSubtitle')}
             </p>
           </div>
-          {dismissible && (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t('profile.close')}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
-          )}
+          {/* ฉากหลังของ modal บังปุ่มสลับภาษาบน navbar จึงมีปุ่มของตัวเองด้วย */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <LanguageSwitcher />
+            {dismissible && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t('profile.close')}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-5 md:grid-cols-[1fr_17rem]">

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AudioLines, Check, Dumbbell, Eraser, Mic, Search, Square, TriangleAlert, Undo2, UtensilsCrossed } from 'lucide-react'
+import { AudioLines, CalendarCheck, Check, Crosshair, Dumbbell, Eraser, Mic, Search, Square, TriangleAlert, Undo2, UtensilsCrossed, X } from 'lucide-react'
 import { parseCommand } from '../utils/api'
 import useAudioLevels from '../hooks/useAudioLevels'
 import Badge from './Badge'
@@ -207,6 +207,12 @@ const PreviewCard = memo(function PreviewCard({ line, preview }) {
             <span className="text-[11px] text-slate-500">· {t('voice.preview.estimated')}</span>
           )}
         </div>
+        {parsed.match_type === 'hint' && (
+          <p className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-300/90">
+            <CalendarCheck className="h-3 w-3" aria-hidden />
+            {t('voice.preview.fromRoutine')}
+          </p>
+        )}
         {parsed.match_type === 'fuzzy' && (
           <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-300/90">
             <Search className="h-3 w-3" aria-hidden />
@@ -220,7 +226,9 @@ const PreviewCard = memo(function PreviewCard({ line, preview }) {
 
 // onSave(parsedItems) -> Promise<boolean[]> (บันทึกสำเร็จรายการไหนบ้าง ตามลำดับ)
 // รายการที่บันทึกสำเร็จจะถูกลบออกจากช่องข้อความ ที่ไม่สำเร็จคงไว้ให้ลองใหม่
-function VoiceRecorder({ onSave }) {
+// exerciseHint: ท่าที่เลือกไว้ใน "ตารางฝึกวันนี้" พูดแค่ตัวเลข ("100 kg 8 reps") จะบันทึกเข้าท่านี้
+// onClearHint(null): เลิกเลือกท่า
+function VoiceRecorder({ onSave, exerciseHint = null, onClearHint }) {
   const { t } = useTranslation()
   const [isListening, setIsListening] = useState(false)
   // textarea เป็น uncontrolled: ข้อความที่กำลังพิมพ์อยู่ใน DOM เท่านั้น ไม่ setState ทุกตัวอักษร
@@ -237,6 +245,7 @@ function VoiceRecorder({ onSave }) {
   const recognitionRef = useRef(null)
   // บรรทัดปัจจุบัน ใช้ทิ้งผล parse ที่กลับมาช้าของบรรทัดที่ถูกแก้/ลบไปแล้ว
   const currentLinesRef = useRef(new Set())
+  const currentHintRef = useRef(exerciseHint)
 
   const readDraft = () => textareaRef.current?.value ?? ''
 
@@ -324,31 +333,35 @@ function VoiceRecorder({ onSave }) {
   }, [appendSegment])
 
   // แปลงเฉพาะบรรทัดที่ยังไม่เคยแปลง (บรรทัดเดิมใช้ผลเดิม) ส่วนที่ error ไว้จะลองใหม่
+  // เปลี่ยนท่าที่เลือกไว้ (exerciseHint) = แปลงใหม่ทุกบรรทัด เพราะบรรทัดที่พูดแค่ตัวเลขผูกกับท่านั้น
   // เก็บเฉพาะผลของบรรทัดที่ยังอยู่ (ไม่สะสม preview ของข้อความที่ถูกแก้ไปแล้วจนหน่วยความจำโต)
   useEffect(() => {
     const current = new Set(splitLines(committedText))
     currentLinesRef.current = current
-    const pending = [...current].filter((line) => !previews[line] || previews[line].status === 'error')
+    currentHintRef.current = exerciseHint
+    const pending = [...current].filter(
+      (line) => !previews[line] || previews[line].status === 'error' || previews[line].hint !== exerciseHint
+    )
 
     setPreviews((prev) => {
       const next = {}
       for (const line of current) if (prev[line]) next[line] = prev[line]
-      for (const line of pending) next[line] = { status: 'loading' }
+      for (const line of pending) next[line] = { status: 'loading', hint: exerciseHint }
       return next
     })
 
     for (const line of pending) {
-      parseCommand(line)
-        .then((parsed) => ({ status: 'ok', parsed }))
-        .catch((err) => ({ status: err.status === 422 ? 'unknown' : 'error' }))
+      parseCommand(line, exerciseHint)
+        .then((parsed) => ({ status: 'ok', parsed, hint: exerciseHint }))
+        .catch((err) => ({ status: err.status === 422 ? 'unknown' : 'error', hint: exerciseHint }))
         .then((preview) => {
-          if (!currentLinesRef.current.has(line)) return
+          if (!currentLinesRef.current.has(line) || currentHintRef.current !== exerciseHint) return
           setPreviews((prev) => ({ ...prev, [line]: preview }))
         })
     }
     // previews ไม่อยู่ใน deps: ไม่ต้องแปลงใหม่เมื่อผลของบรรทัดอื่นกลับมา
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [committedText])
+  }, [committedText, exerciseHint])
 
   // คงที่ระหว่าง render -> MicButton (memo) ไม่ render ใหม่ตอนพิมพ์
   const toggleListening = useCallback(() => {
@@ -452,6 +465,35 @@ function VoiceRecorder({ onSave }) {
       )}
 
       <div className="relative mt-3">
+        <AnimatePresence initial={false}>
+          {exerciseHint && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2">
+                <p className="min-w-0 text-sm text-emerald-100">
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    <Crosshair className="h-4 w-4 shrink-0 text-emerald-300" aria-hidden />
+                    <span className="truncate">{t('voice.hint.label', { name: exerciseHint })}</span>
+                  </span>
+                  <span className="text-[11px] text-emerald-200/70">{t('voice.hint.example')}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onClearHint?.(null)}
+                  aria-label={t('voice.hint.clear')}
+                  data-tooltip={t('voice.hint.clear')}
+                  className="btn-icon shrink-0 p-1.5"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="mb-1.5 flex items-end justify-between gap-2">
           <label htmlFor="voice-transcript" className="text-xs font-medium text-slate-400">
             {t('voice.transcriptLabel')}

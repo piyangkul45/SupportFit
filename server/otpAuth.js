@@ -15,6 +15,9 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 // AUTH_SECRET ใช้เซ็น session token ถ้าไม่ได้ตั้งไว้จะสุ่มใหม่ทุกครั้งที่ start server
 // (ใช้งานได้ แต่ผู้ใช้ทุกคนจะถูก logout เมื่อ server restart)
 const AUTH_SECRET = process.env.AUTH_SECRET || crypto.randomBytes(32).toString('hex')
+if (!process.env.AUTH_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('AUTH_SECRET is required in production (sessions would reset on every restart)')
+}
 if (!process.env.AUTH_SECRET) {
   console.warn('⚠️  ไม่พบ AUTH_SECRET ใน server/.env — ใช้คีย์ชั่วคราว (session จะหายเมื่อ restart)')
 }

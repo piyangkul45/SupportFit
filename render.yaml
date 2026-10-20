@@ -1,0 +1,28 @@
+# Render Blueprint สำหรับ backend (server/) — Render Dashboard > New > Blueprint > เลือก repo นี้
+# ค่า sync: false = Render จะถามค่าตอนสร้าง (ไม่เก็บ secret ใน repo)
+services:
+  - type: web
+    name: supportfit-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false

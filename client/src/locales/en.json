@@ -151,7 +151,8 @@
       "notUnderstood": "Couldn't understand \"{{text}}\". Edit the line above.",
       "failed": "Couldn't check this line. Please try again.",
       "heard": "Heard \"{{spoken}}\"",
-      "estimated": "estimated"
+      "estimated": "estimated",
+      "fromRoutine": "From today's routine"
     },
     "save_one": "Save {{count}} item",
     "save_other": "Save {{count}} items",
@@ -165,6 +166,11 @@
       "parsing": "Reading…",
       "ready_one": "{{count}} ready",
       "ready_other": "{{count}} ready"
+    },
+    "hint": {
+      "label": "Logging to {{name}}",
+      "example": "Just say the numbers, e.g. \"100 kg 8 reps\"",
+      "clear": "Stop logging to this exercise"
     }
   },
 
@@ -218,6 +224,20 @@
       "morning": "Good morning, {{name}}",
       "afternoon": "Good afternoon, {{name}}",
       "evening": "Good evening, {{name}}"
+    },
+    "routine": {
+      "title": "Today's Scheduled Routine",
+      "none": "No active program. Pick one to see your daily routine here.",
+      "choose": "Choose program",
+      "manage": "Manage programs",
+      "dayOf": "Day {{day}} of {{total}} · Week {{week}}",
+      "dayOfCycle": "Day {{day}} of {{total}}",
+      "restDay": "Rest day",
+      "restHint": "Recover today. Your next session is tomorrow.",
+      "setsDone": "{{done}}/{{total}} sets",
+      "exerciseSets": "{{done}}/{{total}} sets completed",
+      "tapHint": "Tap an exercise, then just say the numbers, e.g. \"100 kg 8 reps\".",
+      "allDone": "All sets done for today. Great work!"
     }
   },
 
@@ -265,6 +285,96 @@
       "traps": "Traps",
       "triceps": "Triceps",
       "upperChest": "Upper chest"
+    },
+    "pageIntro": "Pick a program to schedule your week, or build your own. Today's session shows up on your Dashboard.",
+    "dbNotReady": "Custom programs and the active program need a database update. Run server/sql/schema.sql in the Supabase SQL Editor.",
+    "presetsTitle": "Preset programs",
+    "customTitle": "My programs",
+    "celebrityTitle": "Celebrity routines",
+    "create": "Create program",
+    "customEmpty": "No custom programs yet. Tap to build your own split.",
+    "activeBadge": "Active",
+    "trainingDays_one": "{{count}} training day",
+    "trainingDays_other": "{{count}} training days",
+    "cycleDays_one": "{{count}}-day cycle",
+    "cycleDays_other": "{{count}}-day cycle",
+    "viewDays": "View schedule",
+    "hideDays": "Hide schedule",
+    "select": "Select Program",
+    "selecting": "Selecting...",
+    "customize": "Customize",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirmDelete": "Tap again to delete",
+    "target": "{{sets}} × {{reps}}",
+    "targetWeight": "{{weight}} kg",
+    "restDay": "Rest day",
+    "dayFallback": "Day {{number}}",
+    "presets": {
+      "ppl": { "title": "Push / Pull / Legs (6-Day)", "description": "Classic bodybuilding split: every muscle group trained twice a week, with one rest day." },
+      "upper_lower": { "title": "Upper / Lower (4-Day)", "description": "Balanced strength and size: two upper-body and two lower-body sessions per week." },
+      "full_body": { "title": "Full Body (3-Day)", "description": "Great for beginners: train every major muscle three times a week, resting in between." }
+    },
+    "dayNames": {
+      "push_a": "Push A — Chest, Shoulders & Triceps",
+      "pull_a": "Pull A — Back & Biceps",
+      "legs_a": "Legs A — Quads & Calves",
+      "push_b": "Push B — Shoulders, Chest & Triceps",
+      "pull_b": "Pull B — Lats & Biceps",
+      "legs_b": "Legs B — Hamstrings & Glutes",
+      "upper_a": "Upper A — Strength",
+      "lower_a": "Lower A — Strength",
+      "upper_b": "Upper B — Hypertrophy",
+      "lower_b": "Lower B — Hypertrophy",
+      "full_a": "Full Body A",
+      "full_b": "Full Body B",
+      "full_c": "Full Body C",
+      "rest": "Rest day"
+    },
+    "active": {
+      "title": "Active program",
+      "none": "No active program",
+      "noneHint": "Select a preset or one of your programs below to schedule today's workout.",
+      "startedOn": "Started {{date}}",
+      "stop": "Stop",
+      "switchHint": "Selecting another program restarts the schedule from Day 1 today."
+    },
+    "builder": {
+      "createTitle": "Build a program",
+      "editTitle": "Edit program",
+      "close": "Close",
+      "titleLabel": "Program title",
+      "titlePlaceholder": "e.g. My 4-Day Split",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Optional",
+      "dayName": "Day {{number}} name",
+      "dayNamePlaceholder": "e.g. Chest & Triceps",
+      "removeDay": "Remove day {{number}}",
+      "restDayHint": "No exercises = rest day. Add exercises below to make it a training day.",
+      "removeExercise": "Remove {{name}}",
+      "sets": "Sets",
+      "reps": "Reps",
+      "weight": "Weight (kg)",
+      "searchPlaceholder": "Search exercises to add…",
+      "dayFull": "This day is full",
+      "noResults": "No matching exercises",
+      "addDay": "Add day",
+      "addRestDay": "Add rest day",
+      "cancel": "Cancel",
+      "save": "Save program",
+      "saving": "Saving...",
+      "titleRequired": "Please enter a program title",
+      "noTrainingDays": "Add at least one exercise to one of the days",
+      "copyTitle": "{{title}} (custom)"
+    },
+    "feedback": {
+      "activated": "{{name}} is now your active program",
+      "stopped": "Stopped following a program",
+      "saved": "Saved {{name}}",
+      "deleted": "Deleted {{name}}",
+      "saveFailed": "Could not save the program",
+      "loadFailed": "Could not load programs. Please try again.",
+      "raw": "{{message}}"
     }
   },
 
@@ -324,11 +434,11 @@
     "weight": "Weight (kg)",
     "activity": "Activity level",
     "activityLevels": {
-      "sedentary": { "label": "Sedentary", "hint": "Little or no exercise" },
-      "light": { "label": "Lightly active", "hint": "1–3 days/week" },
-      "moderate": { "label": "Moderately active", "hint": "3–5 days/week" },
-      "active": { "label": "Very active", "hint": "6–7 days/week" },
-      "very_active": { "label": "Extremely active", "hint": "Hard daily training or physical job" }
+      "sedentary": { "label": "Sedentary", "hint": "No exercise" },
+      "light": { "label": "Lightly active", "hint": "1-3 days/week" },
+      "moderate": { "label": "Moderately active", "hint": "3-5 days/week" },
+      "active": { "label": "Very active", "hint": "6-7 days/week" },
+      "very_active": { "label": "Extremely active", "hint": "Daily, or twice a day" }
     },
     "goal": "Goal",
     "goals": {

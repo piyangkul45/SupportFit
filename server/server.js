@@ -6,11 +6,14 @@ const otpAuth = require('./otpAuth')
 const { runMigrations } = require('./migrate')
 const { i18nMiddleware, translate } = require('./i18n')
 const { parseCommand } = require('./parser')
+const createProgramsRouter = require('./routes/programs')
 
 const app = express()
 const PORT = process.env.PORT || 5000
 
-app.use(cors())
+// CORS_ORIGIN = origin ของ frontend ที่อนุญาต คั่นด้วย , (เช่น https://supportfit.vercel.app) ไม่ตั้ง = อนุญาตทุก origin (ตอน dev)
+const CORS_ORIGINS = (process.env.CORS_ORIGIN || '').split(',').map((origin) => origin.trim().replace(/\/$/, '')).filter(Boolean)
+app.use(cors(CORS_ORIGINS.length ? { origin: CORS_ORIGINS } : undefined))
 app.use(express.json())
 // เลือกภาษาของข้อความ API/อีเมลจาก Accept-Language (client ส่งตามภาษาที่ผู้ใช้เลือก) -> req.t()
 app.use(i18nMiddleware)
@@ -391,11 +394,12 @@ app.put('/api/users/me/profile', requireAuth, async (req, res) => {
 // แยกความหมายไม่ได้ -> 422 reason 'not_understood'
 const MAX_PARSE_TEXT_LENGTH = 500
 
+// exercise_hint (ไม่บังคับ): ท่าที่เลือกไว้ใน "ตารางฝึกวันนี้" ใช้แทนเมื่อพูดแค่ตัวเลข ("100 โล 8 ครั้ง")
 app.post('/api/parse', requireAuth, (req, res) => {
   const text = String(req.body?.text || '').trim()
   if (!text) return res.status(400).json({ error: req.t('parser.textRequired') })
 
-  const result = parseCommand(text.slice(0, MAX_PARSE_TEXT_LENGTH))
+  const result = parseCommand(text.slice(0, MAX_PARSE_TEXT_LENGTH), { exerciseHint: req.body?.exercise_hint })
   if (!result) return res.status(422).json({ error: req.t('parser.notUnderstood'), reason: 'not_understood' })
   res.json(result)
 })
@@ -636,6 +640,9 @@ app.put('/api/food-logs/:id', requireAuth, (req, res) => {
 
 app.delete('/api/food-logs/:id', requireAuth, (req, res) => deleteOwnLog(req, res, 'food_logs'))
 
+// ---- โปรแกรมฝึก (routes/programs.js) ----
+app.use('/api', createProgramsRouter({ supabase, requireAuth, handleSupabaseError }))
+
 // อัปเดต schema บน Supabase อัตโนมัติ (ถ้าตั้ง DATABASE_URL) แล้วเช็คว่าตาราง/คอลัมน์ที่ระบบ OTP ใช้พร้อมหรือยัง
 async function prepareDatabase() {
   try {
@@ -656,6 +663,7 @@ async function prepareDatabase() {
 
 prepareDatabase().finally(() => {
   app.listen(PORT, () => {
-    console.log(`SupportFit API listening on http://localhost:${PORT}`)
+    console.log(`SupportFit API listening on port ${PORT}`)
+    if (!CORS_ORIGINS.length) console.warn("⚠️  ไม่ได้ตั้ง CORS_ORIGIN — อนุญาตทุก origin")
   })
 })

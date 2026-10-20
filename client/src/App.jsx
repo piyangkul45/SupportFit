@@ -8,7 +8,8 @@ import LogsList from './components/LogsList'
 import MacroDashboard from './components/MacroDashboard'
 import AuthPage from './components/AuthPage'
 import Header from './components/Header'
-import WorkoutPrograms from './components/WorkoutPrograms'
+import Programs from './pages/Programs'
+import TodayRoutineCard from './components/TodayRoutineCard'
 import TodayProgramCard from './components/TodayProgramCard'
 import AnalyticsSkeleton from './components/AnalyticsSkeleton'
 import EditLogModal from './components/EditLogModal'
@@ -17,9 +18,11 @@ import Toast from './components/Toast'
 import BrandMark from './components/BrandMark'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { speak } from './utils/speech'
-import { isToday } from './utils/date'
+import { isToday, localDateString } from './utils/date'
+import { countSetsByExercise } from './utils/programs'
 import {
   getMe,
+  getTodayRoutine,
   updateProfile,
   getWorkoutLogs,
   createWorkoutLog,
@@ -87,6 +90,14 @@ const DashboardPages = memo(function DashboardPages({
   user,
   activeProgram,
   completedNamesToday,
+  routine,
+  isLoadingRoutine,
+  setsDoneToday,
+  routineExercise,
+  selectExercise,
+  goToPrograms,
+  loadRoutine,
+  notify,
   isResting,
   totalsToday,
   workoutLogs,
@@ -108,6 +119,16 @@ const DashboardPages = memo(function DashboardPages({
 
             <div className="grid gap-5 lg:grid-cols-12">
               <div className="space-y-5 lg:col-span-7">
+                <motion.div variants={RISE}>
+                  <TodayRoutineCard
+                    routine={routine}
+                    loading={isLoadingRoutine}
+                    setsDone={setsDoneToday}
+                    selectedExercise={routineExercise}
+                    onSelectExercise={selectExercise}
+                    onChooseProgram={goToPrograms}
+                  />
+                </motion.div>
                 {activeProgram && (
                   <motion.div variants={RISE}>
                     <TodayProgramCard
@@ -119,7 +140,11 @@ const DashboardPages = memo(function DashboardPages({
                   </motion.div>
                 )}
                 <motion.div variants={RISE}>
-                  <VoiceRecorder onSave={handleSaveItems} />
+                  <VoiceRecorder
+                    onSave={handleSaveItems}
+                    exerciseHint={routineExercise}
+                    onClearHint={selectExercise}
+                  />
                 </motion.div>
                 <AnimatePresence>
                   {isResting && (
@@ -161,7 +186,7 @@ const DashboardPages = memo(function DashboardPages({
 
       {activeTab === 'programs' && (
         <motion.div key="programs" variants={PAGE} initial="initial" animate="animate" exit="exit">
-          <WorkoutPrograms onStart={handleStartProgram} />
+          <Programs onStartRoutine={handleStartProgram} onActiveProgramChange={loadRoutine} notify={notify} />
         </motion.div>
       )}
 
@@ -188,6 +213,10 @@ function Dashboard() {
   const [activeProgram, setActiveProgram] = useState(null) // { program, day }
   const [editing, setEditing] = useState(null) // { kind: 'workout' | 'food', log }
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [routine, setRoutine] = useState(null) // GET /api/users/me/active-program/today
+  const [isLoadingRoutine, setIsLoadingRoutine] = useState(true)
+  const [selectedExercise, setSelectedExercise] = useState(null) // ท่าที่แตะเลือกไว้ใน "ตารางฝึกวันนี้"
+
   const didInitUserRef = useRef(false)
 
   const userId = user?.id ?? null
@@ -235,6 +264,41 @@ function Dashboard() {
   useEffect(() => {
     if (userId) refreshLogs(userId)
   }, [userId, refreshLogs])
+
+  // ---- ตารางฝึกวันนี้ (โปรแกรมที่ใช้อยู่) ----
+  // วันที่ตามเครื่องผู้ใช้ เปิดแอปค้างข้ามวันแล้วกลับมาที่แท็บ = โหลดตารางของวันใหม่
+  const loadRoutine = useCallback(async () => {
+    try {
+      setRoutine(await getTodayRoutine(localDateString()))
+    } catch (err) {
+      console.error('โหลดตารางฝึกวันนี้ไม่สำเร็จ', err)
+      setRoutine(null)
+    } finally {
+      setIsLoadingRoutine(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!userId) return undefined
+    loadRoutine()
+    const onVisible = () => document.visibilityState === 'visible' && loadRoutine()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [userId, loadRoutine])
+
+  const routineExercises = useMemo(
+    () => (routine?.today && !routine.today.is_rest_day ? routine.today.day.exercises : []),
+    [routine]
+  )
+  // ท่าที่เลือกไว้ใช้เป็น hint ของคำสั่งเสียงเฉพาะเมื่อยังอยู่ในตารางวันนี้ (เปลี่ยนโปรแกรม/ข้ามวัน = ไม่ใช้)
+  const routineExercise = routineExercises.some((exercise) => exercise.exercise_name === selectedExercise)
+    ? selectedExercise
+    : null
+  const selectExercise = useCallback((name) => setSelectedExercise(name), [])
+  const goToPrograms = useCallback(() => {
+    setActiveTab('programs')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
 
   // บันทึกรายการที่ผู้ใช้ตรวจ/แก้ใน preview แล้ว (ผลจาก /api/parse) คืน boolean[] ว่ารายการไหนสำเร็จ
   const handleSaveItems = useCallback(
@@ -378,6 +442,26 @@ function Dashboard() {
     }
   }, [foodLogs])
 
+  // เซตที่ทำไปแล้ววันนี้ของแต่ละท่า (ชื่อตัวพิมพ์เล็ก -> จำนวนเซต)
+  const setsDoneToday = useMemo(
+    () => countSetsByExercise(workoutLogs.filter((log) => isToday(log.created_at))),
+    [workoutLogs]
+  )
+
+  // ท่าที่เลือกไว้ครบเซตเป้าหมายแล้ว (จากการบันทึกครั้งนี้) -> เลื่อนไปท่าถัดไปที่ยังไม่ครบ
+  // เทียบกับจำนวนเซตครั้งก่อน: แตะเลือกท่าที่ครบแล้วเพื่อบันทึกเซตเพิ่มได้ ไม่ถูกเลื่อนออกทันที
+  const previousSetsRef = useRef(null)
+  useEffect(() => {
+    const exercise = routineExercises.find((item) => item.exercise_name === routineExercise)
+    const done = exercise ? setsDoneToday.get(exercise.exercise_name.toLowerCase()) || 0 : 0
+    const previous = previousSetsRef.current
+    previousSetsRef.current = { name: routineExercise, done }
+    if (!exercise || previous?.name !== routineExercise || done <= previous.done || done < exercise.sets) return
+
+    const next = routineExercises.find((item) => (setsDoneToday.get(item.exercise_name.toLowerCase()) || 0) < item.sets)
+    setSelectedExercise(next?.exercise_name ?? null)
+  }, [setsDoneToday, routineExercise, routineExercises])
+
   const completedNamesToday = useMemo(() => {
     return new Set(
       workoutLogs
@@ -419,6 +503,14 @@ function Dashboard() {
           user={user}
           activeProgram={activeProgram}
           completedNamesToday={completedNamesToday}
+          routine={routine}
+          isLoadingRoutine={isLoadingRoutine}
+          setsDoneToday={setsDoneToday}
+          routineExercise={routineExercise}
+          selectExercise={selectExercise}
+          goToPrograms={goToPrograms}
+          loadRoutine={loadRoutine}
+          notify={notify}
           isResting={isResting}
           totalsToday={totalsToday}
           workoutLogs={workoutLogs}

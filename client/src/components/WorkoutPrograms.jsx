@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, Play, Trophy } from 'lucide-react'
+import { ChevronDown, Play } from 'lucide-react'
 import { formatReps, WORKOUT_PROGRAMS } from '../utils/workoutPrograms'
 
 const DIFFICULTY_STYLE = {
@@ -15,21 +15,14 @@ function getPrimaryMuscles(program) {
   return [...new Set(all)].slice(0, 4)
 }
 
+// routine ของคนดัง: เริ่มเฉพาะวันนี้ (แสดงบน Dashboard จนกว่าจะล้าง) อยู่ในหน้า Programs (pages/Programs.jsx)
 function WorkoutPrograms({ onStart }) {
   const { t } = useTranslation()
   const [expandedId, setExpandedId] = useState(WORKOUT_PROGRAMS[0]?.id ?? null)
   const muscleLabel = (key) => t(`programs.muscles.${key}`)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <div className="mb-6 text-center">
-        <span className="icon-tile mx-auto mb-3 h-11 w-11 border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
-          <Trophy className="h-5 w-5" aria-hidden />
-        </span>
-        <h1 className="text-2xl font-bold tracking-tight text-white">{t('nav.programs')}</h1>
-        <p className="mt-1 text-sm text-slate-400">{t('programs.intro')}</p>
-      </div>
-
+    <div className="space-y-4">
       {WORKOUT_PROGRAMS.map((program, index) => {
         const isExpanded = expandedId === program.id
         const primaryMuscles = getPrimaryMuscles(program)

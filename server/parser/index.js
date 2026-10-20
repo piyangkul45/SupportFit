@@ -5,7 +5,8 @@
 //
 // ผลลัพธ์มีทุก field เสมอ (field ที่ไม่เกี่ยวกับ type นั้นเป็น null):
 // { type: 'workout' | 'food', exercise_name, weight_kg, reps, sets, food_name, calories, protein,
-//   carbs, fat, confidence, match_type: 'exact' | 'fuzzy' | 'none', spoken_name, macros_estimated }
+//   carbs, fat, confidence, match_type: 'exact' | 'fuzzy' | 'none' | 'hint', spoken_name, macros_estimated }
+// match_type 'hint' = ไม่ได้พูดชื่อท่า ใช้ท่าที่เลือกไว้ (options.exerciseHint)
 // คืน null เมื่อแยกความหมายไม่ได้
 
 const { NUMBER_SOURCE: N, parseNumber, cleanText, toTitleCase } = require('./normalize')
@@ -13,6 +14,7 @@ const { createMatcher } = require('./matcher')
 const { EXERCISES, FOODS } = require('./dictionary')
 
 const matchExercise = createMatcher(EXERCISES)
+const EXERCISE_NAMES = new Map(EXERCISES.map((exercise) => [exercise.name.toLowerCase(), exercise.name]))
 const matchFood = createMatcher(FOODS)
 
 const LB_TO_KG = 0.45359237
@@ -114,7 +116,24 @@ function emptyResult() {
 
 // มีตัวเลขท่าออกกำลังกายแล้ว = ผู้ใช้กำลังบันทึกท่าแน่ ๆ จึงบังคับเป็นชื่อท่ามาตรฐานที่ใกล้ที่สุด
 // แทนการเก็บคำที่ฟังผิด ("ใบเสด") ผู้ใช้เห็นคำที่ได้ยินใน preview (match_type 'fuzzy') และแก้ทีหลังได้
-function buildWorkout(name, { weight, reps, sets }) {
+// exerciseHint: ท่าที่ผู้ใช้เลือกไว้ (ตารางฝึกวันนี้) ใช้เมื่อพูดแค่ตัวเลขโดยไม่บอกชื่อท่า
+// รับเฉพาะชื่อมาตรฐานในฐานข้อมูล ชื่ออื่นไม่สนใจ (กันการบันทึกชื่อแปลก ๆ ผ่าน hint)
+function buildWorkout(name, { weight, reps, sets }, exerciseHint) {
+  const hinted = EXERCISE_NAMES.get(String(exerciseHint || '').trim().toLowerCase())
+  if (!cleanName(name.replace(WORKOUT_VERBS_RE, '')) && hinted) {
+    return {
+      ...emptyResult(),
+      type: 'workout',
+      exercise_name: hinted,
+      weight_kg: round(weight, 2),
+      reps: toInt(reps),
+      sets: toInt(sets),
+      confidence: 1,
+      match_type: 'hint',
+      spoken_name: null,
+    }
+  }
+
   const match = matchBest(matchExercise, name, WORKOUT_VERBS_RE, { force: true })
   if (!match?.spoken) return null
   return {
@@ -164,7 +183,8 @@ function buildFood(name, { calories, protein, carbs, fat, portionGrams, servings
   }
 }
 
-function parseCommand(rawText) {
+// options.exerciseHint: ดู buildWorkout
+function parseCommand(rawText, { exerciseHint } = {}) {
   const text = cleanText(rawText)
   if (!text) return null
 
@@ -192,7 +212,7 @@ function parseCommand(rawText) {
       workout.reps ??= parseInt(setsByReps[2], 10)
     }
     if (Object.values(workout).some((value) => value != null)) {
-      return buildWorkout(cleanName(state.text), workout)
+      return buildWorkout(cleanName(state.text), workout, exerciseHint)
     }
   }
 

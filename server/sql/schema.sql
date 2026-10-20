@@ -103,3 +103,40 @@ alter table users add column if not exists fitness_goal text
 alter table users add column if not exists target_carbs integer;
 alter table users add column if not exists target_fat integer;
 alter table users add column if not exists is_onboarded boolean not null default false;
+
+-- โปรแกรมฝึก: workout_programs -> program_days -> program_exercises (ดู server/programs/store.js)
+-- preset = แถว is_preset = true, user_id = null (server สร้างจาก server/programs/presets.js ครั้งแรกที่ใช้)
+-- วันที่ไม่มีท่า = วันพัก ; ลำดับท่าในวัน = ลำดับที่ insert
+create table if not exists workout_programs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users (id) on delete cascade,
+  title text not null,
+  description text,
+  is_preset boolean default false,
+  created_at timestamptz default timezone('utc'::text, now())
+);
+create table if not exists program_days (
+  id uuid primary key default gen_random_uuid(),
+  program_id uuid references workout_programs (id) on delete cascade,
+  day_name text not null,
+  day_order integer not null
+);
+create table if not exists program_exercises (
+  id uuid primary key default gen_random_uuid(),
+  day_id uuid references program_days (id) on delete cascade,
+  exercise_name text not null,
+  target_sets integer default 3,
+  target_reps integer default 10,
+  target_weight_kg double precision default 0
+);
+create index if not exists workout_programs_user_id_idx on workout_programs (user_id);
+create index if not exists program_days_program_id_idx on program_days (program_id);
+create index if not exists program_exercises_day_id_idx on program_exercises (day_id);
+alter table workout_programs enable row level security;
+alter table program_days enable row level security;
+alter table program_exercises enable row level security;
+
+-- โปรแกรมที่ใช้อยู่ ; started_on = วันแรกของรอบตาราง (วันที่ตามเครื่องผู้ใช้)
+-- ไม่มี started_on ก็ใช้ได้ แต่รอบตารางจะนับตามปฏิทิน (วันที่ 1 = วันจันทร์)
+alter table users add column if not exists active_program_id uuid references workout_programs (id) on delete set null;
+alter table users add column if not exists active_program_started_on date;
