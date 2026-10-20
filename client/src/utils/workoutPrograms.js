@@ -1,5 +1,5 @@
 // Template โปรแกรมออกกำลังกายของคนดัง — ชื่อท่าตรงกับ Master Exercise List
-// (exerciseDatabase.data.json) เพื่อให้ระบบเช็คว่าท่าไหนบันทึกไปแล้ววันนี้ได้ถูกต้อง
+// (server/parser/exerciseDatabase.json) เพื่อให้ระบบเช็คว่าท่าไหนบันทึกไปแล้ววันนี้ได้ถูกต้อง
 // ข้อความที่แสดงผลอยู่ในไฟล์แปลภาษา: programs.taglines.<id>, programs.difficulty.<key>,
 // programs.muscles.<key> และ programs.reps.<key> (reps ที่เป็น object = มีหน่วยต้องแปล)
 

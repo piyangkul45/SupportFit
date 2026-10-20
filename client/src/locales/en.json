@@ -17,13 +17,15 @@
   "header": {
     "subtitle": "Voice-to-Data Gym Log & Macro Assistant",
     "profile": "Profile",
-    "logout": "Log out"
+    "logout": "Log out",
+    "profileSettings": "Profile Settings"
   },
 
   "nav": {
     "dashboard": "Dashboard",
     "programs": "Programs",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "label": "Main navigation"
   },
 
   "auth": {
@@ -129,59 +131,100 @@
     "success": "Success",
     "error": "Something went wrong",
     "info": "Heads up",
-    "close": "Close notification"
+    "close": "Close notification",
+    "warning": "Check this"
   },
 
   "voice": {
-    "title": "Speak to log a workout / meal",
+    "title": "Voice Log",
     "tapToStart": "Tap the mic to start",
     "listening": "Listening... go ahead",
-    "examplesLabel": "Speak in Thai, e.g.",
-    "examples": "\"สควอท 60 กิโล 5 ครั้ง 3 เซต\" (Squat 60 kg, 5 reps, 3 sets) or \"ข้าวไก่ย่าง 450 แคล โปรตีน 35 กรัม\" (grilled chicken rice, 450 kcal, 35 g protein)",
     "error": "Error: {{error}}",
-    "clear": "Clear text",
-    "unsupported": "This browser doesn't support the Web Speech API. Please use Google Chrome."
+    "clear": "Clear all",
+    "unsupported": "This browser doesn't support the Web Speech API. Please use Google Chrome.",
+    "transcriptLabel": "Transcript (one command per line, edit anything misheard)",
+    "placeholder": "Speak in Thai or type, e.g.\nสควอท 60 กิโล 5 ครั้ง 3 เซต\nข้าวไก่ย่าง 450 แคล โปรตีน 35 กรัม",
+    "undoLast": "Undo last line",
+    "preview": {
+      "title": "Preview",
+      "parsing": "Reading…",
+      "notUnderstood": "Couldn't understand \"{{text}}\". Edit the line above.",
+      "failed": "Couldn't check this line. Please try again.",
+      "heard": "Heard \"{{spoken}}\"",
+      "estimated": "estimated"
+    },
+    "save_one": "Save {{count}} item",
+    "save_other": "Save {{count}} items",
+    "saving": "Saving…",
+    "start": "Start recording",
+    "stop": "Stop recording",
+    "keyboardHint": "Ctrl + Enter to save",
+    "status": {
+      "idle": "Standby",
+      "listening": "Listening",
+      "parsing": "Reading…",
+      "ready_one": "{{count}} ready",
+      "ready_other": "{{count}} ready"
+    }
   },
 
   "dashboard": {
     "feedback": {
       "backendDown": "Can't reach the backend. Please make sure the server is running.",
       "notReady": "Not ready yet. Please wait a moment.",
-      "notUnderstood": "Didn't understand: \"{{text}}\"",
-      "workoutSaved": "Logged {{name}}. Resting for {{seconds}} seconds.",
       "volumePr": "Congrats, new Volume Load record!",
       "oneRmPr": "And a new 1RM record too!",
-      "foodSaved": "Logged {{name}}.",
-      "saveFailed": "Couldn't save. Please try again."
+      "saveFailed": "Couldn't save. Please try again.",
+      "logged": "Logged {{name}}.",
+      "restStarted": "Resting for {{seconds}} seconds.",
+      "deleted": "Deleted {{name}}.",
+      "updated": "Updated {{name}}.",
+      "deleteFailed": "Couldn't delete. Please try again."
     },
     "restOver": "Rest is over. Start your next set!",
     "rest": {
       "title": "Rest between sets",
-      "skip": "Skip rest"
+      "skip": "Skip rest",
+      "addTime": "+{{seconds}}s",
+      "reset": "Reset"
     },
     "targets": {
       "title": "Today's Target",
       "calories": "Calories",
-      "protein": "Protein"
+      "protein": "Protein",
+      "carbs": "Carbs",
+      "fat": "Fat",
+      "remaining": "{{value}} {{unit}} to go",
+      "over": "{{value}} {{unit}} over"
     },
     "logs": {
-      "workoutsToday": "Today's Workout ({{count}})",
-      "mealsToday": "Today's Meals ({{count}})",
       "empty": "Nothing logged yet today",
-      "workoutLine": "{{weight}} kg × {{reps}} reps × {{sets}} sets",
-      "foodLine": "{{calories}} kcal · {{protein}} g protein",
-      "totalToday": "Total today: {{calories}} kcal · {{protein}} g protein"
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}",
+      "confirmDelete": "Delete?",
+      "workoutsTitle": "Today's Workout",
+      "mealsTitle": "Today's Meals",
+      "totalLabel": "Total today",
+      "editShort": "Edit",
+      "deleteShort": "Delete",
+      "short": { "protein": "P", "carbs": "C", "fat": "F" }
     },
     "programCard": {
       "nowPlaying": "Program in progress",
-      "clear": "✕ Clear"
+      "clear": "Clear",
+      "progress": "{{done}}/{{total}}"
+    },
+    "greeting": {
+      "morning": "Good morning, {{name}}",
+      "afternoon": "Good afternoon, {{name}}",
+      "evening": "Good evening, {{name}}"
     }
   },
 
   "programs": {
     "intro": "Pick a celebrity program, then tap \"Start Workout\" to load its exercises onto your Dashboard for voice logging.",
     "by": "by {{name}}",
-    "start": "▶ Start Workout",
+    "start": "Start Workout",
     "difficulty": {
       "beginner": "Beginner",
       "intermediate": "Intermediate",
@@ -226,17 +269,87 @@
   },
 
   "analytics": {
-    "progressiveOverload": "📈 Progressive Overload",
+    "progressiveOverload": "Progressive Overload",
     "noWorkoutData": "No data yet — log a workout first",
     "oneRmAxis": "1RM (kg)",
     "volumeAxis": "Volume Load (kg)",
     "estimated1rm": "Estimated 1RM",
     "volumeLoad": "Volume Load",
-    "macroHistory": "🍽 Calories & Protein History",
+    "macroHistory": "Calories & Protein History",
     "noFoodData": "No data yet — log a meal first",
     "caloriesAxis": "Calories",
     "proteinAxis": "Protein (g)",
     "calories": "Calories",
-    "protein": "Protein"
+    "protein": "Protein",
+    "subtitle": "Track your strength and nutrition trends over time",
+    "totalSessions": "Exercises logged",
+    "best1rm": "Best est. 1RM · {{name}}",
+    "avgCalories": "Avg. daily calories",
+    "best1rmShort": "Best est. 1RM"
+  },
+
+  "editLog": {
+    "titleWorkout": "Edit workout",
+    "titleFood": "Edit meal",
+    "exercise": "Exercise",
+    "food": "Food",
+    "weight": "Weight (kg)",
+    "reps": "Reps",
+    "sets": "Sets",
+    "calories": "Calories (kcal)",
+    "protein": "Protein (g)",
+    "carbs": "Carbs (g)",
+    "fat": "Fat (g)",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "nameRequired": "Please enter a name",
+    "invalidNumber": "Numbers must be 0 or more",
+    "saveFailed": "Couldn't save changes. Please try again."
+  },
+
+  "profile": {
+    "onboardingTitle": "Welcome! Let's set your daily targets",
+    "onboardingSubtitle": "Tell us a bit about yourself and we will calculate your calories and macros.",
+    "settingsTitle": "Profile Settings",
+    "settingsSubtitle": "Update your body metrics and goal. Your daily targets update instantly.",
+    "gender": "Gender",
+    "genders": {
+      "male": "Male",
+      "female": "Female"
+    },
+    "age": "Age",
+    "height": "Height (cm)",
+    "weight": "Weight (kg)",
+    "activity": "Activity level",
+    "activityLevels": {
+      "sedentary": { "label": "Sedentary", "hint": "Little or no exercise" },
+      "light": { "label": "Lightly active", "hint": "1–3 days/week" },
+      "moderate": { "label": "Moderately active", "hint": "3–5 days/week" },
+      "active": { "label": "Very active", "hint": "6–7 days/week" },
+      "very_active": { "label": "Extremely active", "hint": "Hard daily training or physical job" }
+    },
+    "goal": "Goal",
+    "goals": {
+      "lose_weight": "Lose weight",
+      "maintain": "Maintain",
+      "gain_muscle": "Gain muscle"
+    },
+    "preview": {
+      "title": "Your daily targets",
+      "bmr": "BMR",
+      "tdee": "TDEE",
+      "calories": "Target calories",
+      "empty": "Fill in your details to see your targets"
+    },
+    "incomplete": "Please complete all fields with valid values",
+    "save": "Save",
+    "start": "Start tracking",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "close": "Close",
+    "saveFailed": "Could not save your profile",
+    "saved": "Daily targets updated"
   }
 }

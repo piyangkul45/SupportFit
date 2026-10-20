@@ -189,10 +189,10 @@ export default function ForgotPasswordForm({ initialEmail = '', notify, onBack, 
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder={t('forgot.confirmNewPasswordPlaceholder')}
             aria-invalid={mismatch}
-            className={`input-field ${mismatch ? 'border-red-400/60' : passwordsMatch ? 'border-lime-400/50' : ''}`}
+            className={`input-field ${mismatch ? 'border-red-400/60' : passwordsMatch ? 'border-emerald-400/50' : ''}`}
           />
           {mismatch && <p className="mt-1 text-xs text-red-300">{t('auth.validation.passwordMismatch')}</p>}
-          {passwordsMatch && <p className="mt-1 text-xs text-lime-300">{t('auth.validation.passwordsMatch')}</p>}
+          {passwordsMatch && <p className="mt-1 text-xs text-emerald-300">{t('auth.validation.passwordsMatch')}</p>}
         </div>
 
         {errorText && <ErrorMessage key={errorText}>{errorText}</ErrorMessage>}

@@ -5,6 +5,7 @@ const supabase = require('./supabaseClient')
 const otpAuth = require('./otpAuth')
 const { runMigrations } = require('./migrate')
 const { i18nMiddleware, translate } = require('./i18n')
+const { parseCommand } = require('./parser')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -329,6 +330,76 @@ app.post('/api/users/me', requireAuth, async (req, res) => {
   res.json(publicUser(data))
 })
 
+// ข้อมูลร่างกาย + เป้าหมายรายวันจาก Onboarding / Profile Settings
+// เป้าหมายคำนวณที่ client (client/src/utils/macroCalculator.js) server ตรวจแค่ชนิดและช่วงค่าที่เป็นไปได้
+const PROFILE_ENUMS = {
+  gender: ['male', 'female'],
+  activity_level: ['sedentary', 'light', 'moderate', 'active', 'very_active'],
+  fitness_goal: ['lose_weight', 'maintain', 'gain_muscle'],
+}
+// [field, ต่ำสุด, สูงสุด, จำนวนเต็มหรือไม่]
+const PROFILE_NUMBERS = [
+  ['age', 13, 100, true],
+  ['height_cm', 100, 250, false],
+  ['weight_kg', 30, 300, false],
+  ['target_calories', 500, 10000, true],
+  ['target_protein', 0, 1000, true],
+  ['target_carbs', 0, 2000, true],
+  ['target_fat', 0, 1000, true],
+]
+
+function readProfileFields(body = {}) {
+  const values = { is_onboarded: true }
+  for (const [field, allowed] of Object.entries(PROFILE_ENUMS)) {
+    if (!allowed.includes(body[field])) return { invalidField: field }
+    values[field] = body[field]
+  }
+  for (const [field, min, max, integer] of PROFILE_NUMBERS) {
+    const number = Number(body[field])
+    if (body[field] === '' || body[field] == null || !Number.isFinite(number) || number < min || number > max) {
+      return { invalidField: field }
+    }
+    values[field] = integer ? Math.round(number) : Math.round(number * 10) / 10
+  }
+  return { values }
+}
+
+app.put('/api/users/me/profile', requireAuth, async (req, res) => {
+  const { values, invalidField } = readProfileFields(req.body)
+  if (invalidField) return res.status(400).json({ error: req.t('data.invalidProfile', { field: invalidField }) })
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(values)
+    .eq('id', req.authUser.uid)
+    .select()
+    .maybeSingle()
+  if (error) {
+    // ยังไม่ได้เพิ่มคอลัมน์ onboarding (PGRST204 = ไม่พบคอลัมน์ใน schema cache)
+    if (error.code === 'PGRST204' || /column/i.test(error.message || '')) {
+      console.error(error)
+      return res.status(500).json({ error: req.t('data.profileDbNotReady') })
+    }
+    return handleSupabaseError(res, error, req.t('data.profileSaveFailed'))
+  }
+  if (!data) return res.status(401).json({ error: req.t('auth.userNotFound') })
+  res.json(publicUser(data))
+})
+
+// ---- AI Parser ----
+// ข้อความจาก Voice/Text -> { type: 'workout' | 'food', ... } (ดู parser/index.js)
+// แยกความหมายไม่ได้ -> 422 reason 'not_understood'
+const MAX_PARSE_TEXT_LENGTH = 500
+
+app.post('/api/parse', requireAuth, (req, res) => {
+  const text = String(req.body?.text || '').trim()
+  if (!text) return res.status(400).json({ error: req.t('parser.textRequired') })
+
+  const result = parseCommand(text.slice(0, MAX_PARSE_TEXT_LENGTH))
+  if (!result) return res.status(422).json({ error: req.t('parser.notUnderstood'), reason: 'not_understood' })
+  res.json(result)
+})
+
 // ---- Workout logs ----
 // Estimated 1RM ด้วยสูตร Epley: weight * (1 + reps / 30)
 function calculateEstimated1RM(weight_kg, reps) {
@@ -426,7 +497,80 @@ app.post('/api/workout-logs', requireAuth, async (req, res) => {
   res.status(201).json({ ...log, is_volume_pr, is_1rm_pr })
 })
 
+// ---- แก้ไข / ลบ log ----
+// ค่าจากฟอร์มแก้ไข: ว่าง = null, ต้องเป็นตัวเลขไม่ติดลบ (คืน undefined เมื่อไม่ถูกต้อง)
+function optionalNumber(value) {
+  if (value === '' || value == null) return null
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 ? number : undefined
+}
+
+const optionalInteger = (value) => {
+  const number = optionalNumber(value)
+  return number == null ? number : Math.round(number)
+}
+
+const MAX_NAME_LENGTH = 100
+
+// ตรวจชื่อ + ตัวเลขทุก field คืน { values } หรือ { error } (field ชื่อเป็น string ไม่ว่าง)
+function readLogFields(req, nameField, numberFields) {
+  const name = String(req.body?.[nameField] || '').trim().slice(0, MAX_NAME_LENGTH)
+  if (!name) return { error: req.t('data.nameRequired') }
+
+  const values = { [nameField]: name }
+  for (const [field, parse] of Object.entries(numberFields)) {
+    values[field] = parse(req.body?.[field])
+    if (values[field] === undefined) return { error: req.t('data.invalidNumber', { field }) }
+  }
+  return { values }
+}
+
+// update/delete เฉพาะแถวที่เป็นของผู้ใช้ที่ล็อกอิน (ไม่พบ = ไม่มีแถวนั้น หรือเป็นของคนอื่น -> 404)
+async function updateOwnLog(req, res, table, values, failKey) {
+  const { data, error } = await supabase
+    .from(table)
+    .update(values)
+    .eq('id', req.params.id)
+    .eq('user_id', req.authUser.uid)
+    .select()
+    .maybeSingle()
+  if (error) return handleSupabaseError(res, error, req.t(failKey))
+  if (!data) return res.status(404).json({ error: req.t('data.logNotFound') })
+  res.json(data)
+}
+
+async function deleteOwnLog(req, res, table) {
+  const { data, error } = await supabase
+    .from(table)
+    .delete()
+    .eq('id', req.params.id)
+    .eq('user_id', req.authUser.uid)
+    .select('id')
+  if (error) return handleSupabaseError(res, error, req.t('data.deleteFailed'))
+  if (!data?.length) return res.status(404).json({ error: req.t('data.logNotFound') })
+  res.status(204).end()
+}
+
+app.put('/api/workout-logs/:id', requireAuth, (req, res) => {
+  const { values, error } = readLogFields(req, 'exercise_name', {
+    weight_kg: optionalNumber,
+    reps: optionalInteger,
+    sets: optionalInteger,
+  })
+  if (error) return res.status(400).json({ error })
+
+  // คำนวณค่าที่ได้จาก weight/reps/sets ใหม่ให้ตรงกับข้อมูลที่แก้
+  values.estimated_1rm = calculateEstimated1RM(values.weight_kg, values.reps)
+  values.volume_load = calculateVolumeLoad(values.weight_kg, values.reps, values.sets)
+  updateOwnLog(req, res, 'workout_logs', values, 'data.workoutSaveFailed')
+})
+
+app.delete('/api/workout-logs/:id', requireAuth, (req, res) => deleteOwnLog(req, res, 'workout_logs'))
+
 // ---- Food logs ----
+// คอลัมน์ calories/protein/carbs/fat บน Supabase จริงเป็น integer (insert ทศนิยมจะ error) จึงปัดเป็นจำนวนเต็ม
+const wholeOrNull = (value) => (value == null || value === '' || !Number.isFinite(Number(value)) ? null : Math.round(Number(value)))
+
 app.get('/api/food-logs', requireAuth, async (req, res) => {
   const { user_id } = req.query
   if (!user_id) return res.status(400).json({ error: 'user_id is required' })
@@ -467,10 +611,10 @@ app.post('/api/food-logs', requireAuth, async (req, res) => {
     .insert({
       user_id,
       food_name,
-      calories: calories ?? null,
-      protein: protein ?? null,
-      carbs: carbs ?? null,
-      fat: fat ?? null,
+      calories: wholeOrNull(calories),
+      protein: wholeOrNull(protein),
+      carbs: wholeOrNull(carbs),
+      fat: wholeOrNull(fat),
     })
     .select()
     .single()
@@ -478,6 +622,19 @@ app.post('/api/food-logs', requireAuth, async (req, res) => {
   if (error) return handleSupabaseError(res, error, req.t('data.foodSaveFailed'))
   res.status(201).json(data)
 })
+
+app.put('/api/food-logs/:id', requireAuth, (req, res) => {
+  const { values, error } = readLogFields(req, 'food_name', {
+    calories: optionalInteger,
+    protein: optionalInteger,
+    carbs: optionalInteger,
+    fat: optionalInteger,
+  })
+  if (error) return res.status(400).json({ error })
+  updateOwnLog(req, res, 'food_logs', values, 'data.foodSaveFailed')
+})
+
+app.delete('/api/food-logs/:id', requireAuth, (req, res) => deleteOwnLog(req, res, 'food_logs'))
 
 // อัปเดต schema บน Supabase อัตโนมัติ (ถ้าตั้ง DATABASE_URL) แล้วเช็คว่าตาราง/คอลัมน์ที่ระบบ OTP ใช้พร้อมหรือยัง
 async function prepareDatabase() {

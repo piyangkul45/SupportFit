@@ -54,7 +54,7 @@ export function ResendRow({ cooldown, total = 60, resending, disabled, onResend 
           type="button"
           onClick={onResend}
           disabled={resending || disabled}
-          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-lime-300 transition-colors hover:bg-lime-400/10 hover:text-lime-200 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-emerald-300 transition-colors hover:bg-emerald-400/10 hover:text-emerald-200 disabled:opacity-50"
         >
           {resending && <Spinner className="h-3.5 w-3.5" />}
           {resending ? t('otp.resending') : t('otp.resend')}

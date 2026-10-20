@@ -7,7 +7,7 @@ const STRENGTH_LEVELS = [
   { bar: 'bg-red-500', text: 'text-red-300' },
   { bar: 'bg-orange-500', text: 'text-orange-300' },
   { bar: 'bg-yellow-400', text: 'text-yellow-300' },
-  { bar: 'bg-lime-400', text: 'text-lime-300' },
+  { bar: 'bg-emerald-400', text: 'text-emerald-300' },
   { bar: 'bg-emerald-400', text: 'text-emerald-300' },
 ]
 

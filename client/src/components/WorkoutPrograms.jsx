@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ChevronDown, Play, Trophy } from 'lucide-react'
 import { formatReps, WORKOUT_PROGRAMS } from '../utils/workoutPrograms'
 
 const DIFFICULTY_STYLE = {
@@ -13,49 +15,62 @@ function getPrimaryMuscles(program) {
   return [...new Set(all)].slice(0, 4)
 }
 
-export default function WorkoutPrograms({ onStart }) {
+function WorkoutPrograms({ onStart }) {
   const { t } = useTranslation()
   const [expandedId, setExpandedId] = useState(WORKOUT_PROGRAMS[0]?.id ?? null)
   const muscleLabel = (key) => t(`programs.muscles.${key}`)
 
   return (
-    <div className="space-y-4">
-      <p className="text-center text-sm text-slate-400">{t('programs.intro')}</p>
+    <div className="mx-auto max-w-3xl space-y-4">
+      <div className="mb-6 text-center">
+        <span className="icon-tile mx-auto mb-3 h-11 w-11 border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
+          <Trophy className="h-5 w-5" aria-hidden />
+        </span>
+        <h1 className="text-2xl font-bold tracking-tight text-white">{t('nav.programs')}</h1>
+        <p className="mt-1 text-sm text-slate-400">{t('programs.intro')}</p>
+      </div>
 
-      {WORKOUT_PROGRAMS.map((program) => {
+      {WORKOUT_PROGRAMS.map((program, index) => {
         const isExpanded = expandedId === program.id
         const primaryMuscles = getPrimaryMuscles(program)
 
         return (
-          <div key={program.id} className="glass-card overflow-hidden">
+          <motion.div
+            key={program.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.06, type: 'spring', stiffness: 260, damping: 28 }}
+            className="glass-card overflow-hidden"
+          >
             <button
+              type="button"
               onClick={() => setExpandedId(isExpanded ? null : program.id)}
-              className={`relative flex w-full items-start justify-between gap-3 bg-gradient-to-br p-5 text-left ${program.accent}`}
+              aria-expanded={isExpanded}
+              className="relative flex w-full items-start justify-between gap-3 p-5 text-left"
             >
-              <div
-                aria-hidden
-                className="absolute -right-4 -top-4 text-7xl opacity-20 blur-[1px]"
-              >
+              {/* สีประจำโปรแกรมแบบจาง ๆ ให้เข้ากับธีมมืด */}
+              <div aria-hidden className={`absolute inset-0 bg-gradient-to-br opacity-20 ${program.accent}`} />
+              <div aria-hidden className="absolute -right-3 -top-5 text-7xl opacity-15">
                 {program.emoji}
               </div>
 
               <div className="relative min-w-0">
                 <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-bold text-white drop-shadow">{program.name}</h3>
+                  <h3 className="text-lg font-bold text-white">{program.name}</h3>
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-xs font-medium backdrop-blur ${DIFFICULTY_STYLE[program.difficulty] ?? 'border-white/30 bg-white/10 text-white'}`}
+                    className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${DIFFICULTY_STYLE[program.difficulty] ?? 'border-white/30 bg-white/10 text-white'}`}
                   >
                     {t(`programs.difficulty.${program.difficulty}`)}
                   </span>
                 </div>
-                <p className="text-sm text-white/80">{t('programs.by', { name: program.celebrity })}</p>
-                <p className="mt-2 max-w-md text-sm text-white/90">{t(`programs.taglines.${program.id}`)}</p>
+                <p className="text-xs text-slate-400">{t('programs.by', { name: program.celebrity })}</p>
+                <p className="mt-2 max-w-md text-sm text-slate-200">{t(`programs.taglines.${program.id}`)}</p>
 
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {primaryMuscles.map((muscle) => (
                     <span
                       key={muscle}
-                      className="rounded-full bg-black/25 px-2 py-0.5 text-xs font-medium text-white/90 backdrop-blur"
+                      className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-slate-300"
                     >
                       {muscleLabel(muscle)}
                     </span>
@@ -63,48 +78,66 @@ export default function WorkoutPrograms({ onStart }) {
                 </div>
               </div>
 
-              <span className="relative shrink-0 text-xl text-white/80">
-                {isExpanded ? '▲' : '▼'}
-              </span>
+              <motion.span
+                animate={{ rotate: isExpanded ? 180 : 0 }}
+                className="relative shrink-0 rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-300"
+              >
+                <ChevronDown className="h-4 w-4" aria-hidden />
+              </motion.span>
             </button>
 
-            {isExpanded && (
-              <div className="space-y-4 p-5">
-                {program.days.map((day) => (
-                  <div key={day.name} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                      <h4 className="font-semibold text-slate-100">{day.name}</h4>
-                      <button
-                        onClick={() => onStart(program, day)}
-                        className="btn-accent px-3 py-1.5 text-sm hover:scale-[1.03]"
-                      >
-                        {t('programs.start')}
-                      </button>
-                    </div>
+            <AnimatePresence initial={false}>
+              {isExpanded && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <div className="space-y-3 border-t border-white/[0.07] p-5">
+                    {program.days.map((day) => (
+                      <div key={day.name} className="glass-panel p-4">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                          <h4 className="text-sm font-semibold text-slate-100">{day.name}</h4>
+                          <motion.button
+                            type="button"
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => onStart(program, day)}
+                            className="btn-accent flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                          >
+                            <Play className="h-3.5 w-3.5 fill-current" aria-hidden />
+                            {t('programs.start')}
+                          </motion.button>
+                        </div>
 
-                    <ul className="space-y-1.5">
-                      {day.exercises.map((ex) => (
-                        <li
-                          key={ex.name}
-                          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-sm"
-                        >
-                          <span className="font-medium text-slate-100">{ex.name}</span>
-                          <span className="flex items-center gap-2 text-xs text-slate-400">
-                            <span className="rounded-full bg-lime-400/10 px-2 py-0.5 font-medium text-lime-300">
-                              {ex.sets} x {formatReps(ex.reps, t)}
-                            </span>
-                            <span>{ex.muscles.map(muscleLabel).join(' / ')}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                        <ul className="space-y-1.5">
+                          {day.exercises.map((ex) => (
+                            <li
+                              key={ex.name}
+                              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-white/[0.05] bg-black/20 px-3 py-2 text-sm"
+                            >
+                              <span className="font-medium text-slate-100">{ex.name}</span>
+                              <span className="flex items-center gap-2 text-xs text-slate-500">
+                                <span className="badge border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+                                  {ex.sets} × {formatReps(ex.reps, t)}
+                                </span>
+                                <span>{ex.muscles.map(muscleLabel).join(' / ')}</span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         )
       })}
     </div>
   )
 }
+
+// props เดิม = ไม่ render ใหม่เมื่อ Dashboard render (เช่น ตอน toast/modal เปลี่ยน)
+export default memo(WorkoutPrograms)

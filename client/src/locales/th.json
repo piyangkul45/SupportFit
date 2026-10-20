@@ -17,13 +17,15 @@
   "header": {
     "subtitle": "Voice-to-Data Gym Log & Macro Assistant",
     "profile": "โปรไฟล์",
-    "logout": "ออกจากระบบ"
+    "logout": "ออกจากระบบ",
+    "profileSettings": "ตั้งค่าโปรไฟล์"
   },
 
   "nav": {
     "dashboard": "แดชบอร์ด",
     "programs": "โปรแกรม",
-    "analytics": "สถิติ"
+    "analytics": "สถิติ",
+    "label": "เมนูหลัก"
   },
 
   "auth": {
@@ -129,59 +131,100 @@
     "success": "สำเร็จ",
     "error": "เกิดข้อผิดพลาด",
     "info": "แจ้งเพื่อทราบ",
-    "close": "ปิดการแจ้งเตือน"
+    "close": "ปิดการแจ้งเตือน",
+    "warning": "โปรดตรวจสอบ"
   },
 
   "voice": {
-    "title": "พูดเพื่อบันทึกการออกกำลังกาย / มื้ออาหาร",
+    "title": "บันทึกด้วยเสียง",
     "tapToStart": "แตะไมค์เพื่อเริ่มพูด",
     "listening": "กำลังฟัง... พูดได้เลย",
-    "examplesLabel": "เช่น",
-    "examples": "\"สควอท 60 กิโล 5 ครั้ง 3 เซต\" หรือ \"ข้าวไก่ย่าง 450 แคล โปรตีน 35 กรัม\"",
     "error": "ข้อผิดพลาด: {{error}}",
-    "clear": "ล้างข้อความ",
-    "unsupported": "เบราว์เซอร์นี้ไม่รองรับ Web Speech API กรุณาใช้ Google Chrome"
+    "clear": "ล้างทั้งหมด",
+    "unsupported": "เบราว์เซอร์นี้ไม่รองรับ Web Speech API กรุณาใช้ Google Chrome",
+    "transcriptLabel": "ข้อความที่ได้ยิน (บรรทัดละ 1 คำสั่ง แก้คำที่ฟังผิดได้เลย)",
+    "placeholder": "พูดหรือพิมพ์ เช่น\nสควอท 60 กิโล 5 ครั้ง 3 เซต\nข้าวไก่ย่าง 450 แคล โปรตีน 35 กรัม",
+    "undoLast": "ลบบรรทัดล่าสุด",
+    "preview": {
+      "title": "ตัวอย่างก่อนบันทึก",
+      "parsing": "กำลังอ่าน…",
+      "notUnderstood": "ไม่เข้าใจ \"{{text}}\" ลองแก้ข้อความด้านบน",
+      "failed": "ตรวจบรรทัดนี้ไม่สำเร็จ กรุณาลองใหม่",
+      "heard": "ได้ยินว่า \"{{spoken}}\"",
+      "estimated": "ค่าประมาณ"
+    },
+    "save_one": "บันทึก {{count}} รายการ",
+    "save_other": "บันทึก {{count}} รายการ",
+    "saving": "กำลังบันทึก…",
+    "start": "เริ่มอัดเสียง",
+    "stop": "หยุดอัดเสียง",
+    "keyboardHint": "Ctrl + Enter เพื่อบันทึก",
+    "status": {
+      "idle": "พร้อมใช้งาน",
+      "listening": "กำลังฟัง",
+      "parsing": "กำลังอ่าน…",
+      "ready_one": "พร้อม {{count}} รายการ",
+      "ready_other": "พร้อม {{count}} รายการ"
+    }
   },
 
   "dashboard": {
     "feedback": {
       "backendDown": "เชื่อมต่อ backend ไม่ได้ กรุณาตรวจสอบว่า server กำลังรันอยู่",
       "notReady": "ยังไม่พร้อมใช้งาน กรุณารอสักครู่",
-      "notUnderstood": "ไม่เข้าใจคำสั่ง: \"{{text}}\"",
-      "workoutSaved": "บันทึก {{name}} เรียบร้อย เริ่มพัก {{seconds}} วินาที",
       "volumePr": "ยินดีด้วย คุณทำสถิติ Volume Load ใหม่ได้สำเร็จ",
       "oneRmPr": "และทำสถิติ 1RM ใหม่ได้สำเร็จด้วย",
-      "foodSaved": "บันทึก {{name}} เรียบร้อย",
-      "saveFailed": "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่"
+      "saveFailed": "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่",
+      "logged": "บันทึก {{name}} เรียบร้อย",
+      "restStarted": "เริ่มพัก {{seconds}} วินาที",
+      "deleted": "ลบ {{name}} แล้ว",
+      "updated": "แก้ไข {{name}} แล้ว",
+      "deleteFailed": "ลบไม่สำเร็จ กรุณาลองใหม่"
     },
     "restOver": "หมดเวลาพัก เริ่มเซตต่อไปได้เลย",
     "rest": {
       "title": "พักระหว่างเซต",
-      "skip": "ข้ามการพัก"
+      "skip": "ข้ามการพัก",
+      "addTime": "+{{seconds}} วิ",
+      "reset": "เริ่มใหม่"
     },
     "targets": {
       "title": "เป้าหมายวันนี้",
       "calories": "แคลอรี",
-      "protein": "โปรตีน"
+      "protein": "โปรตีน",
+      "carbs": "คาร์บ",
+      "fat": "ไขมัน",
+      "remaining": "เหลืออีก {{value}} {{unit}}",
+      "over": "เกินมา {{value}} {{unit}}"
     },
     "logs": {
-      "workoutsToday": "Workout วันนี้ ({{count}})",
-      "mealsToday": "มื้ออาหารวันนี้ ({{count}})",
       "empty": "ยังไม่มีบันทึกวันนี้",
-      "workoutLine": "{{weight}} กก. × {{reps}} ครั้ง × {{sets}} เซต",
-      "foodLine": "{{calories}} แคล · โปรตีน {{protein}} ก.",
-      "totalToday": "รวมวันนี้ {{calories}} แคล · โปรตีน {{protein}} ก."
+      "edit": "แก้ไข {{name}}",
+      "delete": "ลบ {{name}}",
+      "confirmDelete": "ยืนยันลบ?",
+      "workoutsTitle": "ออกกำลังกายวันนี้",
+      "mealsTitle": "มื้ออาหารวันนี้",
+      "totalLabel": "รวมวันนี้",
+      "editShort": "แก้ไข",
+      "deleteShort": "ลบ",
+      "short": { "protein": "P", "carbs": "C", "fat": "F" }
     },
     "programCard": {
       "nowPlaying": "กำลังเล่นโปรแกรม",
-      "clear": "✕ ล้าง"
+      "clear": "ล้าง",
+      "progress": "{{done}}/{{total}}"
+    },
+    "greeting": {
+      "morning": "อรุณสวัสดิ์ {{name}}",
+      "afternoon": "สวัสดีตอนบ่าย {{name}}",
+      "evening": "สวัสดีตอนเย็น {{name}}"
     }
   },
 
   "programs": {
     "intro": "เลือกโปรแกรมของคนดังที่ชอบ แล้วกด \"Start Workout\" เพื่อโหลดท่าไปที่ Dashboard สำหรับอัดเสียงบันทึกได้ทันที",
     "by": "โดย {{name}}",
-    "start": "▶ Start Workout",
+    "start": "Start Workout",
     "difficulty": {
       "beginner": "เริ่มต้น",
       "intermediate": "ปานกลาง",
@@ -226,17 +269,87 @@
   },
 
   "analytics": {
-    "progressiveOverload": "📈 Progressive Overload",
+    "progressiveOverload": "Progressive Overload",
     "noWorkoutData": "ยังไม่มีข้อมูล ลองบันทึก Workout ก่อน",
     "oneRmAxis": "1RM (กก.)",
     "volumeAxis": "Volume Load (กก.)",
     "estimated1rm": "1RM โดยประมาณ",
     "volumeLoad": "Volume Load",
-    "macroHistory": "🍽 ประวัติแคลอรี & โปรตีน",
+    "macroHistory": "ประวัติแคลอรี & โปรตีน",
     "noFoodData": "ยังไม่มีข้อมูล ลองบันทึกมื้ออาหารก่อน",
     "caloriesAxis": "แคลอรี",
     "proteinAxis": "โปรตีน (ก.)",
     "calories": "แคลอรี",
-    "protein": "โปรตีน"
+    "protein": "โปรตีน",
+    "subtitle": "ติดตามแนวโน้มความแข็งแรงและโภชนาการของคุณ",
+    "totalSessions": "จำนวนท่าที่บันทึก",
+    "best1rm": "1RM โดยประมาณสูงสุด · {{name}}",
+    "avgCalories": "แคลอรี่เฉลี่ยต่อวัน",
+    "best1rmShort": "1RM โดยประมาณสูงสุด"
+  },
+
+  "editLog": {
+    "titleWorkout": "แก้ไขการออกกำลังกาย",
+    "titleFood": "แก้ไขมื้ออาหาร",
+    "exercise": "ท่าออกกำลังกาย",
+    "food": "อาหาร",
+    "weight": "น้ำหนัก (กก.)",
+    "reps": "จำนวนครั้ง",
+    "sets": "จำนวนเซต",
+    "calories": "แคลอรี่ (kcal)",
+    "protein": "โปรตีน (กรัม)",
+    "carbs": "คาร์บ (กรัม)",
+    "fat": "ไขมัน (กรัม)",
+    "save": "บันทึกการแก้ไข",
+    "saving": "กำลังบันทึก…",
+    "cancel": "ยกเลิก",
+    "close": "ปิด",
+    "nameRequired": "กรุณากรอกชื่อ",
+    "invalidNumber": "ตัวเลขต้องเป็น 0 ขึ้นไป",
+    "saveFailed": "บันทึกการแก้ไขไม่สำเร็จ กรุณาลองใหม่"
+  },
+
+  "profile": {
+    "onboardingTitle": "ยินดีต้อนรับ! มาตั้งเป้าหมายรายวันกัน",
+    "onboardingSubtitle": "บอกข้อมูลร่างกายของคุณ แล้วเราจะคำนวณแคลอรี่และสารอาหารที่เหมาะสมให้",
+    "settingsTitle": "ตั้งค่าโปรไฟล์",
+    "settingsSubtitle": "แก้ไขข้อมูลร่างกายและเป้าหมาย เป้าหมายรายวันจะอัปเดตทันที",
+    "gender": "เพศ",
+    "genders": {
+      "male": "ชาย",
+      "female": "หญิง"
+    },
+    "age": "อายุ",
+    "height": "ส่วนสูง (ซม.)",
+    "weight": "น้ำหนัก (กก.)",
+    "activity": "ระดับกิจกรรม",
+    "activityLevels": {
+      "sedentary": { "label": "นั่งทำงานเป็นหลัก", "hint": "แทบไม่ออกกำลังกาย" },
+      "light": { "label": "ออกกำลังกายเบา ๆ", "hint": "1–3 วัน/สัปดาห์" },
+      "moderate": { "label": "ออกกำลังกายปานกลาง", "hint": "3–5 วัน/สัปดาห์" },
+      "active": { "label": "ออกกำลังกายหนัก", "hint": "6–7 วัน/สัปดาห์" },
+      "very_active": { "label": "หนักมาก", "hint": "ฝึกหนักทุกวัน หรือทำงานใช้แรง" }
+    },
+    "goal": "เป้าหมาย",
+    "goals": {
+      "lose_weight": "ลดน้ำหนัก",
+      "maintain": "รักษาน้ำหนัก",
+      "gain_muscle": "เพิ่มกล้ามเนื้อ"
+    },
+    "preview": {
+      "title": "เป้าหมายรายวันของคุณ",
+      "bmr": "BMR",
+      "tdee": "TDEE",
+      "calories": "แคลอรี่เป้าหมาย",
+      "empty": "กรอกข้อมูลให้ครบเพื่อดูเป้าหมาย"
+    },
+    "incomplete": "กรุณากรอกข้อมูลให้ครบและถูกต้อง",
+    "save": "บันทึก",
+    "start": "เริ่มใช้งาน",
+    "saving": "กำลังบันทึก...",
+    "cancel": "ยกเลิก",
+    "close": "ปิด",
+    "saveFailed": "บันทึกโปรไฟล์ไม่สำเร็จ",
+    "saved": "อัปเดตเป้าหมายรายวันแล้ว"
   }
 }

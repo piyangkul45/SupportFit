@@ -1,34 +1,101 @@
 @import "tailwindcss";
 
+/* ---- Design tokens: Obsidian Deep Dark + Electric Cyber-Green ---- */
+@theme {
+  --color-obsidian: #0a0d14;
+  --color-obsidian-raised: #10141d;
+  --color-cyber: #10b981;
+  --color-cyber-bright: #22c55e;
+  --font-sans: 'Inter', 'Noto Sans Thai', system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
 :root {
   color-scheme: dark;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-  background-color: #020617;
+  font-family: var(--font-sans);
+  background-color: var(--color-obsidian);
   color: #e2e8f0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer components {
+  /* การ์ด glass: พื้นโปร่ง + ขอบเรืองแสงบาง ๆ + ไฮไลต์ขอบบน
+     ไม่ใช้ backdrop-filter เพราะพื้นหลังด้านหลังการ์ดเป็นแสงไล่สีที่นุ่มอยู่แล้ว (เบลอซ้ำแทบไม่ต่างทางสายตา)
+     แต่ต้องให้ GPU คำนวณเบลอใหม่ทุกเฟรมที่เลื่อนหน้า/มีอนิเมชัน -> เก็บ blur ไว้เฉพาะ .glass-blur */
   .glass-card {
-    @apply rounded-2xl border border-white/10 bg-slate-900/60 shadow-xl shadow-black/20 backdrop-blur-xl;
+    @apply rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)];
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 40%);
   }
+  /* glass ชั้นใน (ซ้อนอยู่ในการ์ด) */
   .glass-panel {
-    @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-xl;
+    @apply rounded-xl border border-white/[0.07] bg-white/[0.03];
+  }
+  /* glass ที่มีเนื้อหาเลื่อนผ่านด้านหลังจริง (navbar ติดขอบ, แถบนำทางมือถือ, toast)
+     ใช้ backdrop blur + แยกเป็น GPU layer ของตัวเอง ไม่ต้อง repaint ทั้งหน้าตอนเลื่อน */
+  .glass-blur {
+    @apply backdrop-blur-md;
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  .card-title {
+    @apply flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white;
+  }
+  .icon-tile {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums leading-none;
   }
   .btn-accent {
-    @apply rounded-xl bg-lime-400 px-4 py-2.5 font-semibold text-slate-950 shadow-[0_0_20px_-6px_rgba(163,230,53,0.7)] transition-all duration-200 hover:bg-lime-300 hover:shadow-[0_0_28px_-4px_rgba(163,230,53,0.9)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50;
+    @apply rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 px-4 py-2.5 font-semibold text-white shadow-[0_0_24px_-8px_rgba(16,185,129,0.9)] duration-200 hover:from-emerald-400 hover:to-green-400 hover:shadow-[0_0_30px_-6px_rgba(34,197,94,0.9)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none;
+    transition-property: color, background-color, box-shadow, transform, opacity;
+  }
+  .btn-icon {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors duration-200 hover:bg-white/[0.07] hover:text-slate-100 disabled:pointer-events-none disabled:opacity-40;
+  }
+  /* skeleton loader: แถบแสงวิ่งผ่าน */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-white/[0.06];
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+  /* tooltip จาก data-tooltip แสดงเมื่อ hover/focus */
+  [data-tooltip] {
+    position: relative;
+  }
+  [data-tooltip]::after {
+    content: attr(data-tooltip);
+    @apply pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-md border border-white/10 bg-obsidian-raised/95 px-2 py-1 text-[11px] font-medium text-slate-200 opacity-0 shadow-lg transition-[opacity,translate] duration-150;
+  }
+  [data-tooltip]:hover::after,
+  [data-tooltip]:focus-visible::after {
+    @apply translate-y-0 opacity-100;
   }
   .btn-ghost {
-    @apply rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 font-medium text-slate-200 backdrop-blur transition-colors duration-200 hover:border-white/20 hover:bg-white/10;
+    @apply rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 font-medium text-slate-200 transition-colors duration-200 hover:border-white/20 hover:bg-white/10;
   }
   .btn-danger-ghost {
     @apply rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 font-medium text-red-300 transition-colors duration-200 hover:bg-red-500/20;
   }
   .input-field {
-    @apply w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 outline-none transition-all duration-200 focus:border-lime-400/60 focus:bg-white/10 focus:ring-4 focus:ring-lime-400/10;
+    @apply w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 outline-none transition-[border-color,background-color,box-shadow] duration-200 focus:border-emerald-400/60 focus:bg-white/10 focus:ring-4 focus:ring-emerald-400/10;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
   }
 }
 
@@ -47,13 +114,13 @@ body {
 
 @keyframes pulse-glow {
   0% {
-    box-shadow: 0 0 0 0 rgba(163, 230, 53, 0.55);
+    box-shadow: 0 0 0 0 rgba(16,185,129, 0.55);
   }
   70% {
-    box-shadow: 0 0 0 22px rgba(163, 230, 53, 0);
+    box-shadow: 0 0 0 22px rgba(16,185,129, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(163, 230, 53, 0);
+    box-shadow: 0 0 0 0 rgba(16,185,129, 0);
   }
 }
 .animate-pulse-glow {
@@ -87,7 +154,7 @@ body {
     inset: 0;
     padding: 1px;
     border-radius: inherit;
-    background: linear-gradient(140deg, rgba(190, 242, 100, 0.45), rgba(255, 255, 255, 0.04) 35%, rgba(16, 185, 129, 0.3));
+    background: linear-gradient(140deg, rgba(52, 211, 153, 0.45), rgba(255, 255, 255, 0.04) 35%, rgba(16,185,129, 0.3));
     -webkit-mask:
       linear-gradient(#000 0 0) content-box,
       linear-gradient(#000 0 0);
@@ -96,7 +163,7 @@ body {
     pointer-events: none;
   }
   .auth-link {
-    @apply rounded text-sm text-slate-400 transition-colors duration-200 hover:text-lime-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400/40;
+    @apply rounded text-sm text-slate-400 transition-colors duration-200 hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40;
   }
 }
 
@@ -182,7 +249,10 @@ body {
   .animate-card-in,
   .animate-float-orb,
   .animate-toast-in,
-  .animate-shake {
+  .animate-shake,
+  .animate-pulse-glow,
+  .animate-wave-bar,
+  .skeleton::after {
     animation: none;
   }
 }

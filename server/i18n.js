@@ -41,8 +41,16 @@ const MESSAGES = {
       sessionCheckFailed: 'Could not verify your session',
       userNotFound: 'Account not found. Please log in again.',
     },
+    parser: {
+      textRequired: 'Please provide the text to parse',
+      notUnderstood: "Couldn't understand that command",
+    },
     data: {
       profileLoadFailed: 'Could not load the user profile',
+      profileSaveFailed: 'Could not save your profile',
+      invalidProfile: 'Please check your details: {field} is missing or out of range',
+      profileDbNotReady:
+        'Database not ready for profiles (onboarding columns missing on users). Run server/sql/schema.sql in the Supabase SQL Editor, or set DATABASE_URL in server/.env and restart the server',
       forbiddenRead: "You don't have access to this data",
       forbiddenWrite: "You can't save data for another user",
       ownershipCheckFailed: 'Permission check failed',
@@ -51,6 +59,10 @@ const MESSAGES = {
       workoutSaveFailed: 'Could not save the workout log',
       foodLoadFailed: 'Could not load food logs',
       foodSaveFailed: 'Could not save the food log',
+      nameRequired: 'Please enter a name',
+      invalidNumber: '{field} must be a number of 0 or more',
+      logNotFound: 'This entry was not found or has already been deleted',
+      deleteFailed: 'Could not delete the entry',
       dbNotReady:
         'Database not ready (users.email column or otp_codes table missing). Set DATABASE_URL in server/.env and restart the server, or run npm run migrate',
     },
@@ -115,8 +127,16 @@ const MESSAGES = {
       sessionCheckFailed: 'ตรวจสอบเซสชันไม่สำเร็จ',
       userNotFound: 'ไม่พบบัญชีผู้ใช้ กรุณาเข้าสู่ระบบใหม่',
     },
+    parser: {
+      textRequired: 'กรุณาระบุข้อความที่ต้องการแปลง',
+      notUnderstood: 'ไม่เข้าใจคำสั่งนี้',
+    },
     data: {
       profileLoadFailed: 'ไม่สามารถโหลดโปรไฟล์ผู้ใช้ได้',
+      profileSaveFailed: 'บันทึกโปรไฟล์ไม่สำเร็จ',
+      invalidProfile: 'กรุณาตรวจสอบข้อมูล: {field} ไม่ได้กรอกหรือไม่อยู่ในช่วงที่ถูกต้อง',
+      profileDbNotReady:
+        'ฐานข้อมูลยังไม่พร้อมสำหรับโปรไฟล์ (ตาราง users ยังไม่มีคอลัมน์ onboarding) กรุณารัน server/sql/schema.sql ใน Supabase SQL Editor หรือตั้ง DATABASE_URL ใน server/.env แล้ว restart server',
       forbiddenRead: 'ไม่มีสิทธิ์เข้าถึงข้อมูลนี้',
       forbiddenWrite: 'ไม่มีสิทธิ์บันทึกข้อมูลของผู้ใช้อื่น',
       ownershipCheckFailed: 'ตรวจสอบสิทธิ์ไม่สำเร็จ',
@@ -125,6 +145,10 @@ const MESSAGES = {
       workoutSaveFailed: 'บันทึก workout log ไม่สำเร็จ',
       foodLoadFailed: 'ไม่สามารถโหลด food logs ได้',
       foodSaveFailed: 'บันทึก food log ไม่สำเร็จ',
+      nameRequired: 'กรุณากรอกชื่อ',
+      invalidNumber: '{field} ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป',
+      logNotFound: 'ไม่พบรายการนี้ หรือรายการถูกลบไปแล้ว',
+      deleteFailed: 'ลบรายการไม่สำเร็จ',
       dbNotReady:
         'ฐานข้อมูลยังไม่พร้อม (ไม่พบคอลัมน์ users.email หรือตาราง otp_codes) กรุณาตั้ง DATABASE_URL ใน server/.env แล้ว restart server หรือรัน npm run migrate',
     },

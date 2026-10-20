@@ -88,3 +88,18 @@ alter table otp_codes enable row level security;
 -- ระบบสมัครสมาชิก: อีเมล + password (scrypt hash) แล้วยืนยันอีเมลด้วย OTP ก่อนใช้งาน
 alter table users add column if not exists password_hash text;
 alter table users add column if not exists is_verified boolean not null default false;
+
+-- Onboarding + เป้าหมายสารอาหาร (TDEE/BMR): ข้อมูลร่างกายและเป้าหมายรายวันที่คำนวณจาก
+-- client/src/utils/macroCalculator.js เก็บในตาราง users (= โปรไฟล์ของผู้ใช้ ที่ /api/users/me คืนให้)
+-- ผู้ใช้เดิมได้ is_onboarded = false จึงเห็นหน้า onboarding ครั้งถัดไปที่เข้าแอป
+alter table users add column if not exists age integer;
+alter table users add column if not exists gender text check (gender in ('male', 'female'));
+alter table users add column if not exists height_cm double precision;
+alter table users add column if not exists weight_kg double precision;
+alter table users add column if not exists activity_level text
+  check (activity_level in ('sedentary', 'light', 'moderate', 'active', 'very_active'));
+alter table users add column if not exists fitness_goal text
+  check (fitness_goal in ('lose_weight', 'maintain', 'gain_muscle'));
+alter table users add column if not exists target_carbs integer;
+alter table users add column if not exists target_fat integer;
+alter table users add column if not exists is_onboarded boolean not null default false;

@@ -1,6 +1,8 @@
 import i18n from '../i18n'
 
-const API_ORIGIN =import.meta.env.VITE_API_URL || 'http://localhost:5000'
+// ค่าเริ่มต้นเป็น '' = เรียก /api บน origin เดียวกับหน้าเว็บ (Vite proxy ต่อไปที่ backend)
+// ใช้ได้ทั้ง localhost, IP ในวง LAN และ tunnel HTTPS ตั้ง VITE_API_URL เฉพาะเมื่อ backend อยู่คนละที่
+const API_ORIGIN = import.meta.env.VITE_API_URL || ''
 const BASE_URL = `${API_ORIGIN}/api`
 
 const SESSION_KEY = 'supportfit_session'
@@ -48,7 +50,7 @@ async function request(path, options = {}) {
     throw error
   }
 
-  return res.json()
+  return res.status === 204 ? null : res.json()
 }
 
 // ---- Auth (Email + Password + OTP) ----
@@ -78,12 +80,30 @@ export const verifyOtp = (email, code) =>
 // โปรไฟล์ผู้ใช้ (ตาราง users) ของบัญชีที่ล็อกอินอยู่
 export const getMe = () => request('/users/me', { method: 'POST' })
 
+// บันทึกข้อมูลร่างกาย + เป้าหมายรายวัน (Onboarding / Profile Settings) คืนโปรไฟล์ที่อัปเดตแล้ว
+export const updateProfile = (data) =>
+  request('/users/me/profile', { method: 'PUT', body: JSON.stringify(data) })
+
+// แปลงข้อความจากเสียง/พิมพ์เป็น { type: 'workout' | 'food', ... } (422 = ไม่เข้าใจคำสั่ง)
+export const parseCommand = (text) =>
+  request('/parse', { method: 'POST', body: JSON.stringify({ text }) })
+
 export const getWorkoutLogs = (userId) => request(`/workout-logs?user_id=${userId}`)
 
 export const createWorkoutLog = (data) =>
   request('/workout-logs', { method: 'POST', body: JSON.stringify(data) })
 
+export const updateWorkoutLog = (id, data) =>
+  request(`/workout-logs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+
+export const deleteWorkoutLog = (id) => request(`/workout-logs/${id}`, { method: 'DELETE' })
+
 export const getFoodLogs = (userId) => request(`/food-logs?user_id=${userId}`)
 
 export const createFoodLog = (data) =>
   request('/food-logs', { method: 'POST', body: JSON.stringify(data) })
+
+export const updateFoodLog = (id, data) =>
+  request(`/food-logs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+
+export const deleteFoodLog = (id) => request(`/food-logs/${id}`, { method: 'DELETE' })

@@ -181,10 +181,10 @@ export default function AuthPage() {
   const errorText = error && (error.key ? t(error.key, error.params) : error.text)
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-10">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-obsidian px-4 py-10">
       {/* พื้นหลัง: ลูกแก้วแสง + ตาราง */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="animate-float-orb absolute -top-32 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-lime-500/20 blur-[120px]" />
+        <div className="animate-float-orb absolute -top-32 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-[120px]" />
         <div
           className="animate-float-orb absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-emerald-500/15 blur-[110px]"
           style={{ animationDelay: '-5s' }}
@@ -202,7 +202,7 @@ export default function AuthPage() {
         <div className="glass-auth px-6 py-8 sm:px-8">
           <LanguageSwitcher className="absolute right-4 top-4 z-10" />
           <div className="mb-6 flex flex-col items-center text-center">
-            <BrandMark className="mb-4 h-14 w-14 shadow-[0_0_32px_-8px_rgba(163,230,53,0.6)]" />
+            <BrandMark className="mb-4 h-14 w-14 shadow-[0_0_32px_-8px_rgba(16,185,129,0.6)]" />
             <div key={mode} className="animate-view-in">
               <h1 className="text-2xl font-bold tracking-tight text-white">{t(`auth.headings.${mode}.title`)}</h1>
               <p className="mt-1.5 text-sm text-slate-400">{t(`auth.headings.${mode}.subtitle`)}</p>
@@ -213,7 +213,7 @@ export default function AuthPage() {
             <div className="relative mb-6 grid grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1" role="tablist">
               <span
                 aria-hidden
-                className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-lime-400/15 ring-1 ring-lime-400/30 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-emerald-400/15 ring-1 ring-emerald-400/30 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   isSignup ? 'translate-x-full' : ''
                 }`}
               />
@@ -228,7 +228,7 @@ export default function AuthPage() {
                   aria-selected={mode === tab}
                   onClick={() => mode !== tab && switchMode(tab)}
                   className={`relative z-10 rounded-lg py-2 text-sm font-medium transition-colors duration-200 ${
-                    mode === tab ? 'text-lime-200' : 'text-slate-400 hover:text-slate-200'
+                    mode === tab ? 'text-emerald-200' : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   {label}
@@ -382,14 +382,14 @@ export default function AuthPage() {
                         fieldErrors.confirmPassword
                           ? 'border-red-400/60'
                           : passwordsMatch
-                            ? 'border-lime-400/50'
+                            ? 'border-emerald-400/50'
                             : ''
                       }`}
                     />
                     {fieldErrors.confirmPassword ? (
                       <FieldError>{fieldErrors.confirmPassword}</FieldError>
                     ) : (
-                      passwordsMatch && <p className="mt-1 text-xs text-lime-300">{t('auth.validation.passwordsMatch')}</p>
+                      passwordsMatch && <p className="mt-1 text-xs text-emerald-300">{t('auth.validation.passwordsMatch')}</p>
                     )}
                   </div>
                 )}
