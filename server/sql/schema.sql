@@ -4,7 +4,8 @@
 --
 -- กฎ Non-destructive (migrate.js ตรวจทุกคำสั่งก่อนรัน เจอคำสั่งนอกรายการนี้ = ไม่รันอะไรเลย):
 --   create table if not exists / create [unique] index if not exists
---   alter table ... add column if not exists / alter table ... enable row level security
+--   alter table ... add column if not exists
+-- ไม่สั่ง enable/disable row level security (ตั้งค่า RLS เองใน Supabase Dashboard ระบบไม่แตะ)
 -- ห้าม drop, truncate, delete, update, rename, alter column หรือคำสั่งใดที่ลบ/เขียนทับข้อมูลเดิม
 -- งานที่ต้องแก้ข้อมูลหรือ constraint เดิม ให้เขียนใน sql/manual/ แล้วรันเองหลังตรวจแล้ว
 --
@@ -48,12 +49,6 @@ create index if not exists workout_logs_user_id_idx on workout_logs (user_id);
 create index if not exists workout_logs_exercise_idx on workout_logs (user_id, exercise_name);
 create index if not exists food_logs_user_id_idx on food_logs (user_id);
 
--- เปิด Row Level Security แต่ไม่เพิ่ม policy ให้ anon/authenticated เลย
--- => เข้าถึงข้อมูลได้จาก service_role key เท่านั้น (ฝั่ง server ของเราเท่านั้น)
--- Service role bypass RLS โดยธรรมชาติ ไม่ต้องเขียน policy เพิ่ม
-alter table users enable row level security;
-alter table workout_logs enable row level security;
-alter table food_logs enable row level security;
 
 -- (โปรเจกต์ที่สร้างไว้ก่อนด้วย schema อื่นที่ตั้ง weight_kg/reps/calories/protein เป็น NOT NULL
 --  ดู sql/manual/one-time-fixes.sql ข้อ 1)
@@ -77,7 +72,6 @@ create table if not exists otp_codes (
   attempts integer not null default 0
 );
 create index if not exists otp_codes_expires_at_idx on otp_codes (expires_at);
-alter table otp_codes enable row level security;
 
 -- ระบบสมัครสมาชิก: อีเมล + password (scrypt hash) แล้วยืนยันอีเมลด้วย OTP ก่อนใช้งาน
 alter table users add column if not exists password_hash text;
@@ -126,9 +120,6 @@ create table if not exists program_exercises (
 create index if not exists workout_programs_user_id_idx on workout_programs (user_id);
 create index if not exists program_days_program_id_idx on program_days (program_id);
 create index if not exists program_exercises_day_id_idx on program_exercises (day_id);
-alter table workout_programs enable row level security;
-alter table program_days enable row level security;
-alter table program_exercises enable row level security;
 
 -- โปรแกรมที่ใช้อยู่ ; started_on = วันแรกของรอบตาราง (วันที่ตามเครื่องผู้ใช้)
 -- ไม่มี started_on ก็ใช้ได้ แต่รอบตารางจะนับตามปฏิทิน (วันที่ 1 = วันจันทร์)

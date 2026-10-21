@@ -12,10 +12,10 @@ const ALLOWED_STATEMENTS = [
   /^create table if not exists \S+/i,
   /^create (unique )?index if not exists \S+/i,
   /^alter table (only )?\S+ add column if not exists \S+/i,
-  /^alter table \S+ enable row level security$/i,
 ]
+// row level security: ระบบไม่เปิด/ปิด RLS เอง (ตั้งค่าใน Supabase Dashboard) restart แล้วต้องไม่ถูกเปลี่ยนกลับ
 const FORBIDDEN_KEYWORDS =
-  /\b(drop|truncate|rename|delete\s+from|update\s+\S+\s+set|insert\s+into|alter\s+column|set\s+data\s+type|grant|revoke)\b/i
+  /\b(drop|truncate|rename|delete\s+from|update\s+\S+\s+set|insert\s+into|alter\s+column|set\s+data\s+type|grant|revoke|row\s+level\s+security)\b/i
 
 function splitStatements(sql) {
   const body = sql.replace(/--.*$/gm, '')

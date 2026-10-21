@@ -22,7 +22,6 @@ describe('guard', () => {
     'create index if not exists t_idx on t (id)',
     'create unique index if not exists t_uidx on t (id)',
     "alter table users add column if not exists gender text check (gender in ('male', 'female'))",
-    'alter table t enable row level security',
     '-- drop table users; (comment only)\ncreate table if not exists t (id int)',
   ]
   for (const sql of allowed) {
@@ -45,6 +44,9 @@ describe('guard', () => {
     'alter table users alter column age type text',
     'alter table users rename column email to mail',
     'alter table users add column x int',
+    'alter table users enable row level security',
+    'alter table users disable row level security',
+    'alter table users force row level security',
     'do $$ begin drop table users; end $$',
   ]
   for (const sql of rejected) {
