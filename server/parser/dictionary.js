@@ -9,8 +9,8 @@
 const EXERCISE_DATABASE = require('./exerciseDatabase.json')
 
 const EXERCISE_SYNONYMS = {
-  Squat: ['สควอท', 'สคอท', 'สควัต', 'สควอต', 'สะควัต', 'สคว็อท', 'squats', 'squat', 'back squat'],
-  'Bench Press': ['เบนช์เพรส', 'เบนเพรซ', 'เบนเพรส', 'เบ้นเพรส', 'เบนช์', 'เบ็นช์', 'ベンチ', 'ベンチプレス', 'bench', 'bench press'],
+  Squat: ['สควอท', 'สคอท', 'สควัต', 'สควอต', 'สะควัต', 'สคว็อท', 'สควอช', 'สก็อต', 'squats', 'squat', 'back squat'],
+  'Bench Press': ['เบนช์เพรส', 'เบนเพรซ', 'เบนเพรส', 'เบ้นเพรส', 'เบรนเพรส', 'ใบเสร็จไกร', 'เบนช์', 'เบ็นช์', 'ベンチ', 'ベンチプレス', 'bench', 'bench press'],
   Deadlift: ['เดดลิฟต์', 'เดทลิฟ', 'เดดลิฟ', 'เด็ดลิฟ', 'เดธลิฟ', 'dead lift', 'deadlifts'],
   'Lat Pulldown': ['ลาตดึงหลัง', 'แลตพูลดาวน์', 'ลาตพูลดาวน์', 'แลทพูลดาวน์', 'ลัดพูลดาวน์', 'แลตดึงหลัง', 'lat pull', 'lat pull down', 'lat pulldown'],
   'Cable Fly': ['อกเคเบิล', 'เคเบิลฟลาย', 'เคเบิ้ลฟลาย', 'เคเบิลครอสโอเวอร์', 'cable flies', 'cable crossover'],

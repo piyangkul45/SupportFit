@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AudioLines, CalendarCheck, Check, Crosshair, Dumbbell, Eraser, Mic, Search, Square, TriangleAlert, Undo2, UtensilsCrossed, X } from 'lucide-react'
+import { AudioLines, CalendarCheck, Check, Crosshair, Dumbbell, Eraser, Mic, Search, Sparkles, Square, TriangleAlert, Undo2, UtensilsCrossed, X } from 'lucide-react'
 import { parseCommand } from '../utils/api'
 import useAudioLevels from '../hooks/useAudioLevels'
 import Badge from './Badge'
@@ -217,6 +217,14 @@ const PreviewCard = memo(function PreviewCard({ line, preview }) {
           <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-300/90">
             <Search className="h-3 w-3" aria-hidden />
             {t('voice.preview.heard', { spoken: parsed.spoken_name })}
+          </p>
+        )}
+        {parsed.source === 'gemini' && (
+          <p className="mt-1.5 flex items-center gap-1 text-[11px] text-violet-300/90">
+            <Sparkles className="h-3 w-3" aria-hidden />
+            {parsed.spoken_name
+              ? t('voice.preview.aiHeard', { spoken: parsed.spoken_name })
+              : t('voice.preview.ai')}
           </p>
         )}
       </div>

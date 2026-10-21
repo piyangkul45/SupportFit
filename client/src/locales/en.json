@@ -152,7 +152,9 @@
       "failed": "Couldn't check this line. Please try again.",
       "heard": "Heard \"{{spoken}}\"",
       "estimated": "estimated",
-      "fromRoutine": "From today's routine"
+      "fromRoutine": "From today's routine",
+      "ai": "Interpreted by AI",
+      "aiHeard": "Interpreted by AI from \"{{spoken}}\""
     },
     "save_one": "Save {{count}} item",
     "save_other": "Save {{count}} items",

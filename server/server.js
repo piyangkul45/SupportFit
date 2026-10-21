@@ -6,6 +6,7 @@ const otpAuth = require('./otpAuth')
 const { runMigrations } = require('./migrate')
 const { i18nMiddleware, translate } = require('./i18n')
 const { parseCommand } = require('./parser')
+const { createVoiceParser } = require('./parser/hybrid')
 const createProgramsRouter = require('./routes/programs')
 
 const app = express()
@@ -400,6 +401,19 @@ app.post('/api/parse', requireAuth, (req, res) => {
   if (!text) return res.status(400).json({ error: req.t('parser.textRequired') })
 
   const result = parseCommand(text.slice(0, MAX_PARSE_TEXT_LENGTH), { exerciseHint: req.body?.exercise_hint })
+  if (!result) return res.status(422).json({ error: req.t('parser.notUnderstood'), reason: 'not_understood' })
+  res.json(result)
+})
+
+// Voice Log: parser ในเครื่องก่อน ถ้าแยกได้ไม่ครบจึงถาม Gemini (ดู parser/hybrid.js)
+// API key ของ Gemini อยู่ฝั่ง server เท่านั้น ผลลัพธ์รูปเดียวกับ /api/parse + source: 'local' | 'gemini'
+const parseVoice = createVoiceParser()
+
+app.post('/api/parse-voice', requireAuth, async (req, res) => {
+  const text = String(req.body?.text || '').trim()
+  if (!text) return res.status(400).json({ error: req.t('parser.textRequired') })
+
+  const result = await parseVoice(text.slice(0, MAX_PARSE_TEXT_LENGTH), { exerciseHint: req.body?.exercise_hint })
   if (!result) return res.status(422).json({ error: req.t('parser.notUnderstood'), reason: 'not_understood' })
   res.json(result)
 })

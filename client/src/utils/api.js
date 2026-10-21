@@ -84,10 +84,11 @@ export const getMe = () => request('/users/me', { method: 'POST' })
 export const updateProfile = (data) =>
   request('/users/me/profile', { method: 'PUT', body: JSON.stringify(data) })
 
-// แปลงข้อความจากเสียง/พิมพ์เป็น { type: 'workout' | 'food', ... } (422 = ไม่เข้าใจคำสั่ง)
+// แปลงข้อความจากเสียง/พิมพ์เป็น { type: 'workout' | 'food', ..., source: 'local' | 'gemini' } (422 = ไม่เข้าใจคำสั่ง)
+// server ใช้ parser ในเครื่องก่อน แยกได้ไม่ครบจึงถาม Gemini (server/parser/hybrid.js)
 // exerciseHint: ท่าที่เลือกไว้ในตารางฝึกวันนี้ ใช้เมื่อพูดแค่ตัวเลข ("100 kg 8 reps")
 export const parseCommand = (text, exerciseHint) =>
-  request('/parse', { method: 'POST', body: JSON.stringify({ text, exercise_hint: exerciseHint || undefined }) })
+  request('/parse-voice', { method: 'POST', body: JSON.stringify({ text, exercise_hint: exerciseHint || undefined }) })
 
 export const getWorkoutLogs = (userId) => request(`/workout-logs?user_id=${userId}`)
 
