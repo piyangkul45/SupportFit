@@ -2,6 +2,12 @@
 -- รันอัตโนมัติทุกครั้งที่ start server (migrate.js) ถ้าตั้ง DATABASE_URL ไว้ หรือรันเองด้วย npm run migrate
 -- ทุกคำสั่งเขียนแบบ idempotent รันซ้ำได้ปลอดภัย (หรือคัดลอกไปรันใน Supabase Dashboard > SQL Editor ก็ได้)
 --
+-- กฎ Non-destructive (migrate.js ตรวจทุกคำสั่งก่อนรัน เจอคำสั่งนอกรายการนี้ = ไม่รันอะไรเลย):
+--   create table if not exists / create [unique] index if not exists
+--   alter table ... add column if not exists / alter table ... enable row level security
+-- ห้าม drop, truncate, delete, update, rename, alter column หรือคำสั่งใดที่ลบ/เขียนทับข้อมูลเดิม
+-- งานที่ต้องแก้ข้อมูลหรือ constraint เดิม ให้เขียนใน sql/manual/ แล้วรันเองหลังตรวจแล้ว
+--
 -- หมายเหตุเรื่องชนิดข้อมูล: ใช้ double precision (float8) แทน numeric สำหรับค่าที่ไม่ใช่จำนวนเต็ม
 -- เพราะ PostgREST/supabase-js ส่งค่า numeric กลับมาเป็น string (เพื่อรักษาความละเอียดของทศนิยม)
 -- ถ้าใช้ numeric ฝั่ง client (Progressive Overload Chart, Macro Dashboard) ที่บวกเลขต่อจาก API
@@ -49,29 +55,17 @@ alter table users enable row level security;
 alter table workout_logs enable row level security;
 alter table food_logs enable row level security;
 
--- Migration (idempotent, รันซ้ำได้ปลอดภัย): กรณีโปรเจกต์ถูกสร้างไว้ล่วงหน้าด้วย schema อื่น
--- (เช่น ใช้ uuid เป็น id แทน bigint identity — ไม่กระทบการทำงาน เพราะ server ปฏิบัติกับ id
--- แบบ opaque value อยู่แล้ว) ที่ตั้ง weight_kg/reps/calories/protein เป็น NOT NULL ไว้
--- ให้ผ่อนเป็น nullable ตามดีไซน์เดิม เพราะผู้ใช้อาจพูดข้อมูลไม่ครบ (เช่น บอกแค่น้ำหนักไม่บอก
--- จำนวนครั้ง) แล้วให้ระบบบันทึกเท่าที่ฟังออกแทนที่จะบังคับ error
-alter table workout_logs alter column weight_kg drop not null;
-alter table workout_logs alter column reps drop not null;
-alter table food_logs alter column calories drop not null;
-alter table food_logs alter column protein drop not null;
+-- (โปรเจกต์ที่สร้างไว้ก่อนด้วย schema อื่นที่ตั้ง weight_kg/reps/calories/protein เป็น NOT NULL
+--  ดู sql/manual/one-time-fixes.sql ข้อ 1)
 
--- Migration: เชื่อม users กับ Supabase Auth (auth.users) สำหรับระบบ Login/Register จริง
--- รันซ้ำได้ปลอดภัย ผู้ใช้เดโมเดิม (ถ้ามี) ที่ไม่มี auth_id จะไม่ถูกลบ แต่เข้าถึงผ่าน API ไม่ได้อีก
--- เพราะทุก endpoint ยืนยันความเป็นเจ้าของข้อมูลด้วย auth_id แล้ว
-alter table users add column if not exists auth_id uuid unique references auth.users (id) on delete cascade;
+-- auth_id: เชื่อมกับ Supabase Auth (auth.users) จากระบบ login เดิม ปัจจุบันใช้ email แทนแล้ว
+-- on delete set null: ลบผู้ใช้ใน auth.users แล้วแถว users + workout/food logs ต้องไม่หายตาม
+alter table users add column if not exists auth_id uuid unique references auth.users (id) on delete set null;
 create index if not exists users_auth_id_idx on users (auth_id);
 
--- Migration: เปลี่ยนจาก Supabase Auth มาเป็น Custom OTP ทางอีเมล (server/otpAuth.js)
--- ผู้ใช้ระบุตัวตนด้วยคอลัมน์ email แทน auth_id
--- คัดลอกอีเมลของผู้ใช้เดิมจาก auth.users มาใส่ เพื่อให้ล็อกอินด้วยอีเมลเดิมแล้วเห็นข้อมูลเดิมได้
+-- Custom OTP ทางอีเมล (server/otpAuth.js): ผู้ใช้ระบุตัวตนด้วยคอลัมน์ email
+-- (คัดลอกอีเมลของผู้ใช้จาก Supabase Auth เดิม: sql/manual/one-time-fixes.sql ข้อ 2)
 alter table users add column if not exists email text unique;
-update users u set email = lower(a.email)
-  from auth.users a
-  where u.auth_id = a.id and u.email is null;
 
 -- ตารางเก็บ OTP ที่รอยืนยัน (1 แถวต่ออีเมล ขอรหัสใหม่จะเขียนทับแถวเดิม)
 -- เก็บเฉพาะ hash ของรหัส (sha256) ไม่เก็บรหัสจริง

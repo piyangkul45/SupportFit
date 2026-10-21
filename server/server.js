@@ -104,10 +104,12 @@ app.post('/api/signup', async (req, res) => {
     }
 
     const password_hash = await otpAuth.hashPassword(password)
+    // ตั้ง password ให้แถวเดิม -> ต้องยืนยัน OTP ใหม่เสมอ (is_verified = false) ไม่งั้นบัญชีเดิมที่ยืนยันแล้ว
+    // แต่ยังไม่มี password จะถูกคนอื่นตั้ง password แล้วล็อกอินได้เลยโดยไม่ผ่านอีเมลเจ้าของ
     const { error } = existing
       ? await supabase
           .from('users')
-          .update({ password_hash, ...(name ? { name } : {}) })
+          .update({ password_hash, is_verified: false, ...(name ? { name } : {}) })
           .eq('id', existing.id)
       : await supabase
           .from('users')

@@ -1,8 +1,8 @@
 require('dotenv').config()
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
-const bcrypt = require('bcryptjs')
 const supabase = require('./supabaseClient')
+const { hashPassword, verifyPassword } = require('./password')
 const { renderOtpEmail, renderOtpText } = require('./emailTemplate')
 const { translate } = require('./i18n')
 
@@ -151,33 +151,6 @@ setInterval(() => {
     .lt('expires_at', new Date().toISOString())
     .then(({ error }) => error && console.error('ล้าง OTP หมดอายุไม่สำเร็จ:', error.message))
 }, 10 * 60 * 1000).unref()
-
-// ---- Password (bcrypt) ----
-// hash ใหม่ทั้งหมดใช้ bcrypt ($2b$...) ส่วน hash แบบเก่า scrypt$<salt>$<hash> ยังตรวจได้
-// เพื่อให้บัญชีที่สมัครก่อนเปลี่ยนมาใช้ bcrypt ล็อกอินได้ตามเดิม
-const BCRYPT_ROUNDS = 10
-const SCRYPT_KEYLEN = 64
-
-function scryptAsync(password, salt) {
-  return new Promise((resolve, reject) => {
-    crypto.scrypt(password, salt, SCRYPT_KEYLEN, (error, key) => (error ? reject(error) : resolve(key)))
-  })
-}
-
-function hashPassword(password) {
-  return bcrypt.hash(password, BCRYPT_ROUNDS)
-}
-
-async function verifyPassword(password, stored) {
-  const value = String(stored || '')
-  if (value.startsWith('$2')) return bcrypt.compare(password, value)
-
-  const [scheme, saltHex, hashHex] = value.split('$')
-  if (scheme !== 'scrypt' || !saltHex || !hashHex) return false
-  const key = await scryptAsync(password, Buffer.from(saltHex, 'hex'))
-  const expected = Buffer.from(hashHex, 'hex')
-  return expected.length === key.length && crypto.timingSafeEqual(expected, key)
-}
 
 // ---- Session token ----
 // รูปแบบ <payload base64url>.<HMAC-SHA256 base64url> คล้าย JWT แต่ไม่ต้องพึ่ง library เพิ่ม
