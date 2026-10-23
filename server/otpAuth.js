@@ -22,12 +22,21 @@ if (!process.env.AUTH_SECRET) {
   console.warn('⚠️  ไม่พบ AUTH_SECRET ใน server/.env — ใช้คีย์ชั่วคราว (session จะหายเมื่อ restart)')
 }
 
+// ส่งอีเมลได้ 2 ทาง: Resend API (HTTPS) ถ้าตั้ง RESEND_API_KEY ไม่งั้นใช้ Gmail SMTP
+// Render แผน Free ส่งออกทางพอร์ต SMTP ไม่ได้ production จึงควรใช้ Resend
+const RESEND_API_URL = 'https://api.resend.com/emails'
+// ยังไม่ได้ยืนยันโดเมนกับ Resend ใช้ได้แค่ onboarding@resend.dev (ส่งถึงอีเมลเจ้าของบัญชี Resend เท่านั้น)
+const RESEND_FROM = process.env.RESEND_FROM || 'SupportFit <onboarding@resend.dev>'
+
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 })
 
+const useResend = () => Boolean(process.env.RESEND_API_KEY)
+
 function isMailConfigured() {
+  if (useResend()) return true
   const pass = process.env.EMAIL_PASS || ''
   return Boolean(process.env.EMAIL_USER) && pass.replace(/\s/g, '').length === 16
 }
@@ -104,13 +113,28 @@ async function sendOtp(email, purpose = 'verify', lang = 'en') {
 }
 
 async function mailOtp(email, code, copy) {
-  await transporter.sendMail({
-    from: `"SupportFit" <${process.env.EMAIL_USER}>`,
+  const message = {
     to: email,
     subject: `${copy.subject}: ${code}`,
     text: renderOtpText({ copy }),
     html: renderOtpEmail({ code, copy }),
+  }
+  if (useResend()) return sendViaResend(message)
+  await transporter.sendMail({ from: `"SupportFit" <${process.env.EMAIL_USER}>`, ...message })
+}
+
+async function sendViaResend({ to, subject, text, html }) {
+  const response = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, text, html }),
+    signal: AbortSignal.timeout(15000),
   })
+  if (!response.ok) {
+    // Resend ตอบ { statusCode, name, message } เช่น ส่งถึงอีเมลอื่นตอนยังไม่ได้ยืนยันโดเมน
+    const body = await response.json().catch(() => ({}))
+    throw new Error(`Resend ${response.status}: ${body.message || response.statusText}`)
+  }
 }
 
 // คืนค่า 'ok' | 'not_found' | 'expired' | 'too_many_attempts' | 'invalid'

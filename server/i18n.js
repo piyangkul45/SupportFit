@@ -18,9 +18,9 @@ const MESSAGES = {
       tooManyAttempts: 'Too many incorrect attempts. Please request a new code.',
     },
     mail: {
-      notConfigured: 'Sender email is not configured. Set EMAIL_USER and EMAIL_PASS (16-character App Password) in server/.env',
+      notConfigured: 'Sender email is not configured. Set RESEND_API_KEY, or EMAIL_USER and EMAIL_PASS (16-character App Password) in server/.env',
       unavailable: 'The email service is not available right now. Please try again later.',
-      sendFailed: 'Could not send the email. Check EMAIL_USER/EMAIL_PASS or try again.',
+      sendFailed: 'Could not send the email. Check RESEND_API_KEY (or EMAIL_USER/EMAIL_PASS) or try again.',
       genericSendFailed: 'Could not send the code',
     },
     auth: {
@@ -122,9 +122,9 @@ const MESSAGES = {
       tooManyAttempts: 'กรอกรหัสผิดหลายครั้งเกินไป กรุณากดขอรหัสใหม่',
     },
     mail: {
-      notConfigured: 'ยังไม่ได้ตั้งค่าอีเมลผู้ส่ง กรุณาใส่ EMAIL_USER และ EMAIL_PASS (App Password 16 หลัก) ใน server/.env',
+      notConfigured: 'ยังไม่ได้ตั้งค่าอีเมลผู้ส่ง กรุณาใส่ RESEND_API_KEY หรือ EMAIL_USER และ EMAIL_PASS (App Password 16 หลัก) ใน server/.env',
       unavailable: 'ระบบส่งอีเมลยังไม่พร้อมใช้งาน กรุณาลองใหม่ภายหลัง',
-      sendFailed: 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบ EMAIL_USER/EMAIL_PASS หรือลองใหม่อีกครั้ง',
+      sendFailed: 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบ RESEND_API_KEY (หรือ EMAIL_USER/EMAIL_PASS) หรือลองใหม่อีกครั้ง',
       genericSendFailed: 'ส่งรหัสไม่สำเร็จ',
     },
     auth: {
