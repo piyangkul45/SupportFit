@@ -1,6 +1,5 @@
 require('dotenv').config()
 const crypto = require('crypto')
-const nodemailer = require('nodemailer')
 const supabase = require('./supabaseClient')
 const { hashPassword, verifyPassword } = require('./password')
 const { renderOtpEmail, renderOtpText } = require('./emailTemplate')
@@ -22,23 +21,17 @@ if (!process.env.AUTH_SECRET) {
   console.warn('⚠️  ไม่พบ AUTH_SECRET ใน server/.env — ใช้คีย์ชั่วคราว (session จะหายเมื่อ restart)')
 }
 
-// ส่งอีเมลได้ 2 ทาง: Resend API (HTTPS) ถ้าตั้ง RESEND_API_KEY ไม่งั้นใช้ Gmail SMTP
-// Render แผน Free ส่งออกทางพอร์ต SMTP ไม่ได้ production จึงควรใช้ Resend
+// ส่งรหัสได้ 2 ทาง: Resend API (HTTPS) ถ้าตั้ง RESEND_API_KEY ไม่งั้น console.log รหัสออก server log (ดูใน Render Logs)
+// ไม่ใช้ Gmail SMTP แล้ว เพราะ Render แผน Free บล็อกพอร์ต SMTP ทำให้ request ค้าง
 const RESEND_API_URL = 'https://api.resend.com/emails'
 // ยังไม่ได้ยืนยันโดเมนกับ Resend ใช้ได้แค่ onboarding@resend.dev (ส่งถึงอีเมลเจ้าของบัญชี Resend เท่านั้น)
 const RESEND_FROM = process.env.RESEND_FROM || 'SupportFit <onboarding@resend.dev>'
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-})
-
 const useResend = () => Boolean(process.env.RESEND_API_KEY)
 
+// ไม่มี Resend ก็ยังส่งรหัสได้เสมอ เพราะ fallback เป็นการ log รหัสออก console
 function isMailConfigured() {
-  if (useResend()) return true
-  const pass = process.env.EMAIL_PASS || ''
-  return Boolean(process.env.EMAIL_USER) && pass.replace(/\s/g, '').length === 16
+  return true
 }
 
 // ---- OTP store (ตาราง otp_codes บน Supabase) ----
@@ -120,7 +113,7 @@ async function mailOtp(email, code, copy) {
     html: renderOtpEmail({ code, copy }),
   }
   if (useResend()) return sendViaResend(message)
-  await transporter.sendMail({ from: `"SupportFit" <${process.env.EMAIL_USER}>`, ...message })
+  console.log(`[OTP] ${copy.subject} -> ${email}: ${code} (หมดอายุใน ${OTP_TTL_MS / 60000} นาที)`)
 }
 
 async function sendViaResend({ to, subject, text, html }) {
