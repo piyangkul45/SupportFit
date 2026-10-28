@@ -465,5 +465,28 @@
     "close": "ปิด",
     "saveFailed": "บันทึกโปรไฟล์ไม่สำเร็จ",
     "saved": "อัปเดตเป้าหมายรายวันแล้ว"
+  },
+  "meal": {
+    "title": "บันทึกอาหารด้วย AI",
+    "poweredBy": "Gemini",
+    "placeholder": "วันนี้กินอะไรไป? เช่น \"ข้าวมันไก่กับชาเย็น\"",
+    "startRecording": "เริ่มพูด",
+    "stopRecording": "หยุดพูด",
+    "listening": "กำลังฟัง… กดหยุดเมื่อพูดเสร็จ",
+    "micError": "ใช้ไมโครโฟนไม่ได้ กรุณาตรวจสอบสิทธิ์หรือพิมพ์แทน",
+    "analyze": "วิเคราะห์ด้วย AI",
+    "analyzing": "กำลังวิเคราะห์…",
+    "analyzeFailed": "วิเคราะห์อาหารไม่สำเร็จ",
+    "preview": "ค่าประมาณจาก AI — ตรวจก่อนบันทึก",
+    "removeItem": "นำ {{name}} ออก",
+    "save": "บันทึก {{n}} รายการ · {{kcal}} kcal",
+    "saving": "กำลังบันทึก…",
+    "todayTitle": "อาหารวันนี้",
+    "total": "รวม",
+    "kcalUnit": "kcal",
+    "kcal": "{{value}} kcal",
+    "macros": "P {{protein}}g · C {{carbs}}g · F {{fat}}g",
+    "empty": "วันนี้ยังไม่ได้บันทึกอาหาร",
+    "deleteItem": "ลบ {{name}}"
   }
 }

@@ -45,6 +45,11 @@ const MESSAGES = {
       textRequired: 'Please provide the text to parse',
       notUnderstood: "Couldn't understand that command",
     },
+    meal: {
+      aiUnavailable: 'AI meal analysis is not configured. Set GEMINI_API_KEY in server/.env',
+      notFood: "Couldn't find any food or drinks in that text",
+      analyzeFailed: 'AI could not analyze this meal right now. Please try again.',
+    },
     data: {
       profileLoadFailed: 'Could not load the user profile',
       profileSaveFailed: 'Could not save your profile',
@@ -148,6 +153,11 @@ const MESSAGES = {
     parser: {
       textRequired: 'กรุณาระบุข้อความที่ต้องการแปลง',
       notUnderstood: 'ไม่เข้าใจคำสั่งนี้',
+    },
+    meal: {
+      aiUnavailable: 'ยังไม่ได้ตั้งค่า AI วิเคราะห์อาหาร กรุณาใส่ GEMINI_API_KEY ใน server/.env',
+      notFood: 'ไม่พบอาหารหรือเครื่องดื่มในข้อความนี้',
+      analyzeFailed: 'AI วิเคราะห์อาหารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
     },
     data: {
       profileLoadFailed: 'ไม่สามารถโหลดโปรไฟล์ผู้ใช้ได้',

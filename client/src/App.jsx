@@ -6,6 +6,7 @@ import VoiceRecorder from './components/VoiceRecorder'
 import RestTimer from './components/RestTimer'
 import LogsList from './components/LogsList'
 import MacroDashboard from './components/MacroDashboard'
+import MealLogger from './components/MealLogger'
 import AuthPage from './components/AuthPage'
 import Header from './components/Header'
 import Programs from './pages/Programs'
@@ -105,6 +106,7 @@ const DashboardPages = memo(function DashboardPages({
   isLoadingLogs,
   clearProgram,
   handleSaveItems,
+  handleSaveMeal,
   handleRestFinish,
   openEditor,
   handleDelete,
@@ -144,6 +146,14 @@ const DashboardPages = memo(function DashboardPages({
                     onSave={handleSaveItems}
                     exerciseHint={routineExercise}
                     onClearHint={selectExercise}
+                  />
+                </motion.div>
+                <motion.div variants={RISE}>
+                  <MealLogger
+                    foodLogs={foodLogs}
+                    loading={isLoadingLogs}
+                    onSave={handleSaveMeal}
+                    onDelete={handleDelete}
                   />
                 </motion.div>
                 <AnimatePresence>
@@ -360,6 +370,45 @@ function Dashboard() {
     [userId, refreshLogs, t, i18n, notify]
   )
 
+  // บันทึกเมนูที่ AI Meal Logger วิเคราะห์ (name, *_g) เป็น food_logs คืน boolean[] ว่ารายการไหนสำเร็จ
+  const handleSaveMeal = useCallback(
+    async (items) => {
+      if (!userId) {
+        notify('error', { key: 'dashboard.feedback.notReady' })
+        return items.map(() => false)
+      }
+
+      const results = await Promise.all(
+        items.map((item) =>
+          createFoodLog({
+            user_id: userId,
+            food_name: item.name,
+            calories: item.calories,
+            protein: item.protein_g,
+            carbs: item.carbs_g,
+            fat: item.fat_g,
+          }).then(
+            () => true,
+            (err) => {
+              console.error(err)
+              return false
+            }
+          )
+        )
+      )
+
+      const parts = items
+        .filter((_, index) => results[index])
+        .map((item) => ({ key: 'dashboard.feedback.logged', params: { name: item.name } }))
+      if (results.includes(false)) notify('error', ...parts, { key: 'dashboard.feedback.saveFailed' })
+      else notify('success', ...parts)
+
+      refreshLogs()
+      return results
+    },
+    [userId, refreshLogs, notify]
+  )
+
   // ---- แก้ไข / ลบ รายการที่บันทึกแล้ว ----
   const handleEditSave = useCallback(
     async (values) => {
@@ -518,6 +567,7 @@ function Dashboard() {
           isLoadingLogs={isLoadingLogs}
           clearProgram={clearProgram}
           handleSaveItems={handleSaveItems}
+          handleSaveMeal={handleSaveMeal}
           handleRestFinish={handleRestFinish}
           openEditor={openEditor}
           handleDelete={handleDelete}

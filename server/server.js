@@ -7,6 +7,7 @@ const { runMigrations } = require('./migrate')
 const { i18nMiddleware, translate } = require('./i18n')
 const { parseCommand } = require('./parser')
 const { createVoiceParser } = require('./parser/hybrid')
+const { createMealAnalyzer } = require('./parser/mealGemini')
 const createProgramsRouter = require('./routes/programs')
 
 const app = express()
@@ -418,6 +419,26 @@ app.post('/api/parse-voice', requireAuth, async (req, res) => {
   const result = await parseVoice(text.slice(0, MAX_PARSE_TEXT_LENGTH), { exerciseHint: req.body?.exercise_hint })
   if (!result) return res.status(422).json({ error: req.t('parser.notUnderstood'), reason: 'not_understood' })
   res.json(result)
+})
+
+// ---- AI Meal Logger ----
+// ข้อความว่ากินอะไรไป -> { items: [{ name, calories, protein_g, carbs_g, fat_g }] } (ยังไม่บันทึก)
+// client ให้ผู้ใช้ตรวจ/แก้ก่อน แล้วบันทึกผ่าน POST /api/food-logs ตามเดิม
+const analyzeMeal = createMealAnalyzer()
+
+app.post('/api/meals/analyze', requireAuth, async (req, res) => {
+  const text = String(req.body?.text || '').trim()
+  if (!text) return res.status(400).json({ error: req.t('parser.textRequired') })
+  if (!analyzeMeal) return res.status(503).json({ error: req.t('meal.aiUnavailable'), reason: 'ai_unavailable' })
+
+  try {
+    const items = await analyzeMeal(text.slice(0, MAX_PARSE_TEXT_LENGTH))
+    if (!items.length) return res.status(422).json({ error: req.t('meal.notFood'), reason: 'not_food' })
+    res.json({ items })
+  } catch (error) {
+    console.error('meal analyze failed:', error)
+    res.status(502).json({ error: req.t('meal.analyzeFailed'), reason: 'ai_failed' })
+  }
 })
 
 // ---- Workout logs ----

@@ -90,7 +90,11 @@ export const updateProfile = (data) =>
 export const parseCommand = (text, exerciseHint) =>
   request('/parse-voice', { method: 'POST', body: JSON.stringify({ text, exercise_hint: exerciseHint || undefined }) })
 
-export const getWorkoutLogs = (userId) => request(`/workout-logs?user_id=${userId}`)
+// AI Meal Logger: ข้อความว่ากินอะไรไป -> { items: [{ name, calories, protein_g, carbs_g, fat_g }] } (Gemini ฝั่ง server)
+// ยังไม่บันทึก ให้ผู้ใช้ตรวจก่อนแล้วบันทึกด้วย createFoodLog (422 = ไม่พบอาหาร, 503 = ไม่ได้ตั้ง GEMINI_API_KEY)
+export const analyzeMeal = (text) => request('/meals/analyze', { method: 'POST', body: JSON.stringify({ text }) })
+
+export const getWorkoutLogs =(userId) => request(`/workout-logs?user_id=${userId}`)
 
 export const createWorkoutLog = (data) =>
   request('/workout-logs', { method: 'POST', body: JSON.stringify(data) })

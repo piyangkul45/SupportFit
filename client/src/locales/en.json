@@ -465,5 +465,28 @@
     "close": "Close",
     "saveFailed": "Could not save your profile",
     "saved": "Daily targets updated"
+  },
+  "meal": {
+    "title": "AI Meal Logger",
+    "poweredBy": "Gemini",
+    "placeholder": "What did you eat? e.g. \"Chicken rice and a Thai iced tea\"",
+    "startRecording": "Start voice input",
+    "stopRecording": "Stop voice input",
+    "listening": "Listening… tap stop when you are done",
+    "micError": "Could not use the microphone. Please check permissions or type instead.",
+    "analyze": "Analyze with AI",
+    "analyzing": "Analyzing…",
+    "analyzeFailed": "Could not analyze this meal",
+    "preview": "AI estimate — check before saving",
+    "removeItem": "Remove {{name}}",
+    "save": "Save {{n}} item(s) · {{kcal}} kcal",
+    "saving": "Saving…",
+    "todayTitle": "Today's meals",
+    "total": "Total",
+    "kcalUnit": "kcal",
+    "kcal": "{{value}} kcal",
+    "macros": "P {{protein}}g · C {{carbs}}g · F {{fat}}g",
+    "empty": "Nothing logged yet today",
+    "deleteItem": "Delete {{name}}"
   }
 }
