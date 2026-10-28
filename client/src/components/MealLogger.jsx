@@ -1,9 +1,10 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Mic, Sparkles, Square, Trash2, UtensilsCrossed, X } from 'lucide-react'
+import { Sparkles, Trash2, UtensilsCrossed, X } from 'lucide-react'
 import { analyzeMeal } from '../utils/api'
 import { isToday } from '../utils/date'
 import { ButtonLabel } from './Spinner'
+import { MicButton, Waveform } from './VoiceInput'
 
 const SpeechRecognition =
   typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
@@ -149,35 +150,33 @@ export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete })
         </span>
       </div>
 
-      <form onSubmit={handleAnalyze} className="relative space-y-3">
-        <div className="relative">
+      {SpeechRecognition && (
+        <div className="relative flex flex-col items-center gap-2 py-2">
+          <MicButton isListening={isListening} onClick={toggleListening} />
+          <Waveform isListening={isListening} />
+          <p className="text-xs font-medium text-slate-400">
+            {isListening ? t('voice.listening') : t('voice.tapToStart')}
+          </p>
+        </div>
+      )}
+
+      <form onSubmit={handleAnalyze} className="relative mt-3 space-y-3">
+        <div>
+          <label htmlFor="meal-text" className="mb-1.5 block text-xs font-medium text-slate-400">
+            {t('meal.transcriptLabel')}
+          </label>
+          {/* ระหว่างฟังแสดงคำที่กำลังถอดความต่อท้าย (ล็อกการพิมพ์ไว้) หยุดฟังแล้วแก้ข้อความได้ก่อนวิเคราะห์ */}
           <textarea
+            id="meal-text"
             value={isListening && interim ? `${text}${text ? ' ' : ''}${interim}` : text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT_LENGTH))}
             readOnly={isListening}
             rows={3}
             maxLength={MAX_TEXT_LENGTH}
             placeholder={t('meal.placeholder')}
-            aria-label={t('meal.placeholder')}
-            className="input-field resize-none pr-14"
+            className="input-field resize-none"
           />
-          {SpeechRecognition && (
-            <button
-              type="button"
-              onClick={toggleListening}
-              aria-label={isListening ? t('meal.stopRecording') : t('meal.startRecording')}
-              aria-pressed={isListening}
-              className={`absolute right-2.5 top-2.5 flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
-                isListening
-                  ? 'animate-pulse border-red-400/40 bg-red-500/20 text-red-300'
-                  : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {isListening ? <Square className="h-4 w-4" aria-hidden /> : <Mic className="h-4 w-4" aria-hidden />}
-            </button>
-          )}
         </div>
-        {isListening && <p className="text-xs text-red-300">{t('meal.listening')}</p>}
 
         <button type="submit" disabled={!text.trim() || isAnalyzing} className="btn-accent w-full">
           <ButtonLabel loading={isAnalyzing} loadingText={t('meal.analyzing')}>
