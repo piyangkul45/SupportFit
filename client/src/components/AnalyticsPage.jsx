@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Activity, ChartColumn, Flame, TrendingUp } from 'lucide-react'
+import { Activity, Flame, TrendingUp } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -15,7 +15,12 @@ import {
 import { getDailyMacroSeries, getExerciseNames, getExerciseSeries } from '../utils/analytics'
 import AnimatedNumber from './AnimatedNumber'
 import AnalyticsSkeleton from './AnalyticsSkeleton'
-import { HistoryLog, WeeklyCaloriesCard, WeightTrendCard } from './StatsCards'
+import { HistoryLog, MacroHistoryCard, WeeklyCaloriesCard, WeightTrendCard } from './StatsCards'
+import { getFoodLogs, getWorkoutLogs } from '../utils/api'
+import { ALL_TIME, sinceForRange } from '../utils/stats'
+
+// ช่วงเวลา -> จำนวนวัน ('all' = ไม่จำกัด)
+const rangeDays = (range) => (range === ALL_TIME ? Infinity : range)
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'rgba(16, 20, 29, 0.92)',
@@ -115,6 +120,37 @@ function AnalyticsPage({ workoutLogs, foodLogs, loading, user, onProfileWeight }
     ? macroSeries.reduce((sum, point) => sum + (point.calories || 0), 0) / macroSeries.length
     : 0
 
+  // ---- ข้อมูลตามช่วงเวลา (แคลอรีเข้า/ออก, ประวัติแคลอรี & โปรตีน, ประวัติย้อนหลัง) ----
+  // แต่ละการ์ดเลือกช่วงเอง โหลดจาก Supabase ครั้งเดียวให้ครอบคลุมช่วงที่ยาวที่สุด (?since=) แล้วกรองต่อในการ์ด
+  // ช่วงที่โหลดไว้แล้ว (covered) ไม่โหลดซ้ำ ; เปิดแท็บใหม่ = โหลดใหม่ (เห็นรายการที่เพิ่ง เพิ่ม/แก้/ลบ บน Dashboard)
+  const [ranges, setRanges] = useState({ calories: 7, macros: 30, history: 30 })
+  // failed = ช่วงที่โหลดไม่สำเร็จล่าสุด (ไม่วนโหลดซ้ำ เลือกช่วงอื่นแล้วค่อยลองใหม่)
+  const [rangeData, setRangeData] = useState({ covered: 0, failed: null, foodLogs: [], workoutLogs: [] })
+  const userId = user?.id
+  const needed = Math.max(...Object.values(ranges).map(rangeDays))
+  const isFetchingRange = Boolean(userId) && needed > rangeData.covered && rangeData.failed !== needed
+
+  useEffect(() => {
+    if (!isFetchingRange) return undefined
+    let cancelled = false
+    const since = needed === Infinity ? undefined : sinceForRange(needed)
+    Promise.all([getFoodLogs(userId, since), getWorkoutLogs(userId, since)])
+      .then(([foods, workouts]) => !cancelled && setRangeData({ covered: needed, failed: null, foodLogs: foods, workoutLogs: workouts }))
+      .catch((err) => {
+        console.error('โหลดข้อมูลตามช่วงเวลาไม่สำเร็จ', err)
+        if (!cancelled) setRangeData((prev) => ({ ...prev, failed: needed }))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isFetchingRange, userId, needed])
+
+  // ยังไม่ได้โหลด/โหลดไม่สำเร็จ -> ใช้ข้อมูลที่ Dashboard โหลดไว้แทน
+  const rangeFoodLogs = rangeData.covered ? rangeData.foodLogs : foodLogs
+  const rangeWorkoutLogs = rangeData.covered ? rangeData.workoutLogs : workoutLogs
+  const isLoadingRange = (range) => isFetchingRange && rangeDays(range) > rangeData.covered
+  const setRange = (card) => (range) => setRanges((prev) => ({ ...prev, [card]: range }))
+
   if (loading) return <AnalyticsSkeleton />
 
   return (
@@ -155,10 +191,13 @@ function AnalyticsPage({ workoutLogs, foodLogs, loading, user, onProfileWeight }
       <div className="grid gap-5 lg:grid-cols-2">
         <WeightTrendCard onProfileWeight={onProfileWeight} delay={0.12} />
         <WeeklyCaloriesCard
-          foodLogs={foodLogs}
-          workoutLogs={workoutLogs}
+          foodLogs={rangeFoodLogs}
+          workoutLogs={rangeWorkoutLogs}
           bodyWeightKg={user?.weight_kg}
           targetCalories={user?.target_calories ?? 2000}
+          range={ranges.calories}
+          onRangeChange={setRange('calories')}
+          loading={isLoadingRange(ranges.calories)}
           delay={0.15}
         />
       </div>
@@ -239,65 +278,26 @@ function AnalyticsPage({ workoutLogs, foodLogs, loading, user, onProfileWeight }
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard
-          title={t('analytics.macroHistory')}
-          Icon={ChartColumn}
-          tone="border-violet-400/20 bg-gradient-to-br from-violet-500/15 to-cyan-400/15 text-violet-300"
-          empty={macroSeries.length === 0}
-          emptyText={t('analytics.noFoodData')}
+        <MacroHistoryCard
+          foodLogs={rangeFoodLogs}
+          targetCalories={user?.target_calories ?? 2000}
+          targetProtein={user?.target_protein ?? 150}
+          range={ranges.macros}
+          onRangeChange={setRange('macros')}
+          loading={isLoadingRange(ranges.macros)}
           delay={0.18}
-        >
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={macroSeries} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-              <GradientDefs id="cal" from="#34d399" to="#22d3ee" />
-              <GradientDefs id="pro" from="#8b5cf6" to="#ec4899" />
-              <CartesianGrid strokeDasharray="3 6" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" tick={AXIS_TICK} axisLine={false} tickLine={false} />
-              <YAxis
-                yAxisId="left"
-                tick={AXIS_TICK}
-                axisLine={false}
-                tickLine={false}
-                label={{ value: t('analytics.caloriesAxis'), angle: -90, position: 'insideLeft', ...AXIS_LABEL }}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                tick={AXIS_TICK}
-                axisLine={false}
-                tickLine={false}
-                label={{ value: t('analytics.proteinAxis'), angle: 90, position: 'insideRight', ...AXIS_LABEL }}
-              />
-              <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ stroke: 'rgba(255,255,255,0.15)' }} />
-              <Legend wrapperStyle={LEGEND_STYLE} iconType="circle" iconSize={8} />
-              <Area
-                yAxisId="left"
-                type="monotone"
-                dataKey="calories"
-                name={t('analytics.calories')}
-                stroke="url(#cal-stroke)"
-                fill="url(#cal-fill)"
-                strokeWidth={2.5}
-                dot={{ r: 3, fill: '#34d399', strokeWidth: 0 }}
-                activeDot={{ r: 5 }}
-              />
-              <Area
-                yAxisId="right"
-                type="monotone"
-                dataKey="protein"
-                name={t('analytics.protein')}
-                stroke="url(#pro-stroke)"
-                fill="url(#pro-fill)"
-                strokeWidth={2.5}
-                dot={{ r: 3, fill: '#8b5cf6', strokeWidth: 0 }}
-                activeDot={{ r: 5 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        />
       </div>
 
-      <HistoryLog foodLogs={foodLogs} workoutLogs={workoutLogs} bodyWeightKg={user?.weight_kg} delay={0.22} />
+      <HistoryLog
+        foodLogs={rangeFoodLogs}
+        workoutLogs={rangeWorkoutLogs}
+        bodyWeightKg={user?.weight_kg}
+        range={ranges.history}
+        onRangeChange={setRange('history')}
+        loading={isLoadingRange(ranges.history)}
+        delay={0.22}
+      />
     </div>
   )
 }

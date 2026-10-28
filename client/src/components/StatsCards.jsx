@@ -6,18 +6,56 @@ import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, R
 import { getWeightLogs, saveWeightLog } from '../utils/api'
 import { caloriesForLog } from '../utils/calories'
 import { localDateString } from '../utils/date'
-import { dailyCalorieSeries, historyByDate, lastNDates, longDate, shortDate } from '../utils/stats'
+import {
+  ALL_TIME,
+  dailyCalorieSeries,
+  dailyMacroSeries,
+  datesForRange,
+  historyByDate,
+  isWeeklyRange,
+  lastNDates,
+  logsInDates,
+  longDate,
+  shortDate,
+  toWeekly,
+} from '../utils/stats'
 import { ButtonLabel } from './Spinner'
 
 // สีของกราฟ (ตรวจด้วย dataviz validator บนพื้นการ์ด #10141d แล้ว: lightness/chroma/CVD/contrast ผ่านทั้งหมด)
 // Calories In = aqua, Calories Out = orange (ใช้ตรงกันทุกกราฟ) ; น้ำหนักตัวเป็นเส้นเดียวใช้ aqua
-const SERIES = { in: '#199e70', out: '#d95926', weight: '#199e70' }
+const SERIES = { in: '#199e70', out: '#d95926', weight: '#199e70', protein: '#9085e9' }
 const SURFACE = '#10141d'
 const AXIS_TICK = { fontSize: 11, fill: '#94a3b8' }
 const GRID = 'rgba(255,255,255,0.06)'
 const BASELINE = '#94a3b8'
 const WEIGHT_RANGES = [7, 30]
+const CALORIE_RANGES = [7, 14, 30]
+const HISTORY_RANGES = [7, 30, 90, ALL_TIME]
 const HISTORY_PAGE = 14
+
+// ขนาดแท่งตามจำนวนแท่งในกราฟ: 30 วัน = แท่งแคบ มุมโค้งเล็ก ช่องห่างระหว่างแท่ง 1px (ยังเห็นแยกกันบนมือถือ)
+function barSizing(count) {
+  if (count <= 8) return { maxBarSize: 22, radius: 4, barGap: 2, barCategoryGap: '24%' }
+  if (count <= 16) return { maxBarSize: 14, radius: 3, barGap: 2, barCategoryGap: '20%' }
+  return { maxBarSize: 9, radius: 2, barGap: 1, barCategoryGap: '16%' }
+}
+
+// ปุ่มเลือกช่วงเวลา: ตัวเลข = "7 วัน", 'all' = "ทั้งหมด"
+function RangeToggle({ ranges, value, onChange, t }) {
+  return (
+    <Segmented
+      label={t('stats.rangeLabel')}
+      value={value}
+      onChange={onChange}
+      options={ranges.map((range) => ({
+        value: range,
+        label: range === ALL_TIME ? t('stats.allTime') : t('stats.rangeDays', { count: range }),
+      }))}
+    />
+  )
+}
+
+const LoadingChart = ({ height = 260 }) => <div className="skeleton" style={{ height }} aria-hidden />
 
 function Card({ Icon, title, action, children, delay = 0 }) {
   return (
@@ -269,17 +307,28 @@ export const WeightTrendCard = memo(function WeightTrendCard({ onProfileWeight, 
   )
 })
 
-// ---- 2. กราฟแท่ง Calories In vs Calories Out 7 วัน + เส้นประเป้าหมายรายวัน ----
-export const WeeklyCaloriesCard = memo(function WeeklyCaloriesCard({ foodLogs, workoutLogs, bodyWeightKg, targetCalories, delay }) {
+// ---- 2. กราฟแท่ง Calories In vs Calories Out รายวัน (7/14/30 วัน) + เส้นประเป้าหมายรายวัน ----
+// range/onRangeChange อยู่ที่ AnalyticsPage (โหลดข้อมูลจาก Supabase ตามช่วงที่เลือก) ; loading = กำลังโหลดช่วงที่ยาวขึ้น
+export const WeeklyCaloriesCard = memo(function WeeklyCaloriesCard({
+  foodLogs,
+  workoutLogs,
+  bodyWeightKg,
+  targetCalories,
+  range,
+  onRangeChange,
+  loading,
+  delay,
+}) {
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage
   const kcal = t('common.units.kcal')
   const target = Number(targetCalories) || 0
 
   const series = useMemo(
-    () => dailyCalorieSeries(foodLogs, workoutLogs, lastNDates(7), bodyWeightKg),
-    [foodLogs, workoutLogs, bodyWeightKg]
+    () => dailyCalorieSeries(foodLogs, workoutLogs, lastNDates(range), bodyWeightKg),
+    [foodLogs, workoutLogs, bodyWeightKg, range]
   )
+  const sizing = barSizing(series.length)
   const hasData = series.some((day) => day.caloriesIn || day.caloriesOut)
   const loggedDays = series.filter((day) => day.caloriesIn > 0)
   const avgIn = loggedDays.length ? Math.round(loggedDays.reduce((sum, day) => sum + day.caloriesIn, 0) / loggedDays.length) : 0
@@ -288,14 +337,34 @@ export const WeeklyCaloriesCard = memo(function WeeklyCaloriesCard({ foodLogs, w
   const format = (value) => Math.round(value).toLocaleString()
 
   return (
-    <Card Icon={ChartColumn} title={t('stats.calories.title')} delay={delay}>
-      {!hasData ? (
-        <EmptyChart>{t('stats.calories.empty')}</EmptyChart>
+    <Card
+      Icon={ChartColumn}
+      title={t('stats.calories.title')}
+      delay={delay}
+      action={<RangeToggle ranges={CALORIE_RANGES} value={range} onChange={onRangeChange} t={t} />}
+    >
+      {loading ? (
+        <LoadingChart />
+      ) : !hasData ? (
+        <EmptyChart>{t('stats.calories.empty', { count: range })}</EmptyChart>
       ) : (
         <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={series} margin={{ top: 16, right: 12, left: 0, bottom: 0 }} barGap={2} barCategoryGap="24%">
+          <BarChart
+            data={series}
+            margin={{ top: 16, right: 12, left: 0, bottom: 0 }}
+            barGap={sizing.barGap}
+            barCategoryGap={sizing.barCategoryGap}
+          >
             <CartesianGrid stroke={GRID} vertical={false} />
-            <XAxis dataKey="date" tickFormatter={(value) => shortDate(value, language)} tick={AXIS_TICK} axisLine={false} tickLine={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(value) => shortDate(value, language)}
+              tick={AXIS_TICK}
+              axisLine={false}
+              tickLine={false}
+              interval="preserveStartEnd"
+              minTickGap={18}
+            />
             <YAxis
               domain={[0, (max) => Math.ceil((Math.max(max, target) * 1.1) / 100) * 100]}
               tick={AXIS_TICK}
@@ -340,8 +409,22 @@ export const WeeklyCaloriesCard = memo(function WeeklyCaloriesCard({ foodLogs, w
                 label={{ value: t('stats.calories.targetLabel', { value: format(target) }), position: 'insideTopRight', fill: '#cbd5e1', fontSize: 11 }}
               />
             )}
-            <Bar dataKey="caloriesIn" name={t('stats.calories.in')} fill={SERIES.in} radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
-            <Bar dataKey="caloriesOut" name={t('stats.calories.out')} fill={SERIES.out} radius={[4, 4, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+            <Bar
+              dataKey="caloriesIn"
+              name={t('stats.calories.in')}
+              fill={SERIES.in}
+              radius={[sizing.radius, sizing.radius, 0, 0]}
+              maxBarSize={sizing.maxBarSize}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="caloriesOut"
+              name={t('stats.calories.out')}
+              fill={SERIES.out}
+              radius={[sizing.radius, sizing.radius, 0, 0]}
+              maxBarSize={sizing.maxBarSize}
+              isAnimationActive={false}
+            />
           </BarChart>
         </ResponsiveContainer>
       )}
@@ -364,6 +447,134 @@ export const WeeklyCaloriesCard = memo(function WeeklyCaloriesCard({ foodLogs, w
   )
 })
 
+// กราฟแท่งเล็ก 1 ตัวของ MacroHistoryCard (แกน Y เดียว ; syncId ทำให้ tooltip/เคอร์เซอร์ตรงวันเดียวกันทั้ง 2 กราฟ)
+function MacroBars({ data, dataKey, color, target, targetLabel, unit, title, language, weekly, showXAxis, height, t }) {
+  const sizing = barSizing(data.length)
+  const format = (value) => Math.round(value).toLocaleString()
+  return (
+    <div>
+      <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-400">
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+        {title}
+      </p>
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={data} syncId="macro-history" margin={{ top: 8, right: 12, left: 0, bottom: 0 }} barCategoryGap={sizing.barCategoryGap}>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis
+            dataKey="date"
+            hide={!showXAxis}
+            tickFormatter={(value) => shortDate(value, language)}
+            tick={AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            interval="preserveStartEnd"
+            minTickGap={18}
+          />
+          <YAxis
+            domain={[0, (max) => Math.ceil((Math.max(max, target || 0) * 1.1) / 10) * 10 || 10]}
+            tick={AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            width={44}
+          />
+          <Tooltip
+            cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null
+              const row = payload[0].payload
+              return (
+                <TooltipBox
+                  title={weekly ? t('stats.macros.weekOf', { date: shortDate(label, language) }) : longDate(label, language)}
+                  rows={[{ label: weekly ? t('stats.macros.avgPerDay', { name: title }) : title, value: `${format(row[dataKey])} ${unit}`, color }]}
+                  footer={weekly ? t('stats.macros.loggedDays', { count: row.loggedDays }) : null}
+                />
+              )
+            }}
+          />
+          {target > 0 && (
+            <ReferenceLine
+              y={target}
+              stroke={BASELINE}
+              strokeDasharray="4 4"
+              strokeWidth={1.5}
+              ifOverflow="extendDomain"
+              label={{ value: targetLabel, position: 'insideTopRight', fill: '#cbd5e1', fontSize: 11 }}
+            />
+          )}
+          <Bar dataKey={dataKey} name={title} fill={color} radius={[sizing.radius, sizing.radius, 0, 0]} maxBarSize={sizing.maxBarSize} isAnimationActive={false} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ---- ประวัติแคลอรี & โปรตีน (7/30/90 วัน/ทั้งหมด) ----
+// 2 กราฟซ้อนกัน (small multiples) แทนกราฟเดียว 2 แกน Y ; ช่วงยาวกว่า 31 วันแสดงเป็นค่าเฉลี่ยต่อวันรายสัปดาห์
+export const MacroHistoryCard = memo(function MacroHistoryCard({ foodLogs, targetCalories, targetProtein, range, onRangeChange, loading, delay }) {
+  const { t, i18n } = useTranslation()
+  const language = i18n.resolvedLanguage
+  const { data, weekly, hasData } = useMemo(() => {
+    const dates = datesForRange(range, foodLogs)
+    const daily = dailyMacroSeries(logsInDates(foodLogs, dates), dates)
+    const isWeekly = isWeeklyRange(dates)
+    return {
+      data: isWeekly ? toWeekly(daily, ['calories', 'protein'], (row) => row.meals > 0) : daily,
+      weekly: isWeekly,
+      hasData: daily.some((row) => row.meals > 0),
+    }
+  }, [foodLogs, range])
+  const format = (value) => Math.round(value).toLocaleString()
+
+  return (
+    <Card
+      Icon={ChartColumn}
+      title={t('analytics.macroHistory')}
+      delay={delay}
+      action={<RangeToggle ranges={HISTORY_RANGES} value={range} onChange={onRangeChange} t={t} />}
+    >
+      {loading ? (
+        <LoadingChart height={290} />
+      ) : !hasData ? (
+        <EmptyChart>{t('analytics.noFoodData')}</EmptyChart>
+      ) : (
+        <>
+          {weekly && <p className="mb-2 text-[11px] text-slate-500">{t('stats.macros.weeklyNote')}</p>}
+          <div className="space-y-3">
+            <MacroBars
+              data={data}
+              dataKey="calories"
+              color={SERIES.in}
+              target={Number(targetCalories) || 0}
+              targetLabel={t('stats.calories.targetLabel', { value: format(Number(targetCalories) || 0) })}
+              unit={t('common.units.kcal')}
+              title={t('analytics.calories')}
+              language={language}
+              weekly={weekly}
+              showXAxis={false}
+              height={130}
+              t={t}
+            />
+            <MacroBars
+              data={data}
+              dataKey="protein"
+              color={SERIES.protein}
+              target={Number(targetProtein) || 0}
+              targetLabel={t('stats.macros.targetLabel', { value: format(Number(targetProtein) || 0) })}
+              unit={t('common.units.g')}
+              title={t('analytics.protein')}
+              language={language}
+              weekly={weekly}
+              showXAxis
+              height={150}
+              t={t}
+            />
+          </div>
+        </>
+      )}
+    </Card>
+  )
+})
+
 // รายละเอียดการออกกำลังกาย 1 แถว: "4 × 8 · 60 กก." หรือ "30 นาที · 5 กม."
 function workoutDetail(log, t) {
   const parts = []
@@ -375,10 +586,14 @@ function workoutDetail(log, t) {
 }
 
 // ---- 3. ประวัติย้อนหลังแยกตามวัน: เลือกวัน -> รายการอาหาร (Macros) + ท่าฝึก (แคลอรีที่เผาผลาญ) ----
-export const HistoryLog = memo(function HistoryLog({ foodLogs, workoutLogs, bodyWeightKg, delay }) {
+// range/onRangeChange: ช่วงเวลาที่แสดง (7/30/90 วัน/ทั้งหมด) อยู่ที่ AnalyticsPage
+export const HistoryLog = memo(function HistoryLog({ foodLogs, workoutLogs, bodyWeightKg, range, onRangeChange, loading, delay }) {
   const { t, i18n } = useTranslation()
   const language = i18n.resolvedLanguage
-  const days = useMemo(() => historyByDate(foodLogs, workoutLogs, bodyWeightKg), [foodLogs, workoutLogs, bodyWeightKg])
+  const days = useMemo(() => {
+    const first = range === ALL_TIME ? '' : lastNDates(range)[0]
+    return historyByDate(foodLogs, workoutLogs, bodyWeightKg).filter((day) => day.date >= first)
+  }, [foodLogs, workoutLogs, bodyWeightKg, range])
   const [chosenDate, setChosenDate] = useState(null)
   const [visibleCount, setVisibleCount] = useState(HISTORY_PAGE)
   // วันที่เลือกไว้ไม่มีแล้ว (ลบรายการหมด) หรือยังไม่เลือก -> วันล่าสุด
@@ -388,8 +603,15 @@ export const HistoryLog = memo(function HistoryLog({ foodLogs, workoutLogs, body
   const format = (value) => Math.round(Number(value) || 0).toLocaleString()
 
   return (
-    <Card Icon={History} title={t('stats.history.title')} delay={delay}>
-      {!days.length ? (
+    <Card
+      Icon={History}
+      title={t('stats.history.title')}
+      delay={delay}
+      action={<RangeToggle ranges={HISTORY_RANGES} value={range} onChange={onRangeChange} t={t} />}
+    >
+      {loading ? (
+        <LoadingChart height={200} />
+      ) : !days.length ? (
         <p className="rounded-xl border border-dashed border-white/10 py-10 text-center text-sm text-slate-500">{t('stats.history.empty')}</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-[13rem_1fr]">

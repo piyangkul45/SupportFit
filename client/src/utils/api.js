@@ -94,7 +94,10 @@ export const parseCommand = (text, exerciseHint) =>
 // ยังไม่บันทึก ให้ผู้ใช้ตรวจก่อนแล้วบันทึกด้วย createFoodLog (422 = ไม่พบอาหาร, 503 = ไม่ได้ตั้ง GEMINI_API_KEY)
 export const analyzeMeal = (text) => request('/meals/analyze', { method: 'POST', body: JSON.stringify({ text }) })
 
-export const getWorkoutLogs =(userId) => request(`/workout-logs?user_id=${userId}`)
+// since (ISO timestamp, ไม่บังคับ) = เฉพาะรายการตั้งแต่เวลานั้น (หน้าสถิติโหลดตามช่วงที่เลือก)
+const sinceParam = (since) => (since ? `&since=${encodeURIComponent(since)}` : '')
+
+export const getWorkoutLogs = (userId, since) => request(`/workout-logs?user_id=${userId}${sinceParam(since)}`)
 
 export const createWorkoutLog = (data) =>
   request('/workout-logs', { method: 'POST', body: JSON.stringify(data) })
@@ -104,7 +107,7 @@ export const updateWorkoutLog = (id, data) =>
 
 export const deleteWorkoutLog = (id) => request(`/workout-logs/${id}`, { method: 'DELETE' })
 
-export const getFoodLogs = (userId) => request(`/food-logs?user_id=${userId}`)
+export const getFoodLogs = (userId, since) => request(`/food-logs?user_id=${userId}${sinceParam(since)}`)
 
 export const createFoodLog = (data) =>
   request('/food-logs', { method: 'POST', body: JSON.stringify(data) })

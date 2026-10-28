@@ -602,18 +602,19 @@
       "saved": "Saved {{weight}} kg for {{date}}"
     },
     "calories": {
-      "title": "Calories In vs Out · 7 days",
+      "title": "Calories In vs Out",
       "in": "Calories In",
       "out": "Calories Out",
       "net": "Net",
-      "empty": "No meals or workouts in the last 7 days yet",
       "targetLabel": "Target {{value}}",
       "overTarget": "{{value}} kcal above target",
       "underTarget": "{{value}} kcal below target",
       "avgIn": "Avg. calories in",
       "totalOut": "Total burned",
       "overDays": "Days over target",
-      "days": "days"
+      "days": "days",
+      "empty_one": "No meals or workouts in the last {{count}} day yet",
+      "empty_other": "No meals or workouts in the last {{count}} days yet"
     },
     "history": {
       "title": "History",
@@ -629,6 +630,16 @@
       "detail": "Details",
       "noFoods": "No meals logged this day",
       "noWorkouts": "No workouts logged this day"
+    },
+    "rangeLabel": "Time range",
+    "allTime": "All",
+    "macros": {
+      "weekOf": "Week of {{date}}",
+      "avgPerDay": "{{name}} · avg per day",
+      "loggedDays_one": "Average of {{count}} logged day",
+      "loggedDays_other": "Average of {{count}} logged days",
+      "weeklyNote": "Long ranges show weekly averages per logged day.",
+      "targetLabel": "Target {{value}} g"
     }
   }
 }

@@ -471,6 +471,29 @@ function maxOf(rows, field) {
   }, null)
 }
 
+// log ทั้งหมดของผู้ใช้ ใหม่ไปเก่า since (ISO timestamp, ไม่บังคับ) = เฉพาะที่ created_at >= since
+// ดึงทีละหน้า เพราะ Supabase คืนไม่เกิน 1000 แถวต่อ query (เกินนั้นข้อมูลเก่าจะหายไปเงียบ ๆ)
+const LOG_PAGE_SIZE = 1000
+
+async function selectUserLogs(table, userId, since) {
+  const sinceTime = since ? new Date(since) : null
+  const rows = []
+  for (let from = 0; ; from += LOG_PAGE_SIZE) {
+    let query = supabase
+      .from(table)
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, from + LOG_PAGE_SIZE - 1)
+    if (sinceTime && !Number.isNaN(sinceTime.getTime())) query = query.gte('created_at', sinceTime.toISOString())
+    const { data, error } = await query
+    if (error) return { error }
+    rows.push(...data)
+    if (data.length < LOG_PAGE_SIZE) return { data: rows }
+  }
+}
+
 // ประเภทกิจกรรมของ Workout Tracker (ตรงกับ check constraint ของ workout_logs.activity_type)
 const ACTIVITY_TYPES = ['strength', 'cardio', 'street']
 
@@ -486,11 +509,7 @@ app.get('/api/workout-logs', requireAuth, async (req, res) => {
     return handleSupabaseError(res, error, req.t('data.ownershipCheckFailed'))
   }
 
-  const { data, error } = await supabase
-    .from('workout_logs')
-    .select('*')
-    .eq('user_id', user_id)
-    .order('created_at', { ascending: false })
+  const { data, error } = await selectUserLogs('workout_logs', user_id, req.query.since)
   if (error) return handleSupabaseError(res, error, req.t('data.workoutLoadFailed'))
   res.json(data)
 })
@@ -656,11 +675,7 @@ app.get('/api/food-logs', requireAuth, async (req, res) => {
     return handleSupabaseError(res, error, req.t('data.ownershipCheckFailed'))
   }
 
-  const { data, error } = await supabase
-    .from('food_logs')
-    .select('*')
-    .eq('user_id', user_id)
-    .order('created_at', { ascending: false })
+  const { data, error } = await selectUserLogs('food_logs', user_id, req.query.since)
   if (error) return handleSupabaseError(res, error, req.t('data.foodLoadFailed'))
   res.json(data)
 })
