@@ -56,12 +56,11 @@ PORT=5000
 SUPABASE_URL=https://xxxxxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key   # แนะนำให้ใช้ (Settings > API > service_role secret)
 SUPABASE_ANON_KEY=your_anon_or_publishable_key    # fallback ถ้าไม่ได้ตั้ง service_role key ด้านบน
-EMAIL_USER=supportfit.official@gmail.com           # Gmail ที่ใช้ส่ง OTP
-EMAIL_PASS=your_16_char_app_password              # Gmail App Password 16 หลัก
+RESEND_API_KEY=re_xxxxxxxx                        # Resend API key ที่ใช้ส่งอีเมล OTP
 AUTH_SECRET=your_random_secret                    # ใช้เซ็น session token
 ```
 
-> **Gmail App Password:** ต้องเปิด 2-Step Verification ของบัญชี Gmail ก่อน แล้วสร้างที่ Google Account > Security > App passwords นำรหัส 16 หลักมาใส่ใน `EMAIL_PASS`
+> **Resend:** สร้าง API key ที่ Resend Dashboard > API Keys ถ้ายังไม่ได้ยืนยันโดเมน ผู้ส่งจะเป็น `onboarding@resend.dev` ซึ่งส่งได้เฉพาะอีเมลเจ้าของบัญชี Resend — ยืนยันโดเมนแล้วตั้ง `RESEND_FROM` เพื่อส่งถึงผู้ใช้ทุกคน
 
 > **สำคัญ:** `SUPABASE_SERVICE_ROLE_KEY` เป็นคีย์ลับที่ bypass RLS ได้ทั้งหมด ใช้ได้แค่ฝั่ง server เท่านั้น ห้ามใส่ในโค้ดฝั่ง client หรือ commit ขึ้น git (ไฟล์ `.env` ถูก gitignore ไว้แล้ว)
 
@@ -80,7 +79,7 @@ VITE_API_URL=http://localhost:5000
 
 ### ระบบเข้าสู่ระบบ (Custom OTP)
 
-สมัคร/เข้าสู่ระบบด้วยอีเมลแบบไม่ใช้รหัสผ่าน: กรอกอีเมล → server สุ่ม OTP 6 หลัก (หมดอายุใน 5 นาที, กรอกผิดได้ไม่เกิน 5 ครั้ง, ขอใหม่ได้ทุก 60 วินาที) แล้วส่งผ่าน Gmail SMTP ด้วย Nodemailer → กรอกรหัสถูกต้องแล้ว server ออก session token (อายุ 7 วัน) ที่ client แนบไปกับทุก request ใน header `Authorization: Bearer <token>` โค้ดอยู่ที่ `server/otpAuth.js`
+สมัคร/เข้าสู่ระบบด้วยอีเมลแบบไม่ใช้รหัสผ่าน: กรอกอีเมล → server สุ่ม OTP 6 หลัก (หมดอายุใน 5 นาที, กรอกผิดได้ไม่เกิน 5 ครั้ง, ขอใหม่ได้ทุก 60 วินาที) แล้วส่งอีเมลผ่าน Resend API → กรอกรหัสถูกต้องแล้ว server ออก session token (อายุ 7 วัน) ที่ client แนบไปกับทุก request ใน header `Authorization: Bearer <token>` โค้ดอยู่ที่ `server/otpAuth.js`
 
 > หลังเปลี่ยนจาก Supabase Auth ต้องรันสคริปต์ `server/sql/schema.sql` อีกครั้ง (ส่วน migration ท้ายไฟล์) เพื่อเพิ่มคอลัมน์ `users.email`
 

@@ -56,7 +56,7 @@ async function findUserByEmail(email) {
   return data
 }
 
-// สุ่ม OTP 6 หลัก (หมดอายุใน 5 นาที) ส่งผ่าน Gmail SMTP แล้วคืน { status, body } ให้ route ตอบกลับ
+// สุ่ม OTP 6 หลัก (หมดอายุใน 5 นาที) ส่งผ่าน Resend API แล้วคืน { status, body } ให้ route ตอบกลับ
 // ใช้ร่วมกันทั้งตอนสมัคร, ขอรหัสใหม่, ล็อกอินด้วยบัญชีที่ยังไม่ยืนยันอีเมล และลืมรหัสผ่าน (purpose = 'reset')
 // req ใช้เลือกภาษาของข้อความตอบกลับและของอีเมล
 async function issueOtp(req, email, purpose = 'verify') {

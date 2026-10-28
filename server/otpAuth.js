@@ -21,17 +21,14 @@ if (!process.env.AUTH_SECRET) {
   console.warn('⚠️  ไม่พบ AUTH_SECRET ใน server/.env — ใช้คีย์ชั่วคราว (session จะหายเมื่อ restart)')
 }
 
-// ส่งรหัสได้ 2 ทาง: Resend API (HTTPS) ถ้าตั้ง RESEND_API_KEY ไม่งั้น console.log รหัสออก server log (ดูใน Render Logs)
-// ไม่ใช้ Gmail SMTP แล้ว เพราะ Render แผน Free บล็อกพอร์ต SMTP ทำให้ request ค้าง
+// ส่งอีเมล OTP ผ่าน Resend API (HTTPS) ด้วย RESEND_API_KEY
+// (Render แผน Free บล็อกพอร์ต SMTP จึงส่งผ่าน HTTPS แทน)
 const RESEND_API_URL = 'https://api.resend.com/emails'
 // ยังไม่ได้ยืนยันโดเมนกับ Resend ใช้ได้แค่ onboarding@resend.dev (ส่งถึงอีเมลเจ้าของบัญชี Resend เท่านั้น)
 const RESEND_FROM = process.env.RESEND_FROM || 'SupportFit <onboarding@resend.dev>'
 
-const useResend = () => Boolean(process.env.RESEND_API_KEY)
-
-// ไม่มี Resend ก็ยังส่งรหัสได้เสมอ เพราะ fallback เป็นการ log รหัสออก console
 function isMailConfigured() {
-  return true
+  return Boolean(process.env.RESEND_API_KEY)
 }
 
 // ---- OTP store (ตาราง otp_codes บน Supabase) ----
@@ -106,21 +103,17 @@ async function sendOtp(email, purpose = 'verify', lang = 'en') {
 }
 
 async function mailOtp(email, code, copy) {
-  const message = {
-    to: email,
-    subject: `${copy.subject}: ${code}`,
-    text: renderOtpText({ copy }),
-    html: renderOtpEmail({ code, copy }),
-  }
-  if (useResend()) return sendViaResend(message)
-  console.log(`[OTP] ${copy.subject} -> ${email}: ${code} (หมดอายุใน ${OTP_TTL_MS / 60000} นาที)`)
-}
-
-async function sendViaResend({ to, subject, text, html }) {
+  if (!isMailConfigured()) throw new Error('RESEND_API_KEY is not set')
   const response = await fetch(RESEND_API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, text, html }),
+    body: JSON.stringify({
+      from: RESEND_FROM,
+      to: [email],
+      subject: `${copy.subject}: ${code}`,
+      text: renderOtpText({ copy }),
+      html: renderOtpEmail({ code, copy }),
+    }),
     signal: AbortSignal.timeout(15000),
   })
   if (!response.ok) {
