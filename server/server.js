@@ -426,6 +426,14 @@ app.post('/api/parse-voice', requireAuth, async (req, res) => {
 // client ให้ผู้ใช้ตรวจ/แก้ก่อน แล้วบันทึกผ่าน POST /api/food-logs ตามเดิม
 const analyzeMeal = createMealAnalyzer()
 
+// MealAnalyzerError.reason -> [HTTP status, message key ใน i18n.js]
+const MEAL_FAILURES = {
+  timeout: [504, 'meal.timeout'],
+  busy: [503, 'meal.busy'],
+  model_unavailable: [502, 'meal.modelUnavailable'],
+  failed: [502, 'meal.analyzeFailed'],
+}
+
 app.post('/api/meals/analyze', requireAuth, async (req, res) => {
   const text = String(req.body?.text || '').trim()
   if (!text) return res.status(400).json({ error: req.t('parser.textRequired') })
@@ -436,8 +444,9 @@ app.post('/api/meals/analyze', requireAuth, async (req, res) => {
     if (!items.length) return res.status(422).json({ error: req.t('meal.notFood'), reason: 'not_food' })
     res.json({ items })
   } catch (error) {
-    console.error('meal analyze failed:', error)
-    res.status(502).json({ error: req.t('meal.analyzeFailed'), reason: 'ai_failed' })
+    console.error('meal analyze failed:', error.message)
+    const [status, messageKey] = MEAL_FAILURES[error.reason] || MEAL_FAILURES.failed
+    res.status(status).json({ error: req.t(messageKey), reason: `ai_${error.reason || 'failed'}` })
   }
 })
 

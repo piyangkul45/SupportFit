@@ -49,6 +49,9 @@ const MESSAGES = {
       aiUnavailable: 'AI meal analysis is not configured. Set GEMINI_API_KEY in server/.env',
       notFood: "Couldn't find any food or drinks in that text",
       analyzeFailed: 'AI could not analyze this meal right now. Please try again.',
+      timeout: 'The AI took too long to respond. Please try again in a moment.',
+      busy: 'The AI service is busy right now. Please try again in a moment.',
+      modelUnavailable: 'The configured AI model is unavailable. Check GEMINI_MODEL in server/.env',
     },
     data: {
       profileLoadFailed: 'Could not load the user profile',
@@ -158,6 +161,9 @@ const MESSAGES = {
       aiUnavailable: 'ยังไม่ได้ตั้งค่า AI วิเคราะห์อาหาร กรุณาใส่ GEMINI_API_KEY ใน server/.env',
       notFood: 'ไม่พบอาหารหรือเครื่องดื่มในข้อความนี้',
       analyzeFailed: 'AI วิเคราะห์อาหารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+      timeout: 'AI ตอบกลับช้าเกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่',
+      busy: 'ตอนนี้มีผู้ใช้ AI จำนวนมาก กรุณาลองใหม่อีกครั้งในอีกสักครู่',
+      modelUnavailable: 'โมเดล AI ที่ตั้งไว้ใช้งานไม่ได้ กรุณาตรวจสอบ GEMINI_MODEL ใน server/.env',
     },
     data: {
       profileLoadFailed: 'ไม่สามารถโหลดโปรไฟล์ผู้ใช้ได้',
