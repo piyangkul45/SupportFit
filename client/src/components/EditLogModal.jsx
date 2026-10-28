@@ -14,6 +14,14 @@ const FIELDS = {
       ['sets', 'editLog.sets', '1'],
     ],
   },
+  // log คาร์ดิโอจาก Workout Tracker (activity_type = 'cardio') แก้เวลา/ระยะทางแทนน้ำหนัก/ครั้ง/เซต
+  cardio: {
+    name: ['exercise_name', 'editLog.exercise'],
+    numbers: [
+      ['duration_min', 'editLog.duration', '1'],
+      ['distance_km', 'editLog.distance', '0.1'],
+    ],
+  },
   food: {
     name: ['food_name', 'editLog.food'],
     numbers: [
@@ -25,8 +33,10 @@ const FIELDS = {
   },
 }
 
+const fieldsFor = (kind, log) => FIELDS[kind === 'workout' && log.activity_type === 'cardio' ? 'cardio' : kind]
+
 function toFormValues(kind, log) {
-  const { name, numbers } = FIELDS[kind]
+  const { name, numbers } = fieldsFor(kind, log)
   const values = { [name[0]]: log[name[0]] ?? '' }
   for (const [field] of numbers) values[field] = log[field] ?? ''
   return values
@@ -40,7 +50,7 @@ export default function EditLogModal({ kind, log, onSave, onClose }) {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const nameInputRef = useRef(null)
-  const { name, numbers } = FIELDS[kind]
+  const { name, numbers } = fieldsFor(kind, log)
 
   useEffect(() => {
     nameInputRef.current?.focus()

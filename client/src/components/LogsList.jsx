@@ -18,6 +18,14 @@ function LogBadges({ kind, log }) {
         <Badge value={log.weight_kg} unit={units('kg')} tone="emerald" label={t('editLog.weight')} />
         <Badge value={log.reps} unit={units('reps')} tone="cyan" label={t('editLog.reps')} />
         <Badge value={log.sets} unit={units('sets')} tone="violet" label={t('editLog.sets')} />
+        <Badge value={log.duration_min} unit={t('workout.units.min')} tone="cyan" label={t('editLog.duration')} />
+        <Badge value={log.distance_km} unit={t('workout.units.km')} tone="violet" label={t('editLog.distance')} />
+        <Badge
+          value={log.calories_burned == null ? null : Math.round(log.calories_burned)}
+          unit={units('kcal')}
+          tone="amber"
+          label={t('workout.caloriesEstimate')}
+        />
       </>
     )
   }

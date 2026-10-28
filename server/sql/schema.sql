@@ -125,3 +125,12 @@ create index if not exists program_exercises_day_id_idx on program_exercises (da
 -- ไม่มี started_on ก็ใช้ได้ แต่รอบตารางจะนับตามปฏิทิน (วันที่ 1 = วันจันทร์)
 alter table users add column if not exists active_program_id uuid references workout_programs (id) on delete set null;
 alter table users add column if not exists active_program_started_on date;
+
+-- Workout Tracker: ประเภทกิจกรรม + คาร์ดิโอ (เวลา/ระยะทาง) + แคลอรีที่เผาผลาญ
+-- calories_burned คำนวณที่ client จาก MET ของท่าและน้ำหนักตัว (client/src/utils/calories.js)
+-- แถวเดิมไม่มีค่า = client ประมาณจากจำนวนเซตแทน
+alter table workout_logs add column if not exists activity_type text
+  check (activity_type in ('strength', 'cardio', 'street'));
+alter table workout_logs add column if not exists duration_min double precision;
+alter table workout_logs add column if not exists distance_km double precision;
+alter table workout_logs add column if not exists calories_burned double precision;

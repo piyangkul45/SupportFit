@@ -430,7 +430,9 @@
     "close": "ปิด",
     "nameRequired": "กรุณากรอกชื่อ",
     "invalidNumber": "ตัวเลขต้องเป็น 0 ขึ้นไป",
-    "saveFailed": "บันทึกการแก้ไขไม่สำเร็จ กรุณาลองใหม่"
+    "saveFailed": "บันทึกการแก้ไขไม่สำเร็จ กรุณาลองใหม่",
+    "duration": "เวลา (นาที)",
+    "distance": "ระยะทาง (กม.)"
   },
 
   "profile": {
@@ -496,5 +498,42 @@
     "macros": "P {{protein}}g · C {{carbs}}g · F {{fat}}g",
     "empty": "วันนี้ยังไม่ได้บันทึกอาหาร",
     "deleteItem": "ลบ {{name}}"
+  },
+  "workout": {
+    "title": "บันทึกการออกกำลังกาย",
+    "categoryLabel": "ประเภทกิจกรรม",
+    "categories": {
+      "strength": "เวทเทรนนิ่ง",
+      "cardio": "คาร์ดิโอ",
+      "street": "สตรีทเวิร์กเอาต์"
+    },
+    "searchPlaceholder": "ค้นหาท่า เช่น Squat, วิ่ง, ดึงข้อ",
+    "useCustom": "ใช้ \"{{name}}\" ({{category}})",
+    "noResults": "ไม่พบท่าที่ค้นหา",
+    "clearSelection": "ยกเลิกการเลือก",
+    "fields": {
+      "sets": "เซต",
+      "reps": "ครั้ง",
+      "weight": "น้ำหนัก",
+      "addedWeight": "น้ำหนักถ่วง",
+      "duration": "เวลา",
+      "distance": "ระยะทาง"
+    },
+    "units": {
+      "min": "นาที",
+      "km": "กม."
+    },
+    "caloriesEstimate": "แคลอรีที่เผาผลาญ",
+    "caloriesNote": "ประมาณจาก MET {{met}} ที่น้ำหนักตัว {{weight}} กก.",
+    "errors": {
+      "invalidNumber": "กรุณากรอกตัวเลขตั้งแต่ 0 ขึ้นไป",
+      "setsReps": "กรุณากรอกจำนวนเซตและจำนวนครั้ง (อย่างน้อย 1)",
+      "weight": "กรุณากรอกน้ำหนัก (บาร์เปล่าใส่ 0)",
+      "duration": "กรุณากรอกเวลาที่เล่นเป็นนาที",
+      "durationOrDistance": "กรุณากรอกเวลาหรือระยะทาง"
+    },
+    "save": "บันทึกการออกกำลังกาย",
+    "saving": "กำลังบันทึก…",
+    "saved": "บันทึก {{name}} แล้ว · เผาผลาญ {{kcal}} แคล"
   }
 }

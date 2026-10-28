@@ -430,7 +430,9 @@
     "close": "Close",
     "nameRequired": "Please enter a name",
     "invalidNumber": "Numbers must be 0 or more",
-    "saveFailed": "Couldn't save changes. Please try again."
+    "saveFailed": "Couldn't save changes. Please try again.",
+    "duration": "Duration (min)",
+    "distance": "Distance (km)"
   },
 
   "profile": {
@@ -496,5 +498,42 @@
     "macros": "P {{protein}}g · C {{carbs}}g · F {{fat}}g",
     "empty": "Nothing logged yet today",
     "deleteItem": "Delete {{name}}"
+  },
+  "workout": {
+    "title": "Workout Tracker",
+    "categoryLabel": "Activity type",
+    "categories": {
+      "strength": "Strength",
+      "cardio": "Cardio",
+      "street": "Street Workout"
+    },
+    "searchPlaceholder": "Search exercises, e.g. Squat, Running, Pull Up",
+    "useCustom": "Use \"{{name}}\" ({{category}})",
+    "noResults": "No exercises found",
+    "clearSelection": "Clear selection",
+    "fields": {
+      "sets": "Sets",
+      "reps": "Reps",
+      "weight": "Weight",
+      "addedWeight": "Added weight",
+      "duration": "Duration",
+      "distance": "Distance"
+    },
+    "units": {
+      "min": "min",
+      "km": "km"
+    },
+    "caloriesEstimate": "Calories burned",
+    "caloriesNote": "Estimated with MET {{met}} at {{weight}} kg body weight",
+    "errors": {
+      "invalidNumber": "Please enter numbers that are zero or more",
+      "setsReps": "Please enter sets and reps (at least 1)",
+      "weight": "Please enter the weight (0 for an empty bar)",
+      "duration": "Please enter the duration in minutes",
+      "durationOrDistance": "Please enter the duration or the distance"
+    },
+    "save": "Save workout",
+    "saving": "Saving…",
+    "saved": "Logged {{name}} · {{kcal}} kcal burned"
   }
 }

@@ -470,6 +470,9 @@ function maxOf(rows, field) {
   }, null)
 }
 
+// ประเภทกิจกรรมของ Workout Tracker (ตรงกับ check constraint ของ workout_logs.activity_type)
+const ACTIVITY_TYPES = ['strength', 'cardio', 'street']
+
 app.get('/api/workout-logs', requireAuth, async (req, res) => {
   const { user_id } = req.query
   if (!user_id) return res.status(400).json({ error: 'user_id is required' })
@@ -496,6 +499,15 @@ app.post('/api/workout-logs', requireAuth, async (req, res) => {
   if (!user_id || !exercise_name) {
     return res.status(400).json({ error: 'user_id and exercise_name are required' })
   }
+  // Workout Tracker: ประเภทกิจกรรม, เวลา/ระยะทางของคาร์ดิโอ, แคลอรีที่ client คำนวณจาก MET (ไม่ส่ง = null)
+  const activity_type = ACTIVITY_TYPES.includes(req.body.activity_type) ? req.body.activity_type : null
+  const activity = {
+    duration_min: optionalNumber(req.body.duration_min),
+    distance_km: optionalNumber(req.body.distance_km),
+    calories_burned: optionalNumber(req.body.calories_burned),
+  }
+  const invalidField = Object.keys(activity).find((field) => activity[field] === undefined)
+  if (invalidField) return res.status(400).json({ error: req.t('data.invalidNumber', { field: invalidField }) })
 
   try {
     if (!(await verifyOwnership(req.authUser, user_id))) {
@@ -533,6 +545,9 @@ app.post('/api/workout-logs', requireAuth, async (req, res) => {
       rpe: rpe ?? null,
       estimated_1rm,
       volume_load,
+      // ส่งเฉพาะเมื่อมีค่า: client เดิม (Voice Log) ยังบันทึกได้แม้ฐานข้อมูลยังไม่มีคอลัมน์ใหม่
+      ...(activity_type ? { activity_type } : {}),
+      ...Object.fromEntries(Object.entries(activity).filter(([, value]) => value != null)),
     })
     .select()
     .single()
@@ -608,6 +623,13 @@ app.put('/api/workout-logs/:id', requireAuth, (req, res) => {
     sets: optionalInteger,
   })
   if (error) return res.status(400).json({ error })
+
+  // ฟิลด์ของ Workout Tracker แก้เฉพาะที่ส่งมา (ฟอร์มแก้ไขส่งแคลอรีที่คำนวณใหม่มาด้วย)
+  for (const field of ['duration_min', 'distance_km', 'calories_burned']) {
+    if (!(field in (req.body || {}))) continue
+    values[field] = optionalNumber(req.body[field])
+    if (values[field] === undefined) return res.status(400).json({ error: req.t('data.invalidNumber', { field }) })
+  }
 
   // คำนวณค่าที่ได้จาก weight/reps/sets ใหม่ให้ตรงกับข้อมูลที่แก้
   values.estimated_1rm = calculateEstimated1RM(values.weight_kg, values.reps)

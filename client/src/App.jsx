@@ -20,7 +20,8 @@ import BrandMark from './components/BrandMark'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { speak } from './utils/speech'
 import { isToday, localDateString } from './utils/date'
-import { estimateWorkoutCalories } from './utils/calories'
+import { calculateCaloriesBurned, estimateWorkoutCalories, logToActivity } from './utils/calories'
+import WorkoutTracker from './components/WorkoutTracker'
 import { countSetsByExercise } from './utils/programs'
 import {
   getMe,
@@ -109,6 +110,7 @@ const DashboardPages = memo(function DashboardPages({
   clearProgram,
   handleSaveItems,
   handleSaveMeal,
+  handleSaveWorkout,
   handleRestFinish,
   openEditor,
   handleDelete,
@@ -149,6 +151,9 @@ const DashboardPages = memo(function DashboardPages({
                     exerciseHint={routineExercise}
                     onClearHint={selectExercise}
                   />
+                </motion.div>
+                <motion.div variants={RISE}>
+                  <WorkoutTracker bodyWeightKg={user?.weight_kg} onSave={handleSaveWorkout} />
                 </motion.div>
                 <motion.div variants={RISE}>
                   <MealLogger
@@ -412,17 +417,58 @@ function Dashboard() {
     [userId, refreshLogs, notify]
   )
 
+  // บันทึกจาก Workout Tracker (แคลอรีคำนวณใน WorkoutTracker แล้ว) ใส่ log ใหม่เข้า state ทันที
+  // -> Calories Out / Net บนวงกลมหลักอัปเดตโดยไม่ต้องรอโหลดรายการใหม่ คืน boolean ว่าสำเร็จหรือไม่
+  const handleSaveWorkout = useCallback(
+    async (entry) => {
+      if (!userId) {
+        notify('error', { key: 'dashboard.feedback.notReady' })
+        return false
+      }
+      try {
+        const { is_volume_pr, is_1rm_pr, ...saved } = await createWorkoutLog({ user_id: userId, ...entry })
+        setWorkoutLogs((prev) => [saved, ...prev])
+
+        const parts = [{ key: 'workout.saved', params: { name: saved.exercise_name, kcal: Math.round(entry.calories_burned) } }]
+        if (is_volume_pr) parts.push({ key: 'dashboard.feedback.volumePr', icon: '🏆' })
+        if (is_1rm_pr) parts.push({ key: 'dashboard.feedback.oneRmPr', icon: '🏆' })
+        if (entry.activity_type !== 'cardio') {
+          parts.push({ key: 'dashboard.feedback.restStarted', params: { seconds: REST_DURATION } })
+          setIsResting(true)
+        }
+        notify('success', ...parts)
+        return true
+      } catch (err) {
+        console.error(err)
+        notify('error', { key: 'dashboard.feedback.saveFailed' })
+        return false
+      }
+    },
+    [userId, notify]
+  )
+
   // ---- แก้ไข / ลบ รายการที่บันทึกแล้ว ----
   const handleEditSave = useCallback(
     async (values) => {
       const { kind, log } = editing
-      const updated = kind === 'workout' ? await updateWorkoutLog(log.id, values) : await updateFoodLog(log.id, values)
+      // แก้เซต/เวลา/ระยะทาง = คำนวณแคลอรีที่เผาผลาญใหม่ให้ตรงกับค่าที่แก้
+      const payload =
+        kind === 'workout'
+          ? {
+              ...values,
+              calories_burned: calculateCaloriesBurned(
+                logToActivity({ ...log, ...values, calories_burned: null }),
+                user?.weight_kg
+              ),
+            }
+          : values
+      const updated = kind === 'workout' ? await updateWorkoutLog(log.id, payload) : await updateFoodLog(log.id, payload)
       const setLogs = kind === 'workout' ? setWorkoutLogs : setFoodLogs
       setLogs((prev) => prev.map((row) => (row.id === log.id ? updated : row)))
       setEditing(null)
       notify('success', { key: 'dashboard.feedback.updated', params: { name: nameOf(kind, updated) } })
     },
-    [editing, notify]
+    [editing, notify, user?.weight_kg]
   )
 
   // ลบออกจากหน้าจอทันที (progress ring อัปเดตเลย) ถ้า server ลบไม่สำเร็จค่อยใส่กลับ
@@ -578,6 +624,7 @@ function Dashboard() {
           clearProgram={clearProgram}
           handleSaveItems={handleSaveItems}
           handleSaveMeal={handleSaveMeal}
+          handleSaveWorkout={handleSaveWorkout}
           handleRestFinish={handleRestFinish}
           openEditor={openEditor}
           handleDelete={handleDelete}
