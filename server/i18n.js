@@ -59,6 +59,10 @@ const MESSAGES = {
       timeout: 'The AI took too long to respond. Please try again in a moment.',
       busy: 'The AI service is busy right now. Please try again in a moment.',
       modelUnavailable: 'The configured AI model is unavailable. Check GEMINI_MODEL in server/.env',
+      imageRequired: 'Please attach a photo of your meal',
+      imageType: 'Please use a JPEG, PNG, WebP or HEIC photo',
+      imageTooLarge: 'The photo is too large (max 5 MB)',
+      noFoodInImage: "Couldn't find any food or drinks in this photo",
     },
     data: {
       profileLoadFailed: 'Could not load the user profile',
@@ -186,6 +190,10 @@ const MESSAGES = {
       timeout: 'AI ตอบกลับช้าเกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่',
       busy: 'ตอนนี้มีผู้ใช้ AI จำนวนมาก กรุณาลองใหม่อีกครั้งในอีกสักครู่',
       modelUnavailable: 'โมเดล AI ที่ตั้งไว้ใช้งานไม่ได้ กรุณาตรวจสอบ GEMINI_MODEL ใน server/.env',
+      imageRequired: 'กรุณาแนบรูปอาหาร',
+      imageType: 'รองรับรูปแบบ JPEG, PNG, WebP หรือ HEIC เท่านั้น',
+      imageTooLarge: 'รูปใหญ่เกินไป (ไม่เกิน 5 MB)',
+      noFoodInImage: 'ไม่พบอาหารหรือเครื่องดื่มในรูปนี้',
     },
     data: {
       profileLoadFailed: 'ไม่สามารถโหลดโปรไฟล์ผู้ใช้ได้',

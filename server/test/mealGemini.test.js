@@ -2,7 +2,7 @@
 // รัน: npm test
 const { test, describe } = require('node:test')
 const assert = require('node:assert/strict')
-const { createMealAnalyzer, normalizeItems, classifyError, GeminiError } = require('../parser/mealGemini')
+const { createMealAnalyzer, createMealImageAnalyzer, normalizeItems, classifyError, GeminiError } = require('../parser/mealGemini')
 
 test('rounds amounts and keeps the expected fields', () => {
   const items = normalizeItems({
@@ -89,5 +89,26 @@ describe('model fallback', () => {
     const analyze = createMealAnalyzer({ apiKey: 'k', model: 'a', fallbackModel: 'b', generate, logger: silentLogger })
     await assert.rejects(analyze('ชาเย็น'), (error) => error.reason === 'failed')
     assert.deepEqual(models, ['a'])
+  })
+})
+
+describe('createMealImageAnalyzer', () => {
+  test('sends the photo as inline data with the user note and language', async () => {
+    let request
+    const generate = async (req) => {
+      request = req
+      return okResponse
+    }
+    const analyze = createMealImageAnalyzer({ apiKey: 'k', model: 'a', fallbackModel: null, generate, logger: silentLogger })
+    const items = await analyze({ data: 'aGVsbG8=', mimeType: 'image/jpeg', note: 'ไม่กินหนัง', language: 'en' })
+    assert.equal(items[0].name, 'ชาเย็น')
+    const [image, text] = request.contents[0].parts
+    assert.deepEqual(image, { inlineData: { mimeType: 'image/jpeg', data: 'aGVsbG8=' } })
+    assert.match(text.text, /ไม่กินหนัง/)
+    assert.match(text.text, /อังกฤษ/)
+  })
+
+  test('is disabled without an API key', () => {
+    assert.equal(createMealImageAnalyzer({ apiKey: '' }), null)
   })
 })

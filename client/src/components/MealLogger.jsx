@@ -1,10 +1,50 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sparkles, Trash2, UtensilsCrossed, X } from 'lucide-react'
-import { analyzeMeal } from '../utils/api'
+import { motion } from 'framer-motion'
+import { Camera, Sparkles, Trash2, UtensilsCrossed, X } from 'lucide-react'
+import { analyzeMeal, analyzeMealImage } from '../utils/api'
 import { isToday } from '../utils/date'
-import { ButtonLabel } from './Spinner'
+import { prepareMealImage } from '../utils/image'
+import Spinner, { ButtonLabel } from './Spinner'
 import { MicButton, Waveform } from './VoiceInput'
+
+// ปุ่มกล้องวงกลมขนาดเท่าปุ่มไมค์ (กรอบ h-32 w-32 เหมือน MicButton จะได้วางเรียงกันพอดี)
+// input ไม่ใส่ capture: มือถือให้เลือกได้ทั้งถ่ายรูปใหม่และเลือกจากคลังภาพ
+function CameraButton({ busy, disabled, onFile }) {
+  const { t } = useTranslation()
+  const inputRef = useRef(null)
+  return (
+    <div className="relative flex h-32 w-32 items-center justify-center">
+      <span
+        aria-hidden
+        className="absolute -inset-2 rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.28),transparent_65%)]"
+      />
+      <motion.button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled}
+        aria-label={t('meal.photo.button')}
+        whileHover={disabled ? undefined : { scale: 1.05 }}
+        whileTap={disabled ? undefined : { scale: 0.92 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+        className="relative flex h-24 w-24 items-center justify-center rounded-full border border-amber-300/40 bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-2xl shadow-orange-500/30 disabled:opacity-60"
+      >
+        {busy ? <Spinner className="h-8 w-8" /> : <Camera className="h-9 w-9" aria-hidden />}
+      </motion.button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = '' // เลือกรูปเดิมซ้ำได้
+          if (file) onFile(file)
+        }}
+      />
+    </div>
+  )
+}
 
 const SpeechRecognition =
   typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
@@ -22,7 +62,8 @@ function Macros({ protein, carbs, fat }) {
   )
 }
 
-// AI Meal Logger: พิมพ์หรือพูดว่ากินอะไรไป -> Gemini ประเมินสารอาหาร -> ตรวจแล้วกดบันทึก
+// AI Meal Logger: พิมพ์/พูดว่ากินอะไรไป หรือถ่าย/อัปโหลดรูปอาหาร -> Gemini ประเมินสารอาหาร -> ตรวจแล้วกดบันทึก
+// รูป: ย่อเป็น JPEG ในเครื่องก่อนส่ง ข้อความในช่องพิมพ์ (ถ้ามี) ส่งไปเป็นรายละเอียดเสริมของรูป
 // แสดงรายการอาหารวันนี้ (จาก foodLogs) พร้อมแคลอรีรวม
 // onSave(items) คืน boolean[] ว่ารายการไหนบันทึกสำเร็จ
 export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete }) {
@@ -34,8 +75,13 @@ export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete })
   const [isSaving, setIsSaving] = useState(false)
   const [items, setItems] = useState([])
   const [error, setError] = useState('')
+  const [photo, setPhoto] = useState(null) // { url } รูปที่วิเคราะห์ล่าสุด (แสดงคู่กับผลลัพธ์)
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false)
   const recognitionRef = useRef(null)
   const language = i18n.resolvedLanguage
+
+  // คืนหน่วยความจำของรูปตัวอย่างเมื่อเปลี่ยนรูป/ปิดการ์ด
+  useEffect(() => () => photo && URL.revokeObjectURL(photo.url), [photo])
 
   // สร้าง recognizer ใหม่เมื่อเปลี่ยนภาษาของแอป ข้อความที่พูดจบแต่ละช่วงต่อท้ายช่องพิมพ์
   useEffect(() => {
@@ -99,6 +145,7 @@ export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete })
     if (!input || isAnalyzing) return
     recognitionRef.current?.stop()
     setError('')
+    setPhoto(null) // ผลลัพธ์รอบนี้มาจากข้อความ ไม่ใช่รูปเดิม
     setIsAnalyzing(true)
     try {
       const { items: analyzed } = await analyzeMeal(input)
@@ -111,6 +158,30 @@ export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete })
     }
   }
 
+  const handlePhoto = async (file) => {
+    if (isAnalyzingPhoto) return
+    recognitionRef.current?.stop()
+    setError('')
+    setItems([])
+    setPhoto({ url: URL.createObjectURL(file) })
+    setIsAnalyzingPhoto(true)
+    try {
+      const { data, mimeType } = await prepareMealImage(file)
+      const { items: analyzed } = await analyzeMealImage({ image: data, mimeType, note: text.trim() })
+      setItems(analyzed)
+    } catch (err) {
+      const key = { unsupported: 'meal.photo.unsupported', too_large: 'meal.photo.tooLarge' }[err.message]
+      setError(key ? t(key) : err.message || t('meal.analyzeFailed'))
+    } finally {
+      setIsAnalyzingPhoto(false)
+    }
+  }
+
+  const clearPhoto = () => {
+    setPhoto(null)
+    setItems([])
+  }
+
   const handleSave = async () => {
     if (!items.length || isSaving) return
     setIsSaving(true)
@@ -118,7 +189,10 @@ export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete })
       const results = await onSave(items)
       const failed = items.filter((_, index) => !results[index])
       setItems(failed)
-      if (!failed.length) setText('')
+      if (!failed.length) {
+        setText('')
+        setPhoto(null)
+      }
     } finally {
       setIsSaving(false)
     }
@@ -150,13 +224,46 @@ export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete })
         </span>
       </div>
 
-      {SpeechRecognition && (
-        <div className="relative flex flex-col items-center gap-2 py-2">
-          <MicButton isListening={isListening} onClick={toggleListening} />
-          <Waveform isListening={isListening} />
-          <p className="text-xs font-medium text-slate-400">
-            {isListening ? t('voice.listening') : t('voice.tapToStart')}
+      <div className="relative flex flex-col items-center gap-2 py-2">
+        <div className="flex items-center justify-center gap-4 sm:gap-8">
+          {SpeechRecognition && <MicButton isListening={isListening} onClick={toggleListening} />}
+          <CameraButton busy={isAnalyzingPhoto} disabled={isAnalyzingPhoto || isListening} onFile={handlePhoto} />
+        </div>
+        {SpeechRecognition && <Waveform isListening={isListening} />}
+        <p className="text-center text-xs font-medium text-slate-400">
+          {isListening
+            ? t('voice.listening')
+            : isAnalyzingPhoto
+              ? t('meal.photo.analyzing')
+              : SpeechRecognition
+                ? t('meal.photo.hintWithVoice')
+                : t('meal.photo.hint')}
+        </p>
+      </div>
+
+      {photo && (
+        <div className="relative mt-2 flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg">
+            <img src={photo.url} alt={t('meal.photo.previewAlt')} className="h-full w-full object-cover" />
+            {isAnalyzingPhoto && (
+              <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-amber-200">
+                <Spinner className="h-5 w-5" />
+              </span>
+            )}
+          </div>
+          <p className="min-w-0 flex-1 text-xs text-slate-400">
+            {isAnalyzingPhoto ? t('meal.photo.analyzing') : items.length ? t('meal.photo.done', { count: items.length }) : t('meal.photo.noteHint')}
           </p>
+          {!isAnalyzingPhoto && (
+            <button
+              type="button"
+              onClick={clearPhoto}
+              aria-label={t('meal.photo.remove')}
+              className="rounded-md p-1 text-slate-500 hover:bg-white/10 hover:text-slate-200"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          )}
         </div>
       )}
 
@@ -178,7 +285,7 @@ export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete })
           />
         </div>
 
-        <button type="submit" disabled={!text.trim() || isAnalyzing} className="btn-accent w-full">
+        <button type="submit" disabled={!text.trim() || isAnalyzing || isAnalyzingPhoto} className="btn-accent w-full">
           <ButtonLabel loading={isAnalyzing} loadingText={t('meal.analyzing')}>
             <Sparkles className="h-4 w-4" aria-hidden />
             {t('meal.analyze')}

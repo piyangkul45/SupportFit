@@ -94,6 +94,10 @@ export const parseCommand = (text, exerciseHint) =>
 // ยังไม่บันทึก ให้ผู้ใช้ตรวจก่อนแล้วบันทึกด้วย createFoodLog (422 = ไม่พบอาหาร, 503 = ไม่ได้ตั้ง GEMINI_API_KEY)
 export const analyzeMeal = (text) => request('/meals/analyze', { method: 'POST', body: JSON.stringify({ text }) })
 
+// รูปอาหาร (Gemini Vision): image = base64 ไม่มี prefix data: ; note = ข้อความเสริม (ไม่บังคับ) -> { items } เหมือน analyzeMeal
+export const analyzeMealImage = ({ image, mimeType, note }) =>
+  request('/meals/analyze-image', { method: 'POST', body: JSON.stringify({ image, mime_type: mimeType, note: note || undefined }) })
+
 // since (ISO timestamp, ไม่บังคับ) = เฉพาะรายการตั้งแต่เวลานั้น (หน้าสถิติโหลดตามช่วงที่เลือก)
 const sinceParam = (since) => (since ? `&since=${encodeURIComponent(since)}` : '')
 

@@ -35,7 +35,7 @@ function classifyError(error) {
 }
 
 // คืน async (request ไม่ต้องมี model) => ผลจาก parse(response) ไล่ลองโมเดลตามลำดับ
-// generate: ใช้แทน ai.models.generateContent ตอนทดสอบ
+// generate: ใช้แทน ai.models.generateContent ตอนทดสอบ ; timeoutMs: ต่อหนึ่งโมเดล (รูปภาพใช้เวลานานกว่าข้อความ)
 function createGeminiCaller({
   apiKey,
   model = process.env.GEMINI_MODEL || DEFAULT_MODEL,
@@ -43,8 +43,9 @@ function createGeminiCaller({
   generate,
   logger = console,
   label = 'gemini',
+  timeoutMs = TIMEOUT_MS,
 }) {
-  const ai = generate ? null : new GoogleGenAI({ apiKey, httpOptions: { timeout: TIMEOUT_MS } })
+  const ai = generate ? null : new GoogleGenAI({ apiKey, httpOptions: { timeout: timeoutMs } })
   const generateContent = generate || ((request) => ai.models.generateContent(request))
   const models = [...new Set([model, fallbackModel].filter(Boolean))]
 

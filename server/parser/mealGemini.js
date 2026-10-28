@@ -78,4 +78,47 @@ function createMealAnalyzer({ apiKey = process.env.GEMINI_API_KEY, ...options } 
   }
 }
 
-module.exports = { createMealAnalyzer, normalizeItems, classifyError, GeminiError, SYSTEM_PROMPT }
+// ---- วิเคราะห์จากรูปอาหาร (Gemini Vision) ----
+// รุ่น flash-lite รับภาพได้ ใช้เวลาราว 4-8 วินาที จึงให้เวลาต่อโมเดลนานกว่าข้อความ
+const IMAGE_TIMEOUT_MS = 25000
+const IMAGE_PROMPT = [
+  'นี่คือรูปอาหาร/เครื่องดื่มที่ผู้ใช้กินหรือกำลังจะกิน จงระบุแต่ละเมนูที่เห็นในรูปและประเมินสารอาหารตามปริมาณที่เห็นจริง',
+  'ประเมินขนาดจานจากภาชนะ/ช้อนส้อมในรูป ถ้าเห็นหลายจานให้แยกรายการ ถ้ารูปไม่ใช่อาหารให้ตอบ items เป็น array ว่าง',
+].join('\n')
+
+// คืน async ({ data, mimeType, note, language }) => [{ name, calories, protein_g, carbs_g, fat_g }] ([] = ไม่พบอาหารในรูป)
+// data = base64 ของรูป (ไม่มี prefix data:) ; note = ข้อความเสริมจากผู้ใช้ (เช่น "ไม่กินหนังไก่") ไม่บังคับ
+// language: ภาษาของชื่อเมนู ('th' | 'en') เพราะรูปไม่มีภาษาให้ตามเหมือนข้อความ
+function createMealImageAnalyzer({ apiKey = process.env.GEMINI_API_KEY, ...options } = {}) {
+  if (!apiKey) return null
+  const callGemini = createGeminiCaller({ apiKey, label: 'meal-image', timeoutMs: IMAGE_TIMEOUT_MS, ...options })
+
+  return function analyzeMealImage({ data, mimeType, note = '', language = 'th' }) {
+    const parts = [
+      { inlineData: { mimeType, data } },
+      {
+        text: [
+          IMAGE_PROMPT,
+          `ตั้งชื่อเมนูเป็นภาษา${language === 'en' ? 'อังกฤษ' : 'ไทย'}`,
+          note ? `ข้อมูลเพิ่มเติมจากผู้ใช้: ${note}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      },
+    ]
+    return callGemini(
+      {
+        contents: [{ role: 'user', parts }],
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          responseMimeType: 'application/json',
+          responseSchema: RESPONSE_SCHEMA,
+          temperature: 0,
+        },
+      },
+      (response) => normalizeItems(JSON.parse(response.text || 'null'))
+    )
+  }
+}
+
+module.exports = { createMealAnalyzer, createMealImageAnalyzer, normalizeItems, classifyError, GeminiError, SYSTEM_PROMPT }

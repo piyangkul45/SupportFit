@@ -539,7 +539,20 @@
     "kcal": "{{value}} kcal",
     "macros": "P {{protein}}g · C {{carbs}}g · F {{fat}}g",
     "empty": "Nothing logged yet today",
-    "deleteItem": "Delete {{name}}"
+    "deleteItem": "Delete {{name}}",
+    "photo": {
+      "button": "Take or upload a meal photo",
+      "hint": "Tap the camera to snap or upload a meal photo",
+      "hintWithVoice": "Tap the mic to speak, or the camera to snap/upload a meal photo",
+      "analyzing": "AI is looking at your photo…",
+      "done_one": "Found {{count}} item — check it below before saving",
+      "done_other": "Found {{count}} items — check them below before saving",
+      "noteHint": "Tip: text in the box below is sent with the photo (e.g. \"large portion, no chicken skin\")",
+      "previewAlt": "Meal photo",
+      "remove": "Remove photo",
+      "unsupported": "This photo format can't be read here. Try a JPEG or PNG.",
+      "tooLarge": "The photo is too large (max 5 MB)"
+    }
   },
   "workout": {
     "title": "Workout Tracker",

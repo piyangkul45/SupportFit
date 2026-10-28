@@ -7,7 +7,7 @@ const { runMigrations } = require('./migrate')
 const { i18nMiddleware, translate } = require('./i18n')
 const { parseCommand } = require('./parser')
 const { createVoiceParser } = require('./parser/hybrid')
-const { createMealAnalyzer } = require('./parser/mealGemini')
+const { createMealAnalyzer, createMealImageAnalyzer } = require('./parser/mealGemini')
 const createProgramsRouter = require('./routes/programs')
 const createWeightRouter = require('./routes/weight')
 
@@ -17,7 +17,10 @@ const PORT = process.env.PORT || 5000
 // CORS_ORIGIN = origin ของ frontend ที่อนุญาต คั่นด้วย , (เช่น https://supportfit.vercel.app) ไม่ตั้ง = อนุญาตทุก origin (ตอน dev)
 const CORS_ORIGINS = (process.env.CORS_ORIGIN || '').split(',').map((origin) => origin.trim().replace(/\/$/, '')).filter(Boolean)
 app.use(cors(CORS_ORIGINS.length ? { origin: CORS_ORIGINS } : undefined))
-app.use(express.json())
+// body JSON ปกติจำกัด 100kb ; รูปอาหาร (base64) ใช้ parser ของตัวเองที่รับได้ใหญ่กว่า (ดู /api/meals/analyze-image)
+const MEAL_IMAGE_PATH = '/api/meals/analyze-image'
+const jsonParser = express.json()
+app.use((req, res, next) => (req.path === MEAL_IMAGE_PATH ? next() : jsonParser(req, res, next)))
 // เลือกภาษาของข้อความ API/อีเมลจาก Accept-Language (client ส่งตามภาษาที่ผู้ใช้เลือก) -> req.t()
 app.use(i18nMiddleware)
 
@@ -434,6 +437,36 @@ const MEAL_FAILURES = {
   model_unavailable: [502, 'meal.modelUnavailable'],
   failed: [502, 'meal.analyzeFailed'],
 }
+
+// รูปอาหาร: { image: base64 (ไม่มี prefix data:), mime_type, note? } -> { items } เหมือน /api/meals/analyze
+// client ย่อรูปเหลือด้านยาวไม่เกิน ~1280px ก่อนส่ง (ราว 100-400KB) จำกัดรูปจริงไม่เกิน 5MB
+const analyzeMealImage = createMealImageAnalyzer()
+const MEAL_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+const MAX_MEAL_IMAGE_BYTES = 5 * 1024 * 1024
+
+app.post(MEAL_IMAGE_PATH, requireAuth, express.json({ limit: '8mb' }), async (req, res) => {
+  if (!analyzeMealImage) return res.status(503).json({ error: req.t('meal.aiUnavailable'), reason: 'ai_unavailable' })
+  const image = String(req.body?.image || '').replace(/^data:[^,]*,/, '')
+  const mimeType = String(req.body?.mime_type || '').toLowerCase()
+  if (!image || !/^[A-Za-z0-9+/=\s]+$/.test(image)) return res.status(400).json({ error: req.t('meal.imageRequired') })
+  if (!MEAL_IMAGE_TYPES.includes(mimeType)) return res.status(400).json({ error: req.t('meal.imageType') })
+  if (Buffer.byteLength(image, 'base64') > MAX_MEAL_IMAGE_BYTES) return res.status(413).json({ error: req.t('meal.imageTooLarge') })
+
+  try {
+    const items = await analyzeMealImage({
+      data: image,
+      mimeType,
+      note: String(req.body?.note || '').trim().slice(0, MAX_PARSE_TEXT_LENGTH),
+      language: req.lang,
+    })
+    if (!items.length) return res.status(422).json({ error: req.t('meal.noFoodInImage'), reason: 'not_food' })
+    res.json({ items })
+  } catch (error) {
+    console.error('meal image analyze failed:', error.message)
+    const [status, messageKey] = MEAL_FAILURES[error.reason] || MEAL_FAILURES.failed
+    res.status(status).json({ error: req.t(messageKey), reason: `ai_${error.reason || 'failed'}` })
+  }
+})
 
 app.post('/api/meals/analyze', requireAuth, async (req, res) => {
   const text = String(req.body?.text || '').trim()
