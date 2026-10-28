@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { forgotPassword, resetPassword } from '../utils/api'
-import { ErrorMessage, ResendRow } from './AuthUi'
+import { ErrorMessage, PasswordInput, ResendRow } from './AuthUi'
 import OtpInput from './OtpInput'
 import PasswordStrengthMeter, { MIN_PASSWORD_LENGTH } from './PasswordStrengthMeter'
 import { ButtonLabel } from './Spinner'
@@ -167,8 +167,7 @@ export default function ForgotPasswordForm({ initialEmail = '', notify, onBack, 
 
         <div className="pt-1">
           <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('forgot.newPassword')}</label>
-          <input
-            type="password"
+          <PasswordInput
             required
             autoComplete="new-password"
             value={newPassword}
@@ -181,8 +180,7 @@ export default function ForgotPasswordForm({ initialEmail = '', notify, onBack, 
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('forgot.confirmNewPassword')}</label>
-          <input
-            type="password"
+          <PasswordInput
             required
             autoComplete="new-password"
             value={confirmPassword}
