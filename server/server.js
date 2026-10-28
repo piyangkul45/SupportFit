@@ -426,7 +426,7 @@ app.post('/api/parse-voice', requireAuth, async (req, res) => {
 // client ให้ผู้ใช้ตรวจ/แก้ก่อน แล้วบันทึกผ่าน POST /api/food-logs ตามเดิม
 const analyzeMeal = createMealAnalyzer()
 
-// MealAnalyzerError.reason -> [HTTP status, message key ใน i18n.js]
+// GeminiError.reason -> [HTTP status, message key ใน i18n.js]
 const MEAL_FAILURES = {
   timeout: [504, 'meal.timeout'],
   busy: [503, 'meal.busy'],

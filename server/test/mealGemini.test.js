@@ -2,7 +2,7 @@
 // รัน: npm test
 const { test, describe } = require('node:test')
 const assert = require('node:assert/strict')
-const { createMealAnalyzer, normalizeItems, classifyError, MealAnalyzerError } = require('../parser/mealGemini')
+const { createMealAnalyzer, normalizeItems, classifyError, GeminiError } = require('../parser/mealGemini')
 
 test('rounds amounts and keeps the expected fields', () => {
   const items = normalizeItems({
@@ -80,7 +80,7 @@ describe('model fallback', () => {
   test('throws the last reason when every model fails', async () => {
     const { generate, models } = stubGenerate(apiError(503, 'high demand'), apiError(504, 'Deadline expired'))
     const analyze = createMealAnalyzer({ apiKey: 'k', model: 'a', fallbackModel: 'b', generate, logger: silentLogger })
-    await assert.rejects(analyze('ชาเย็น'), (error) => error instanceof MealAnalyzerError && error.reason === 'timeout')
+    await assert.rejects(analyze('ชาเย็น'), (error) => error instanceof GeminiError && error.reason === 'timeout')
     assert.deepEqual(models, ['a', 'b'])
   })
 
