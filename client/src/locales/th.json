@@ -48,7 +48,9 @@
       "passwordPlaceholder": "รหัสผ่านของคุณ",
       "newPasswordPlaceholder": "อย่างน้อย {{min}} ตัวอักษร",
       "confirmPassword": "ยืนยันรหัสผ่าน",
-      "confirmPasswordPlaceholder": "กรอกรหัสผ่านอีกครั้ง"
+      "confirmPasswordPlaceholder": "กรอกรหัสผ่านอีกครั้ง",
+      "showPassword": "แสดงรหัสผ่าน",
+      "hidePassword": "ซ่อนรหัสผ่าน"
     },
     "forgotLink": "ลืมรหัสผ่าน?",
     "buttons": {

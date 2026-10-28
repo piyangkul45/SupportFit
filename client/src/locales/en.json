@@ -48,7 +48,9 @@
       "passwordPlaceholder": "Your password",
       "newPasswordPlaceholder": "At least {{min}} characters",
       "confirmPassword": "Confirm password",
-      "confirmPasswordPlaceholder": "Re-enter your password"
+      "confirmPasswordPlaceholder": "Re-enter your password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
     },
     "forgotLink": "Forgot password?",
     "buttons": {

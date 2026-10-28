@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { login, resendOtp, signup, verifyOtp } from '../utils/api'
-import { ErrorMessage, ResendRow } from './AuthUi'
+import { ErrorMessage, PasswordInput, ResendRow } from './AuthUi'
 import BrandMark from './BrandMark'
 import ForgotPasswordForm from './ForgotPasswordForm'
 import LanguageSwitcher from './LanguageSwitcher'
@@ -348,8 +348,7 @@ export default function AuthPage() {
                       </button>
                     )}
                   </div>
-                  <input
-                    type="password"
+                  <PasswordInput
                     required
                     autoComplete={isSignup ? 'new-password' : 'current-password'}
                     value={password}
@@ -370,8 +369,7 @@ export default function AuthPage() {
                 {isSignup && (
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('auth.fields.confirmPassword')}</label>
-                    <input
-                      type="password"
+                    <PasswordInput
                       required
                       autoComplete="new-password"
                       value={confirmPassword}
