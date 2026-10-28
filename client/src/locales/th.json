@@ -256,25 +256,12 @@
   },
 
   "programs": {
-    "intro": "เลือกโปรแกรมของคนดังที่ชอบ แล้วกด \"Start Workout\" เพื่อโหลดท่าไปที่ Dashboard สำหรับอัดเสียงบันทึกได้ทันที",
+    "intro": "ตารางฝึกที่ได้แรงบันดาลใจจากนักกีฬาและโค้ชชื่อดัง กดดูตารางฝึกรายวัน หรือเลือกเป็นโปรแกรมที่ใช้อยู่เพื่อให้ตารางฝึกวันนี้ขึ้นบน Dashboard",
     "by": "โดย {{name}}",
-    "start": "Start Workout",
     "difficulty": {
-      "beginner": "เริ่มต้น",
+      "beginner": "มือใหม่",
       "intermediate": "ปานกลาง",
-      "advanced": "สูง"
-    },
-    "taglines": {
-      "arnold-golden-six": "โปรแกรมคลาสสิกที่อาร์โนลด์ใช้ปูพื้นฐานตอนเริ่มเล่นเวท เน้นกล้ามเนื้อทั้งตัวใน 6 ท่าหลัก",
-      "hemsworth-thor": "โปรแกรม Functional Training ความเข้มข้นสูงที่คริส เฮมสเวิร์ธใช้ปั้นร่างกายเทพเจ้าสายฟ้า",
-      "cbum-ppl": "โปรแกรม Push / Pull / Legs สไตล์นักเพาะกาย Mr. Olympia Classic Physique",
-      "rock-leg-day": "วันขาสุดโหดที่ขึ้นชื่อเรื่องวอลุ่มสูงและความหนักหน่วง"
-    },
-    "reps": {
-      "toFailure": "{{count}} (หรือจนสุดแรง)",
-      "meters": "{{count}} เมตร",
-      "seconds": "{{count}} วินาที",
-      "perSide": "{{count}} ต่อข้าง"
+      "advanced": "ขั้นสูง"
     },
     "muscles": {
       "abs": "หน้าท้อง",
@@ -325,9 +312,42 @@
     "restDay": "วันพัก",
     "dayFallback": "วันที่ {{number}}",
     "presets": {
-      "ppl": { "title": "Push / Pull / Legs (6 วัน)", "description": "ตารางเพาะกายคลาสสิก ฝึกกล้ามเนื้อแต่ละส่วนสัปดาห์ละ 2 ครั้ง พัก 1 วัน" },
-      "upper_lower": { "title": "Upper / Lower (4 วัน)", "description": "สมดุลทั้งความแข็งแรงและขนาด ฝึกช่วงบน 2 วัน ช่วงล่าง 2 วันต่อสัปดาห์" },
-      "full_body": { "title": "Full Body (3 วัน)", "description": "เหมาะกับมือใหม่ ฝึกทั้งตัวสัปดาห์ละ 3 ครั้ง สลับกับวันพัก" }
+      "ppl": {
+        "title": "Push / Pull / Legs (6 วัน)",
+        "description": "ตารางเพาะกายคลาสสิก ฝึกกล้ามเนื้อแต่ละส่วนสัปดาห์ละ 2 ครั้ง พัก 1 วัน"
+      },
+      "upper_lower": {
+        "title": "Upper / Lower (4 วัน)",
+        "description": "สมดุลทั้งความแข็งแรงและขนาด ฝึกช่วงบน 2 วัน ช่วงล่าง 2 วันต่อสัปดาห์"
+      },
+      "full_body": {
+        "title": "Full Body (3 วัน)",
+        "description": "เหมาะกับมือใหม่ ฝึกทั้งตัวสัปดาห์ละ 3 ครั้ง สลับกับวันพัก"
+      },
+      "arnold_golden_six": {
+        "title": "Arnold's Golden Six",
+        "description": "6 ท่าคลาสสิกแบบ Full Body สัปดาห์ละ 3 วัน พื้นฐานที่พิสูจน์แล้วสำหรับสร้างกล้ามและความแข็งแรง"
+      },
+      "cbum_classic": {
+        "title": "CBum's Classic Physique 5-Day Split",
+        "description": "สร้างโครงวีเชพ เน้นอกบน ปีก และไหล่ข้าง เล่นเต็มช่วงการเคลื่อนไหวและคุมจังหวะ ให้ลายกล้ามสวย"
+      },
+      "rock_hercules": {
+        "title": "The Rock's Hercules Routine",
+        "description": "สายเวทหนัก วอลุ่มสูง เน้นความหนาและพละกำลัง ฝึกวันละกล้ามเนื้อหนึ่งส่วน"
+      },
+      "thor_superhero": {
+        "title": "Thor Superhero Workout",
+        "description": "ฝึกแบบไฮบริด ท่าคอมพาวด์หนักผสมเซอร์กิตคาร์ดิโอ สร้างกล้ามเนื้อพร้อมเผาผลาญไขมัน"
+      },
+      "mentzer_hit": {
+        "title": "Mike Mentzer's Heavy Duty (HIT)",
+        "description": "ฝึกน้อยเซต ท่าละ 1 เซตทำงานแบบสุดแรงหลังวอร์มอัพ แล้วพักฟื้นเต็มที่"
+      },
+      "nippard_4day": {
+        "title": "Jeff Nippard's Science-Based 4-Day",
+        "description": "Upper/Lower อิงงานวิจัยและชีวกลศาสตร์ ฝึกทุกกล้ามเนื้อสัปดาห์ละ 2 ครั้ง วันเน้นแรงและวันเน้นสร้างกล้าม"
+      }
     },
     "dayNames": {
       "push_a": "Push A — อก ไหล่ และหลังแขน",
@@ -343,7 +363,30 @@
       "full_a": "Full Body A",
       "full_b": "Full Body B",
       "full_c": "Full Body C",
-      "rest": "วันพัก"
+      "rest": "วันพัก",
+      "golden_six": "Golden Six — ทั้งตัว",
+      "cbum_chest": "อก & ไตรเซป",
+      "cbum_back": "หลัง & ไบเซป",
+      "cbum_legs": "ขา",
+      "cbum_shoulders": "ไหล่ & แขน",
+      "cbum_vtaper": "วีเชพ — อกบน ปีก & ไหล่",
+      "rock_back": "หลัง",
+      "rock_chest": "อก",
+      "rock_legs_a": "ขา A — ต้นขาหน้า",
+      "rock_shoulders": "ไหล่ & บ่า",
+      "rock_arms": "แขน",
+      "rock_legs_b": "ขา B — ต้นขาหลัง & ก้น",
+      "thor_upper": "ช่วงบนเน้นแรง + ปิดท้าย",
+      "thor_lower": "ช่วงล่างเน้นพลัง",
+      "thor_full": "Full Body เน้นแรง",
+      "thor_conditioning": "เซอร์กิตคาร์ดิโอ",
+      "hit_chest_back": "อก & หลัง (ท่าละ 1 เซตสุดแรง)",
+      "hit_legs": "ขา (ท่าละ 1 เซตสุดแรง)",
+      "hit_shoulders_arms": "ไหล่ & แขน (ท่าละ 1 เซตสุดแรง)",
+      "nip_upper_strength": "ช่วงบน — เน้นแรง",
+      "nip_lower_strength": "ช่วงล่าง — เน้นแรง",
+      "nip_upper_hypertrophy": "ช่วงบน — สร้างกล้าม",
+      "nip_lower_hypertrophy": "ช่วงล่าง — สร้างกล้าม"
     },
     "active": {
       "title": "โปรแกรมที่ใช้อยู่",
@@ -431,7 +474,8 @@
       "generating": "AI กำลังออกแบบโปรแกรม…",
       "failed": "ออกแบบโปรแกรมไม่สำเร็จ",
       "created": "AI ออกแบบ \"{{name}}\" และเพิ่มลงในโปรแกรมของฉันแล้ว"
-    }
+    },
+    "celebrityDisclaimer": "เรียบเรียงจากแนวการฝึกที่บุคคลเหล่านี้เคยเผยแพร่สาธารณะ ไม่ใช่โปรแกรมทางการและไม่ได้รับการรับรองจากเจ้าตัว"
   },
 
   "analytics": {

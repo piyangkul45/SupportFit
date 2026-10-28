@@ -18,7 +18,32 @@ describe('preset programs', () => {
     const trainingDays = Object.fromEntries(
       PRESET_PROGRAMS.map((program) => [program.key, program.days.filter((day) => day.exercises.length).length])
     )
-    assert.deepEqual(trainingDays, { ppl: 6, upper_lower: 4, full_body: 3 })
+    assert.deepEqual(trainingDays, {
+      ppl: 6,
+      upper_lower: 4,
+      full_body: 3,
+      arnold_golden_six: 3,
+      cbum_classic: 5,
+      rock_hercules: 6,
+      thor_superhero: 4,
+      mentzer_hit: 3,
+      nippard_4day: 4,
+    })
+  })
+
+  test('celebrity routines carry a celebrity, difficulty and muscle tags', () => {
+    const celebrity = PRESET_PROGRAMS.filter((program) => program.category === 'celebrity')
+    assert.equal(celebrity.length, 6)
+    for (const program of celebrity) {
+      assert.ok(program.celebrity, program.key)
+      assert.ok(['beginner', 'intermediate', 'advanced'].includes(program.difficulty), program.key)
+      assert.ok(program.muscles.length > 0, program.key)
+    }
+  })
+
+  test('preset titles are unique (store matches preset rows by title)', () => {
+    const titles = PRESET_PROGRAMS.map((program) => program.title)
+    assert.equal(new Set(titles).size, titles.length)
   })
 
   test('every preset is a weekly cycle', () => {

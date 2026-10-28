@@ -165,7 +165,7 @@ function SectionHeading({ Icon, title, action }) {
 
 // หน้าโปรแกรมฝึก: โปรแกรมที่ใช้อยู่, preset, โปรแกรมของฉัน (สร้าง/แก้/ลบ) และ routine คนดัง (เริ่มเฉพาะวันนี้)
 // onActiveProgramChange: ให้ Dashboard โหลด "ตารางฝึกวันนี้" ใหม่ ; notify(type, ...parts): toast ของ Dashboard
-function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
+function Programs({ onActiveProgramChange, notify }) {
   const { t } = useTranslation()
   const [data, setData] = useState({ programs: [], active: null, db_ready: true })
   const [loading, setLoading] = useState(true)
@@ -189,7 +189,8 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
     }
   }, [])
 
-  const presets = data.programs.filter((program) => program.is_preset)
+  const presets = data.programs.filter((program) => program.is_preset && program.category !== 'celebrity')
+  const celebrity = data.programs.filter((program) => program.is_preset && program.category === 'celebrity')
   const custom = data.programs.filter((program) => !program.is_preset)
   const activeProgram = data.programs.find((program) => program.id === data.active?.program_id) || null
   const viewing = data.programs.find((program) => program.id === viewingId) || null
@@ -366,7 +367,16 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
 
       <SectionHeading Icon={Trophy} title={t('programs.celebrityTitle')} />
       <p className="-mt-1 mb-4 text-sm text-slate-400">{t('programs.intro')}</p>
-      <WorkoutPrograms onStart={onStartRoutine} />
+      {!loading && (
+        <WorkoutPrograms
+          programs={celebrity}
+          activeId={data.active?.program_id}
+          busyId={busyId}
+          onView={(program) => setViewingId(program.id)}
+          onSelect={activate}
+        />
+      )}
+      <p className="mt-3 text-[11px] text-slate-500">{t('programs.celebrityDisclaimer')}</p>
 
       <AnimatePresence>
         {viewing && (

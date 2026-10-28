@@ -256,25 +256,12 @@
   },
 
   "programs": {
-    "intro": "Pick a celebrity program, then tap \"Start Workout\" to load its exercises onto your Dashboard for voice logging.",
+    "intro": "Training styles inspired by famous athletes and coaches. Open a schedule to see every day, or choose one to make it your active routine on the Dashboard.",
     "by": "by {{name}}",
-    "start": "Start Workout",
     "difficulty": {
       "beginner": "Beginner",
       "intermediate": "Intermediate",
       "advanced": "Advanced"
-    },
-    "taglines": {
-      "arnold-golden-six": "The classic routine Arnold used to build his foundation — full-body in 6 core lifts.",
-      "hemsworth-thor": "High-intensity functional training Chris Hemsworth used to build the God of Thunder's physique.",
-      "cbum-ppl": "A Push / Pull / Legs split in the style of the Mr. Olympia Classic Physique champion.",
-      "rock-leg-day": "The notoriously brutal leg day, known for its high volume and intensity."
-    },
-    "reps": {
-      "toFailure": "{{count}} (or to failure)",
-      "meters": "{{count}} m",
-      "seconds": "{{count}} sec",
-      "perSide": "{{count}} per side"
     },
     "muscles": {
       "abs": "Abs",
@@ -325,9 +312,42 @@
     "restDay": "Rest day",
     "dayFallback": "Day {{number}}",
     "presets": {
-      "ppl": { "title": "Push / Pull / Legs (6-Day)", "description": "Classic bodybuilding split: every muscle group trained twice a week, with one rest day." },
-      "upper_lower": { "title": "Upper / Lower (4-Day)", "description": "Balanced strength and size: two upper-body and two lower-body sessions per week." },
-      "full_body": { "title": "Full Body (3-Day)", "description": "Great for beginners: train every major muscle three times a week, resting in between." }
+      "ppl": {
+        "title": "Push / Pull / Legs (6-Day)",
+        "description": "Classic bodybuilding split: every muscle group trained twice a week, with one rest day."
+      },
+      "upper_lower": {
+        "title": "Upper / Lower (4-Day)",
+        "description": "Balanced strength and size: two upper-body and two lower-body sessions per week."
+      },
+      "full_body": {
+        "title": "Full Body (3-Day)",
+        "description": "Great for beginners: train every major muscle three times a week, resting in between."
+      },
+      "arnold_golden_six": {
+        "title": "Arnold's Golden Six",
+        "description": "Six classic full-body lifts three times a week — a simple, proven foundation for size and strength."
+      },
+      "cbum_classic": {
+        "title": "CBum's Classic Physique 5-Day Split",
+        "description": "Builds a wide V-taper: upper chest, lats and side delts with full-range, controlled reps."
+      },
+      "rock_hercules": {
+        "title": "The Rock's Hercules Routine",
+        "description": "High-volume split for thickness and power: one muscle group a day, heavy and dense."
+      },
+      "thor_superhero": {
+        "title": "Thor Superhero Workout",
+        "description": "Hybrid training: heavy compound lifts plus conditioning circuits to build muscle and burn fat."
+      },
+      "mentzer_hit": {
+        "title": "Mike Mentzer's Heavy Duty (HIT)",
+        "description": "One all-out working set per exercise after warm-ups, then plenty of rest for full recovery."
+      },
+      "nippard_4day": {
+        "title": "Jeff Nippard's Science-Based 4-Day",
+        "description": "Evidence-based Upper/Lower: every muscle twice a week with a strength day and a hypertrophy day."
+      }
     },
     "dayNames": {
       "push_a": "Push A — Chest, Shoulders & Triceps",
@@ -343,7 +363,30 @@
       "full_a": "Full Body A",
       "full_b": "Full Body B",
       "full_c": "Full Body C",
-      "rest": "Rest day"
+      "rest": "Rest day",
+      "golden_six": "Golden Six — Full Body",
+      "cbum_chest": "Chest & Triceps",
+      "cbum_back": "Back & Biceps",
+      "cbum_legs": "Legs",
+      "cbum_shoulders": "Shoulders & Arms",
+      "cbum_vtaper": "V-Taper — Upper Chest, Lats & Delts",
+      "rock_back": "Back",
+      "rock_chest": "Chest",
+      "rock_legs_a": "Legs A — Quads",
+      "rock_shoulders": "Shoulders & Traps",
+      "rock_arms": "Arms",
+      "rock_legs_b": "Legs B — Hamstrings & Glutes",
+      "thor_upper": "Upper Strength + Finisher",
+      "thor_lower": "Lower Power",
+      "thor_full": "Full Body Strength",
+      "thor_conditioning": "Conditioning Circuit",
+      "hit_chest_back": "Chest & Back (1 all-out set each)",
+      "hit_legs": "Legs (1 all-out set each)",
+      "hit_shoulders_arms": "Shoulders & Arms (1 all-out set each)",
+      "nip_upper_strength": "Upper — Strength",
+      "nip_lower_strength": "Lower — Strength",
+      "nip_upper_hypertrophy": "Upper — Hypertrophy",
+      "nip_lower_hypertrophy": "Lower — Hypertrophy"
     },
     "active": {
       "title": "Active program",
@@ -431,7 +474,8 @@
       "generating": "AI is designing your program…",
       "failed": "Could not design a program",
       "created": "AI designed \"{{name}}\" and added it to My Programs"
-    }
+    },
+    "celebrityDisclaimer": "Adapted from training approaches these people have shared publicly — not official programs and not endorsed by them."
   },
 
   "analytics": {

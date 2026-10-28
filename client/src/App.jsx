@@ -10,7 +10,6 @@ import AuthPage from './components/AuthPage'
 import Header from './components/Header'
 import Programs from './pages/Programs'
 import TodayRoutineCard from './components/TodayRoutineCard'
-import TodayProgramCard from './components/TodayProgramCard'
 import AnalyticsSkeleton from './components/AnalyticsSkeleton'
 import EditLogModal from './components/EditLogModal'
 import ProfileModal from './components/ProfileModal'
@@ -90,8 +89,6 @@ const Greeting = memo(function Greeting({ userName }) {
 const DashboardPages = memo(function DashboardPages({
   activeTab,
   user,
-  activeProgram,
-  completedNamesToday,
   routine,
   isLoadingRoutine,
   setsDoneToday,
@@ -106,7 +103,6 @@ const DashboardPages = memo(function DashboardPages({
   workoutLogs,
   foodLogs,
   isLoadingLogs,
-  clearProgram,
   handleSaveItems,
   handleSaveMeal,
   handleSaveWorkout,
@@ -114,7 +110,6 @@ const DashboardPages = memo(function DashboardPages({
   handleRestFinish,
   openEditor,
   handleDelete,
-  handleStartProgram,
 }) {
   return (
     <AnimatePresence mode="wait">
@@ -135,16 +130,6 @@ const DashboardPages = memo(function DashboardPages({
                     onChooseProgram={goToPrograms}
                   />
                 </motion.div>
-                {activeProgram && (
-                  <motion.div variants={RISE}>
-                    <TodayProgramCard
-                      program={activeProgram.program}
-                      day={activeProgram.day}
-                      completedNames={completedNamesToday}
-                      onClear={clearProgram}
-                    />
-                  </motion.div>
-                )}
                 <motion.div variants={RISE}>
                   <WorkoutTracker
                     bodyWeightKg={user?.weight_kg}
@@ -203,7 +188,7 @@ const DashboardPages = memo(function DashboardPages({
 
       {activeTab === 'programs' && (
         <motion.div key="programs" variants={PAGE} initial="initial" animate="animate" exit="exit">
-          <Programs onStartRoutine={handleStartProgram} onActiveProgramChange={loadRoutine} notify={notify} />
+          <Programs onActiveProgramChange={loadRoutine} notify={notify} />
         </motion.div>
       )}
 
@@ -233,7 +218,6 @@ function Dashboard() {
   const [toast, setToast] = useState(null)
   const [isResting, setIsResting] = useState(false)
   const [activeTab, setActiveTab] = useState('home')
-  const [activeProgram, setActiveProgram] = useState(null) // { program, day }
   const [editing, setEditing] = useState(null) // { kind: 'workout' | 'food', log }
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [routine, setRoutine] = useState(null) // GET /api/users/me/active-program/today
@@ -528,17 +512,11 @@ function Dashboard() {
   )
   // callback คงที่ เพื่อให้ component ที่ห่อ React.memo ไม่ render ใหม่ตอน state อื่นของ Dashboard เปลี่ยน
   const openEditor = useCallback((kind, log) => setEditing({ kind, log }), [])
-  const clearProgram = useCallback(() => setActiveProgram(null), [])
 
   const handleRestFinish = useCallback(() => {
     setIsResting(false)
     speak(t('dashboard.restOver'), i18n.resolvedLanguage)
   }, [t, i18n])
-
-  const handleStartProgram = useCallback((program, day) => {
-    setActiveProgram({ program, day })
-    setActiveTab('home')
-  }, [])
 
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab)
@@ -582,13 +560,6 @@ function Dashboard() {
     setSelectedExercise(next?.exercise_name ?? null)
   }, [setsDoneToday, routineExercise, routineExercises])
 
-  const completedNamesToday = useMemo(() => {
-    return new Set(
-      workoutLogs
-        .filter((log) => isToday(log.created_at))
-        .map((log) => (log.exercise_name || '').toLowerCase())
-    )
-  }, [workoutLogs])
 
   return (
     <div className="relative min-h-screen bg-obsidian pb-28 md:pb-12">
@@ -621,8 +592,6 @@ function Dashboard() {
         <DashboardPages
           activeTab={activeTab}
           user={user}
-          activeProgram={activeProgram}
-          completedNamesToday={completedNamesToday}
           routine={routine}
           isLoadingRoutine={isLoadingRoutine}
           setsDoneToday={setsDoneToday}
@@ -637,7 +606,6 @@ function Dashboard() {
           workoutLogs={workoutLogs}
           foodLogs={foodLogs}
           isLoadingLogs={isLoadingLogs}
-          clearProgram={clearProgram}
           handleSaveItems={handleSaveItems}
           handleSaveMeal={handleSaveMeal}
           handleSaveWorkout={handleSaveWorkout}
@@ -645,7 +613,6 @@ function Dashboard() {
           handleRestFinish={handleRestFinish}
           openEditor={openEditor}
           handleDelete={handleDelete}
-          handleStartProgram={handleStartProgram}
         />
       </main>
 
