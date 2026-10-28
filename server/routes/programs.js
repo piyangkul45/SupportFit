@@ -8,6 +8,7 @@
 const express = require('express')
 const { validateProgramInput, scheduledDay, isDateString, searchExercises } = require('../programs')
 const { createProgramStore } = require('../programs/store')
+const { createProgramGenerator, validateGenerateInput } = require('../programs/aiGenerator')
 
 // ยังไม่ได้สร้างตาราง workout_programs / program_days / program_exercises หรือคอลัมน์ users.active_program_id
 const isSchemaMissing = (error) => ['PGRST204', 'PGRST205', '42P01', '42703'].includes(error?.code)
@@ -17,7 +18,16 @@ const todayUtc = () => new Date().toISOString().slice(0, 10)
 // ไม่มีคอลัมน์วันเริ่ม: นับรอบจากวันจันทร์ 5 ม.ค. 1970 -> โปรแกรม 7 วัน วันที่ 1 = วันจันทร์เสมอ
 const CALENDAR_ANCHOR = '1970-01-05'
 
-module.exports = function createProgramsRouter({ supabase, requireAuth, handleSupabaseError }) {
+// GeminiError.reason -> [HTTP status, message key ใน i18n.js]
+const AI_FAILURES = {
+  timeout: [504, 'programs.ai.timeout'],
+  busy: [503, 'programs.ai.busy'],
+  model_unavailable: [502, 'programs.ai.generateFailed'],
+  failed: [502, 'programs.ai.generateFailed'],
+}
+
+// generateProgram: ใช้แทน Gemini ตอนทดสอบ (null = ไม่ได้ตั้ง GEMINI_API_KEY ปิดฟีเจอร์ AI)
+module.exports = function createProgramsRouter({ supabase, requireAuth, handleSupabaseError, generateProgram = createProgramGenerator() }) {
   const router = express.Router()
   const store = createProgramStore(supabase)
   // มีคอลัมน์ users.active_program_started_on ไหม (undefined = ยังไม่รู้ ลองครั้งแรกแล้วจำไว้)
@@ -88,6 +98,33 @@ module.exports = function createProgramsRouter({ supabase, requireAuth, handleSu
   router.post('/programs', requireAuth, async (req, res) => {
     const { values, error: invalid } = validateProgramInput(req.body)
     if (invalid) return res.status(400).json({ error: req.t(invalid.key, invalid.params) })
+
+    const { program, error } = await store.create(req.authUser.uid, values)
+    if (error) return sendDbError(req, res, error, 'programs.saveFailed')
+    res.status(201).json(program)
+  })
+
+  // ให้ AI ออกแบบโปรแกรม แล้วบันทึกเป็นโปรแกรมของผู้ใช้ทันที (แก้ต่อได้ใน builder เหมือนโปรแกรมที่สร้างเอง)
+  // body: { days_per_week: 2-6, equipment: ['barbell'|'dumbbell'|'machine'|'kettlebell'], goal, level? }
+  router.post('/programs/generate', requireAuth, async (req, res) => {
+    if (!generateProgram) return res.status(503).json({ error: req.t('programs.ai.unavailable'), reason: 'ai_unavailable' })
+    const { values: input, error: invalidInput } = validateGenerateInput(req.body)
+    if (invalidInput) return res.status(400).json({ error: req.t(invalidInput) })
+
+    let generated
+    try {
+      generated = await generateProgram(input, req.lang)
+    } catch (error) {
+      console.error('program generate failed:', error.message)
+      const [status, messageKey] = AI_FAILURES[error.reason] || AI_FAILURES.failed
+      return res.status(status).json({ error: req.t(messageKey), reason: `ai_${error.reason || 'failed'}` })
+    }
+
+    const { values, error: invalid } = validateProgramInput(generated)
+    if (invalid) {
+      console.error('program generate: invalid program from AI', invalid, JSON.stringify(generated).slice(0, 500))
+      return res.status(502).json({ error: req.t('programs.ai.generateFailed'), reason: 'ai_invalid' })
+    }
 
     const { program, error } = await store.create(req.authUser.uid, values)
     if (error) return sendDbError(req, res, error, 'programs.saveFailed')

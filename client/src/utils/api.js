@@ -123,6 +123,10 @@ export const createProgram = (data) => request('/programs', { method: 'POST', bo
 export const updateProgram = (id, data) =>
   request(`/programs/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 
+// ให้ AI (Gemini ฝั่ง server) ออกแบบโปรแกรมแล้วบันทึกเป็นโปรแกรมของฉัน คืนโปรแกรมที่สร้าง
+// { days_per_week: 2-6, equipment: ['barbell'|'dumbbell'|'machine'|'kettlebell'], goal, level }
+export const generateProgram = (data) => request('/programs/generate', { method: 'POST', body: JSON.stringify(data) })
+
 export const deleteProgram = (id) => request(`/programs/${id}`, { method: 'DELETE' })
 
 // programId = null คือเลิกใช้โปรแกรม; วันที่ตามเครื่องผู้ใช้ = วันแรกของรอบ

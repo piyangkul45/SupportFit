@@ -91,6 +91,14 @@ const MESSAGES = {
       invalidTarget: 'Day {day}: check the target sets, reps and weight for {name}',
       dbNotReady:
         'Database not ready for programs (workout_programs table missing). Run server/sql/schema.sql in the Supabase SQL Editor, or set DATABASE_URL in server/.env and restart the server',
+      ai: {
+        unavailable: 'AI program design is not configured. Set GEMINI_API_KEY in server/.env',
+        invalidDays: 'Choose 2 to 6 training days per week',
+        invalidGoal: 'Please choose a goal',
+        timeout: 'The AI took too long to design the program. Please try again in a moment.',
+        busy: 'The AI service is busy right now. Please try again in a moment.',
+        generateFailed: 'The AI could not design a program right now. Please try again.',
+      },
     },
     email: {
       verify: {
@@ -203,6 +211,14 @@ const MESSAGES = {
       invalidTarget: 'วันที่ {day}: กรุณาตรวจเซต ครั้ง และน้ำหนักเป้าหมายของ {name}',
       dbNotReady:
         'ฐานข้อมูลยังไม่พร้อมสำหรับโปรแกรมฝึก (ไม่พบตาราง workout_programs) กรุณารัน server/sql/schema.sql ใน Supabase SQL Editor หรือตั้ง DATABASE_URL ใน server/.env แล้ว restart server',
+      ai: {
+        unavailable: 'ยังไม่ได้ตั้งค่า AI ออกแบบโปรแกรม กรุณาใส่ GEMINI_API_KEY ใน server/.env',
+        invalidDays: 'กรุณาเลือกวันฝึก 2–6 วันต่อสัปดาห์',
+        invalidGoal: 'กรุณาเลือกเป้าหมาย',
+        timeout: 'AI ใช้เวลาออกแบบโปรแกรมนานเกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่',
+        busy: 'ตอนนี้มีผู้ใช้ AI จำนวนมาก กรุณาลองใหม่อีกครั้งในอีกสักครู่',
+        generateFailed: 'AI ออกแบบโปรแกรมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+      },
     },
     email: {
       verify: {

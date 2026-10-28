@@ -1,13 +1,14 @@
 import { memo, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarDays, Check, ChevronDown, Copy, Layers, Pencil, Plus, Power, Trash2, TriangleAlert, Trophy } from 'lucide-react'
+import { CalendarDays, Check, Copy, Layers, Pencil, Plus, Power, Sparkles, Trash2, TriangleAlert, Trophy } from 'lucide-react'
 import WorkoutPrograms from '../components/WorkoutPrograms'
 import ProgramBuilderModal from '../components/ProgramBuilderModal'
+import { AiProgramModal, ProgramScheduleModal } from '../components/ProgramModals'
 import { ButtonLabel } from '../components/Spinner'
 import { createProgram, deleteProgram, getPrograms, setActiveProgram, updateProgram } from '../utils/api'
 import { localDateString } from '../utils/date'
-import { dayName, isRestDay, programDescription, programTitle, toBuilderDraft, trainingDayCount } from '../utils/programs'
+import { programDescription, programTitle, toBuilderDraft, trainingDayCount } from '../utils/programs'
 
 const PRESET_ACCENTS = {
   ppl: 'from-fuchsia-500 to-purple-700',
@@ -18,31 +19,9 @@ const CUSTOM_ACCENT = 'from-amber-500 to-orange-600'
 // กดลบครั้งแรก = ถาม กดซ้ำภายในเวลานี้ = ลบจริง
 const DELETE_CONFIRM_MS = 3000
 
-// รายชื่อวันในรอบ (กดเปิดดูท่าของแต่ละวัน)
-function DayList({ program }) {
+// คลิกที่การ์ด (นอกปุ่ม) หรือปุ่ม "ดูตารางฝึก" = เปิด popup ตารางฝึกรายวัน (onView)
+function ProgramCard({ program, isActive, busy, onView, onSelect, onCustomize, onEdit, onDelete, index }) {
   const { t } = useTranslation()
-  return (
-    <ol className="space-y-1.5">
-      {program.days.map((day, index) => (
-        <li key={index} className="rounded-lg border border-white/[0.05] bg-black/20 px-3 py-2 text-sm">
-          <p className={`font-medium ${isRestDay(day) ? 'text-slate-500' : 'text-slate-100'}`}>
-            <span className="mr-1.5 text-xs text-slate-500">{t('programs.dayFallback', { number: index + 1 })}</span>
-            {dayName(day, index, t)}
-          </p>
-          {!isRestDay(day) && (
-            <p className="mt-0.5 text-xs text-slate-400">
-              {day.exercises.map((exercise) => `${exercise.exercise_name} ${t('programs.target', { sets: exercise.sets, reps: exercise.reps })}`).join(' · ')}
-            </p>
-          )}
-        </li>
-      ))}
-    </ol>
-  )
-}
-
-function ProgramCard({ program, isActive, busy, onSelect, onCustomize, onEdit, onDelete, index }) {
-  const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const accent = program.key ? PRESET_ACCENTS[program.key] : CUSTOM_ACCENT
 
@@ -58,7 +37,8 @@ function ProgramCard({ program, isActive, busy, onSelect, onCustomize, onEdit, o
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, type: 'spring', stiffness: 260, damping: 28 }}
-      className={`glass-card relative flex flex-col overflow-hidden ${isActive ? 'border-emerald-400/40' : ''}`}
+      onClick={(event) => !event.target.closest('button') && onView()}
+      className={`glass-card relative flex cursor-pointer flex-col overflow-hidden transition-colors hover:border-emerald-400/30 ${isActive ? 'border-emerald-400/40' : ''}`}
     >
       <div aria-hidden className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-br opacity-20 ${accent}`} />
       <div className="relative flex flex-1 flex-col p-5">
@@ -78,29 +58,12 @@ function ProgramCard({ program, isActive, busy, onSelect, onCustomize, onEdit, o
 
         <button
           type="button"
-          onClick={() => setExpanded((value) => !value)}
-          aria-expanded={expanded}
+          onClick={onView}
           className="mt-3 flex items-center gap-1 self-start text-xs font-medium text-emerald-300 hover:text-emerald-200"
         >
-          {t(expanded ? 'programs.hideDays' : 'programs.viewDays')}
-          <motion.span animate={{ rotate: expanded ? 180 : 0 }}>
-            <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-          </motion.span>
+          <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+          {t('programs.viewDays')}
         </button>
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="pt-3">
-                <DayList program={program} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <div className="mt-auto flex flex-wrap gap-2 pt-4">
           {!isActive && (
@@ -209,6 +172,8 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
   const [loadError, setLoadError] = useState(false)
   const [busyId, setBusyId] = useState(null)
   const [builder, setBuilder] = useState(null) // { draft, editingId }
+  const [viewingId, setViewingId] = useState(null) // โปรแกรมที่เปิดดูตารางฝึกอยู่
+  const [isAiOpen, setIsAiOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -227,6 +192,9 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
   const presets = data.programs.filter((program) => program.is_preset)
   const custom = data.programs.filter((program) => !program.is_preset)
   const activeProgram = data.programs.find((program) => program.id === data.active?.program_id) || null
+  const viewing = data.programs.find((program) => program.id === viewingId) || null
+  const closeViewer = useCallback(() => setViewingId(null), [])
+  const closeAi = useCallback(() => setIsAiOpen(false), [])
 
   const activate = async (program) => {
     setBusyId(program?.id ?? 'stop')
@@ -234,6 +202,7 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
       const { active } = await setActiveProgram(program?.id ?? null, localDateString())
       setData((prev) => ({ ...prev, active }))
       onActiveProgramChange()
+      setViewingId(null)
       notify('success', program ? { key: 'programs.feedback.activated', params: { name: programTitle(program, t) } } : { key: 'programs.feedback.stopped' })
     } catch (err) {
       notify('error', { key: 'programs.feedback.raw', params: { message: err.message } })
@@ -260,6 +229,23 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
   const openBuilder = (program, { copy = false } = {}) =>
     setBuilder({ draft: toBuilderDraft(program, t, { copy }), editingId: program && !copy ? program.id : null })
   const closeBuilder = useCallback(() => setBuilder(null), [])
+
+  // โปรแกรมที่ AI ออกแบบถูกบันทึกเป็นโปรแกรมของฉันแล้ว -> ใส่เข้ารายการ แล้วเปิดตารางฝึกให้ดูทันที
+  const handleAiCreated = (program) => {
+    setData((prev) => ({
+      ...prev,
+      programs: [...prev.programs.filter((item) => item.is_preset), program, ...prev.programs.filter((item) => !item.is_preset)],
+    }))
+    setIsAiOpen(false)
+    setViewingId(program.id)
+    notify('success', { key: 'programs.ai.created', params: { name: program.title } })
+  }
+
+  // แก้ไขจาก popup ตารางฝึก: preset = คัดลอกไปแก้, โปรแกรมของฉัน = แก้ตรง ๆ
+  const editFromViewer = (program) => {
+    setViewingId(null)
+    openBuilder(program, { copy: program.is_preset })
+  }
 
   const saveBuilder = async (payload) => {
     const { editingId } = builder
@@ -321,6 +307,7 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
                 key={program.id}
                 index={index}
                 program={program}
+                onView={() => setViewingId(program.id)}
                 isActive={program.id === data.active?.program_id}
                 busy={busyId === program.id}
                 onSelect={() => activate(program)}
@@ -333,10 +320,20 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
             Icon={Pencil}
             title={t('programs.customTitle')}
             action={
-              <button type="button" onClick={() => openBuilder(null)} className="btn-accent flex items-center gap-1.5 px-3 py-2 text-xs">
-                <Plus className="h-4 w-4" aria-hidden />
-                {t('programs.create')}
-              </button>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAiOpen(true)}
+                  className="btn-ghost flex items-center gap-1.5 border-emerald-400/30 px-3 py-2 text-xs text-emerald-200 hover:border-emerald-400/50"
+                >
+                  <Sparkles className="h-4 w-4" aria-hidden />
+                  {t('programs.ai.open')}
+                </button>
+                <button type="button" onClick={() => openBuilder(null)} className="btn-accent flex items-center gap-1.5 px-3 py-2 text-xs">
+                  <Plus className="h-4 w-4" aria-hidden />
+                  {t('programs.create')}
+                </button>
+              </div>
             }
           />
           {custom.length ? (
@@ -346,6 +343,7 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
                   key={program.id}
                   index={index}
                   program={program}
+                  onView={() => setViewingId(program.id)}
                   isActive={program.id === data.active?.program_id}
                   busy={busyId === program.id}
                   onSelect={() => activate(program)}
@@ -371,6 +369,18 @@ function Programs({ onStartRoutine, onActiveProgramChange, notify }) {
       <WorkoutPrograms onStart={onStartRoutine} />
 
       <AnimatePresence>
+        {viewing && (
+          <ProgramScheduleModal
+            key="schedule"
+            program={viewing}
+            isActive={viewing.id === data.active?.program_id}
+            busy={busyId === viewing.id}
+            onSelect={() => activate(viewing)}
+            onEdit={() => editFromViewer(viewing)}
+            onClose={closeViewer}
+          />
+        )}
+        {isAiOpen && <AiProgramModal key="ai" onCreated={handleAiCreated} onClose={closeAi} />}
         {builder && (
           <ProgramBuilderModal
             key="builder"

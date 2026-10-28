@@ -389,6 +389,48 @@
       "saveFailed": "Could not save the program",
       "loadFailed": "Could not load programs. Please try again.",
       "raw": "{{message}}"
+    },
+    "schedule": {
+      "select": "Choose this program",
+      "inUse": "Currently in use",
+      "exercise": "Exercise",
+      "sets": "Sets",
+      "reps": "Reps",
+      "weight": "Weight"
+    },
+    "ai": {
+      "open": "✨ Design with AI",
+      "title": "Design a program with AI",
+      "intro": "Tell the AI how you train and it will build a 7-day schedule and add it to My Programs. You can edit it afterwards.",
+      "daysLabel": "Training days per week",
+      "daysOption_one": "{{count}} day",
+      "daysOption_other": "{{count}} days",
+      "equipmentLabel": "Equipment you have",
+      "equipmentHint": "Bodyweight exercises are always included.",
+      "equipment": {
+        "barbell": "Barbell",
+        "dumbbell": "Dumbbells",
+        "machine": "Machines & cables",
+        "kettlebell": "Kettlebell"
+      },
+      "goalLabel": "Goal",
+      "goals": {
+        "gain_muscle": "Build muscle",
+        "lose_weight": "Lose fat",
+        "strength": "Get stronger",
+        "endurance": "Endurance",
+        "general": "General fitness"
+      },
+      "levelLabel": "Experience",
+      "levels": {
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "advanced": "Advanced"
+      },
+      "submit": "Design my program",
+      "generating": "AI is designing your program…",
+      "failed": "Could not design a program",
+      "created": "AI designed \"{{name}}\" and added it to My Programs"
     }
   },
 
