@@ -9,6 +9,7 @@ const { parseCommand } = require('./parser')
 const { createVoiceParser } = require('./parser/hybrid')
 const { createMealAnalyzer } = require('./parser/mealGemini')
 const createProgramsRouter = require('./routes/programs')
+const createWeightRouter = require('./routes/weight')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -710,6 +711,9 @@ app.delete('/api/food-logs/:id', requireAuth, (req, res) => deleteOwnLog(req, re
 
 // ---- โปรแกรมฝึก (routes/programs.js) ----
 app.use('/api', createProgramsRouter({ supabase, requireAuth, handleSupabaseError }))
+
+// ---- น้ำหนักตัวรายวัน (routes/weight.js) ----
+app.use('/api', createWeightRouter({ supabase, requireAuth, handleSupabaseError }))
 
 // อัปเดต schema บน Supabase อัตโนมัติ (ถ้าตั้ง DATABASE_URL) แล้วเช็คว่าตาราง/คอลัมน์ที่ระบบ OTP ใช้พร้อมหรือยัง
 async function prepareDatabase() {

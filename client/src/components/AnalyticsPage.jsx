@@ -15,6 +15,7 @@ import {
 import { getDailyMacroSeries, getExerciseNames, getExerciseSeries } from '../utils/analytics'
 import AnimatedNumber from './AnimatedNumber'
 import AnalyticsSkeleton from './AnalyticsSkeleton'
+import { HistoryLog, WeeklyCaloriesCard, WeightTrendCard } from './StatsCards'
 
 const TOOLTIP_STYLE = {
   backgroundColor: 'rgba(16, 20, 29, 0.92)',
@@ -94,7 +95,9 @@ function ChartCard({ title, Icon, tone, action, empty, emptyText, children, dela
   )
 }
 
-function AnalyticsPage({ workoutLogs, foodLogs, loading }) {
+// แท็บ "สถิติ": สรุปตัวเลข, แนวโน้มน้ำหนักตัว, แคลอรี In/Out 7 วัน, Progressive Overload, ประวัติแคลอรี และประวัติรายวัน
+// user: โปรไฟล์ (น้ำหนักตัว, เป้าหมายแคลอรี) ; onProfileWeight(kg): บันทึกน้ำหนักวันล่าสุดแล้ว ให้ Dashboard อัปเดตโปรไฟล์
+function AnalyticsPage({ workoutLogs, foodLogs, loading, user, onProfileWeight }) {
   const { t } = useTranslation()
   const exerciseNames = useMemo(() => getExerciseNames(workoutLogs), [workoutLogs])
   const [chosenExercise, setChosenExercise] = useState('')
@@ -146,6 +149,17 @@ function AnalyticsPage({ workoutLogs, foodLogs, loading }) {
           unit={t('common.units.kcal')}
           tone="border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
           delay={0.1}
+        />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <WeightTrendCard onProfileWeight={onProfileWeight} delay={0.12} />
+        <WeeklyCaloriesCard
+          foodLogs={foodLogs}
+          workoutLogs={workoutLogs}
+          bodyWeightKg={user?.weight_kg}
+          targetCalories={user?.target_calories ?? 2000}
+          delay={0.15}
         />
       </div>
 
@@ -282,6 +296,8 @@ function AnalyticsPage({ workoutLogs, foodLogs, loading }) {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      <HistoryLog foodLogs={foodLogs} workoutLogs={workoutLogs} bodyWeightKg={user?.weight_kg} delay={0.22} />
     </div>
   )
 }

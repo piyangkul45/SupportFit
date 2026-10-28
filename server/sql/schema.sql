@@ -134,3 +134,14 @@ alter table workout_logs add column if not exists activity_type text
 alter table workout_logs add column if not exists duration_min double precision;
 alter table workout_logs add column if not exists distance_km double precision;
 alter table workout_logs add column if not exists calories_burned double precision;
+
+-- น้ำหนักตัวรายวัน (หน้า "สถิติ"): 1 แถวต่อผู้ใช้ต่อวัน (logged_on = วันที่ตามเครื่องผู้ใช้) บันทึกซ้ำวันเดิม = แก้ค่าเดิม
+-- บันทึกวันล่าสุด -> server อัปเดต users.weight_kg ด้วย (ใช้คำนวณแคลอรีที่เผาผลาญ)
+create table if not exists weight_logs (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references users (id) on delete cascade,
+  weight_kg double precision not null,
+  logged_on date not null,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists weight_logs_user_day_idx on weight_logs (user_id, logged_on);

@@ -45,6 +45,13 @@ const MESSAGES = {
       textRequired: 'Please provide the text to parse',
       notUnderstood: "Couldn't understand that command",
     },
+    weight: {
+      loadFailed: 'Could not load your weight history',
+      saveFailed: 'Could not save your weight',
+      deleteFailed: 'Could not delete this weight entry',
+      invalidWeight: 'Weight must be between {min} and {max} kg',
+      invalidDate: 'Please choose a valid date',
+    },
     meal: {
       aiUnavailable: 'AI meal analysis is not configured. Set GEMINI_API_KEY in server/.env',
       notFood: "Couldn't find any food or drinks in that text",
@@ -164,6 +171,13 @@ const MESSAGES = {
     parser: {
       textRequired: 'กรุณาระบุข้อความที่ต้องการแปลง',
       notUnderstood: 'ไม่เข้าใจคำสั่งนี้',
+    },
+    weight: {
+      loadFailed: 'โหลดประวัติน้ำหนักตัวไม่สำเร็จ',
+      saveFailed: 'บันทึกน้ำหนักตัวไม่สำเร็จ',
+      deleteFailed: 'ลบรายการน้ำหนักนี้ไม่สำเร็จ',
+      invalidWeight: 'น้ำหนักต้องอยู่ระหว่าง {min}–{max} กก.',
+      invalidDate: 'กรุณาเลือกวันที่ให้ถูกต้อง',
     },
     meal: {
       aiUnavailable: 'ยังไม่ได้ตั้งค่า AI วิเคราะห์อาหาร กรุณาใส่ GEMINI_API_KEY ใน server/.env',

@@ -578,5 +578,57 @@
     "save": "Save workout",
     "saving": "Saving…",
     "saved": "Logged {{name}} · {{kcal}} kcal burned"
+  },
+  "stats": {
+    "rangeDays_one": "{{count}} day",
+    "rangeDays_other": "{{count}} days",
+    "weight": {
+      "title": "Weight Trend",
+      "rangeLabel": "Range",
+      "latest": "Latest weight",
+      "series": "Body weight",
+      "changeIn_one": "over {{count}} day",
+      "changeIn_other": "over {{count}} days",
+      "empty": "No weight logged in this range yet. Add today's weight below.",
+      "loadFailed": "Could not load your weight history",
+      "formTitle": "Log your weight",
+      "placeholder": "Weight",
+      "date": "Date",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveFailed": "Could not save your weight",
+      "invalid": "Enter a weight between 20 and 400 kg",
+      "hint": "Saving the same date again replaces that day. Your latest entry also updates your profile weight.",
+      "saved": "Saved {{weight}} kg for {{date}}"
+    },
+    "calories": {
+      "title": "Calories In vs Out · 7 days",
+      "in": "Calories In",
+      "out": "Calories Out",
+      "net": "Net",
+      "empty": "No meals or workouts in the last 7 days yet",
+      "targetLabel": "Target {{value}}",
+      "overTarget": "{{value}} kcal above target",
+      "underTarget": "{{value}} kcal below target",
+      "avgIn": "Avg. calories in",
+      "totalOut": "Total burned",
+      "overDays": "Days over target",
+      "days": "days"
+    },
+    "history": {
+      "title": "History",
+      "empty": "Nothing logged yet. Your meals and workouts will appear here by day.",
+      "dayChip": "{{in}} in · {{out}} out",
+      "showMore": "Show more days",
+      "foods_one": "{{count}} meal",
+      "foods_other": "{{count}} meals",
+      "workouts_one": "{{count}} exercise",
+      "workouts_other": "{{count}} exercises",
+      "food": "Food",
+      "exercise": "Exercise",
+      "detail": "Details",
+      "noFoods": "No meals logged this day",
+      "noWorkouts": "No workouts logged this day"
+    }
   }
 }

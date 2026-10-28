@@ -110,6 +110,7 @@ const DashboardPages = memo(function DashboardPages({
   handleSaveItems,
   handleSaveMeal,
   handleSaveWorkout,
+  handleProfileWeight,
   handleRestFinish,
   openEditor,
   handleDelete,
@@ -209,7 +210,13 @@ const DashboardPages = memo(function DashboardPages({
       {activeTab === 'analytics' && (
         <motion.div key="analytics" variants={PAGE} initial="initial" animate="animate" exit="exit">
           <Suspense fallback={<AnalyticsSkeleton />}>
-            <AnalyticsPage workoutLogs={workoutLogs} foodLogs={foodLogs} loading={isLoadingLogs} />
+            <AnalyticsPage
+              workoutLogs={workoutLogs}
+              foodLogs={foodLogs}
+              loading={isLoadingLogs}
+              user={user}
+              onProfileWeight={handleProfileWeight}
+            />
           </Suspense>
         </motion.div>
       )}
@@ -508,6 +515,8 @@ function Dashboard() {
   const needsOnboarding = user?.is_onboarded === false
   const openProfile = useCallback(() => setIsProfileOpen(true), [])
   const closeProfile = useCallback(() => setIsProfileOpen(false), [])
+  // บันทึกน้ำหนักวันล่าสุดในแท็บสถิติ = server อัปเดต users.weight_kg แล้ว -> ใช้คำนวณแคลอรีที่เผาผลาญทันที
+  const handleProfileWeight = useCallback((weightKg) => setUser((prev) => (prev ? { ...prev, weight_kg: weightKg } : prev)), [])
   const handleProfileSave = useCallback(
     async (values) => {
       const updated = await updateProfile(values)
@@ -632,6 +641,7 @@ function Dashboard() {
           handleSaveItems={handleSaveItems}
           handleSaveMeal={handleSaveMeal}
           handleSaveWorkout={handleSaveWorkout}
+          handleProfileWeight={handleProfileWeight}
           handleRestFinish={handleRestFinish}
           openEditor={openEditor}
           handleDelete={handleDelete}

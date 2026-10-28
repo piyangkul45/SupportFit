@@ -114,6 +114,17 @@ export const updateFoodLog = (id, data) =>
 
 export const deleteFoodLog = (id) => request(`/food-logs/${id}`, { method: 'DELETE' })
 
+// ---- น้ำหนักตัวรายวัน (หน้า "สถิติ") ----
+// [{ id, weight_kg, logged_on }] ย้อนหลัง days วันนับจาก today (วันที่ตามเครื่องผู้ใช้) เรียงเก่าไปใหม่
+export const getWeightLogs = (days, today) =>
+  request(`/weight-logs?days=${days}&today=${encodeURIComponent(today)}`)
+
+// บันทึกซ้ำวันเดิม = แก้ค่าเดิม คืน { log, profile_weight_kg } (profile_weight_kg != null = อัปเดตน้ำหนักในโปรไฟล์แล้ว)
+export const saveWeightLog = (weightKg, loggedOn) =>
+  request('/weight-logs', { method: 'POST', body: JSON.stringify({ weight_kg: weightKg, logged_on: loggedOn }) })
+
+export const deleteWeightLog = (id) => request(`/weight-logs/${id}`, { method: 'DELETE' })
+
 // ---- โปรแกรมฝึก ----
 // { programs: [...preset, ...ของผู้ใช้], active: { program_id, started_on } | null, db_ready }
 export const getPrograms = () => request('/programs')
