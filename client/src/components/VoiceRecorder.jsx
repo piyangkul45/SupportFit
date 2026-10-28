@@ -144,7 +144,8 @@ const PreviewCard = memo(function PreviewCard({ line, preview }) {
 // รายการที่บันทึกสำเร็จจะถูกลบออกจากช่องข้อความ ที่ไม่สำเร็จคงไว้ให้ลองใหม่
 // exerciseHint: ท่าที่เลือกไว้ใน "ตารางฝึกวันนี้" พูดแค่ตัวเลข ("100 kg 8 reps") จะบันทึกเข้าท่านี้
 // onClearHint(null): เลิกเลือกท่า
-function VoiceRecorder({ onSave, exerciseHint = null, onClearHint }) {
+// embedded: แสดงเป็นส่วนหนึ่งของการ์ดอื่น (Workout Tracker) ไม่มีกรอบการ์ดและหัวข้อใหญ่ของตัวเอง
+function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = false }) {
   const { t } = useTranslation()
   const [isListening, setIsListening] = useState(false)
   // textarea เป็น uncontrolled: ข้อความที่กำลังพิมพ์อยู่ใน DOM เท่านั้น ไม่ setState ทุกตัวอักษร
@@ -339,8 +340,10 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint }) {
     }
   }
 
+  const Wrapper = embedded ? 'div' : 'section'
+
   return (
-    <section className="glass-card relative overflow-hidden p-5 sm:p-6">
+    <Wrapper className={embedded ? 'relative' : 'glass-card relative overflow-hidden p-5 sm:p-6'}>
       {/* แสงพื้นหลังการ์ด เปลี่ยนสีตามสถานะ */}
       <div
         aria-hidden
@@ -356,12 +359,19 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint }) {
       />
 
       <div className="relative mb-2 flex items-center justify-between gap-3">
-        <h2 className="card-title">
-          <span className="icon-tile border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
-            <AudioLines className="h-4 w-4" aria-hidden />
-          </span>
-          {t('voice.title')}
-        </h2>
+        {embedded ? (
+          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <AudioLines className="h-4 w-4 text-emerald-300" aria-hidden />
+            {t('voice.title')}
+          </h3>
+        ) : (
+          <h2 className="card-title">
+            <span className="icon-tile border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
+              <AudioLines className="h-4 w-4" aria-hidden />
+            </span>
+            {t('voice.title')}
+          </h2>
+        )}
         <StatusBadge isListening={isListening} isParsing={isParsing && lines.length > 0} readyCount={readyItems.length} />
       </div>
 
@@ -500,7 +510,7 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint }) {
           {t('voice.error', { error })}
         </p>
       )}
-    </section>
+    </Wrapper>
   )
 }
 

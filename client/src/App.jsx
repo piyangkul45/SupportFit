@@ -2,7 +2,6 @@ import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { ChartColumn, LayoutDashboard, Trophy } from 'lucide-react'
-import VoiceRecorder from './components/VoiceRecorder'
 import RestTimer from './components/RestTimer'
 import LogsList from './components/LogsList'
 import MacroDashboard from './components/MacroDashboard'
@@ -146,14 +145,13 @@ const DashboardPages = memo(function DashboardPages({
                   </motion.div>
                 )}
                 <motion.div variants={RISE}>
-                  <VoiceRecorder
-                    onSave={handleSaveItems}
+                  <WorkoutTracker
+                    bodyWeightKg={user?.weight_kg}
+                    onSave={handleSaveWorkout}
+                    onSaveVoice={handleSaveItems}
                     exerciseHint={routineExercise}
                     onClearHint={selectExercise}
                   />
-                </motion.div>
-                <motion.div variants={RISE}>
-                  <WorkoutTracker bodyWeightKg={user?.weight_kg} onSave={handleSaveWorkout} />
                 </motion.div>
                 <motion.div variants={RISE}>
                   <MealLogger
@@ -319,6 +317,8 @@ function Dashboard() {
   }, [])
 
   // บันทึกรายการที่ผู้ใช้ตรวจ/แก้ใน preview แล้ว (ผลจาก /api/parse) คืน boolean[] ว่ารายการไหนสำเร็จ
+  // ท่าออกกำลังกายคำนวณแคลอรีที่เผาผลาญจาก MET ของท่า (utils/calories.js) แล้วใส่เข้า state ทันที
+  // -> Calories Out / แคลอรีคงเหลือบน Dashboard อัปเดตก่อนโหลดรายการใหม่เสร็จ
   const handleSaveItems = useCallback(
     async (items) => {
       if (!userId) {
@@ -332,13 +332,20 @@ function Dashboard() {
       for (const parsed of items) {
         try {
           if (parsed.type === 'workout') {
-            const saved = await createWorkoutLog({
+            // คำสั่งเสียงมีแค่น้ำหนัก/ครั้ง/เซต จึงนับเป็นเวท/สตรีทเวิร์กเอาต์ (ท่าที่ไม่รู้จัก = เวทเทรนนิ่ง)
+            const activity = logToActivity({ exercise_name: parsed.exercise_name, sets: parsed.sets })
+            if (activity.category === 'cardio') Object.assign(activity, { category: 'strength', met: undefined })
+            const { is_volume_pr, is_1rm_pr, ...log } = await createWorkoutLog({
               user_id: userId,
               exercise_name: parsed.exercise_name,
               weight_kg: parsed.weight_kg,
               reps: parsed.reps,
               sets: parsed.sets,
+              activity_type: activity.category,
+              calories_burned: calculateCaloriesBurned(activity, user?.weight_kg),
             })
+            setWorkoutLogs((prev) => [log, ...prev])
+            const saved = { is_volume_pr, is_1rm_pr }
             hasWorkout = true
             parts.push({ key: 'dashboard.feedback.logged', params: { name: parsed.exercise_name } })
             if (saved.is_volume_pr) parts.push({ key: 'dashboard.feedback.volumePr', icon: '🏆' })
@@ -375,7 +382,7 @@ function Dashboard() {
       refreshLogs()
       return results
     },
-    [userId, refreshLogs, t, i18n, notify]
+    [userId, user?.weight_kg, refreshLogs, t, i18n, notify]
   )
 
   // บันทึกเมนูที่ AI Meal Logger วิเคราะห์ (name, *_g) เป็น food_logs คืน boolean[] ว่ารายการไหนสำเร็จ

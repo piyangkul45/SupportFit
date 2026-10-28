@@ -501,6 +501,7 @@
   },
   "workout": {
     "title": "บันทึกการออกกำลังกาย",
+    "orPickManually": "หรือเลือกท่าเอง",
     "categoryLabel": "ประเภทกิจกรรม",
     "categories": {
       "strength": "เวทเทรนนิ่ง",

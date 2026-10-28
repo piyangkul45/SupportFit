@@ -501,6 +501,7 @@
   },
   "workout": {
     "title": "Workout Tracker",
+    "orPickManually": "Or pick an exercise",
     "categoryLabel": "Activity type",
     "categories": {
       "strength": "Strength",

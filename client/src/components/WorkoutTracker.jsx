@@ -5,6 +5,7 @@ import { Activity, Check, Dumbbell, Flame, PersonStanding, Plus, Search, X } fro
 import { calculateCaloriesBurned } from '../utils/calories'
 import { CATEGORIES, DEFAULT_MET, searchExercises } from '../utils/exerciseCatalog'
 import { ButtonLabel } from './Spinner'
+import VoiceRecorder from './VoiceRecorder'
 
 const CATEGORY_ICONS = { strength: Dumbbell, cardio: Activity, street: PersonStanding }
 const EMPTY_DETAILS = { sets: '', reps: '', weight: '', duration: '', distance: '' }
@@ -41,10 +42,13 @@ function NumberField({ id, label, unit, value, onChange, step = '1', required })
   )
 }
 
-// Workout Tracker: เลือกหมวด -> ค้นหา/เลือกท่า -> กรอกเซต/ครั้ง/น้ำหนัก หรือเวลา/ระยะทาง -> บันทึก
-// แคลอรีที่เผาผลาญคำนวณจาก MET ของท่า + น้ำหนักตัว (utils/calories.js) แสดงก่อนบันทึก
-// onSave(entry) คืน Promise<boolean> ว่าบันทึกสำเร็จหรือไม่
-export default memo(function WorkoutTracker({ bodyWeightKg, onSave }) {
+// Workout Tracker (การ์ดเดียวรวม 2 วิธีบันทึก):
+// - ส่วนบน: บันทึกด้วยเสียง (VoiceRecorder แบบ embedded) onSaveVoice(items) คืน boolean[] เหมือนเดิม
+//   exerciseHint/onClearHint: ท่าที่เลือกจาก "ตารางฝึกวันนี้" ส่งต่อให้ VoiceRecorder
+// - ส่วนล่าง: เลือกหมวด -> ค้นหา/กดเลือกท่า -> กรอกเซต/ครั้ง/น้ำหนัก หรือเวลา/ระยะทาง -> บันทึก
+//   แคลอรีที่เผาผลาญคำนวณจาก MET ของท่า + น้ำหนักตัว (utils/calories.js) แสดงก่อนบันทึก
+//   onSave(entry) คืน Promise<boolean> ว่าบันทึกสำเร็จหรือไม่
+export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice, exerciseHint, onClearHint }) {
   const { t } = useTranslation()
   const [category, setCategory] = useState('strength')
   const [query, setQuery] = useState('')
@@ -142,11 +146,6 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave }) {
 
   return (
     <section className="glass-card relative overflow-hidden p-5 sm:p-6">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.12),transparent_65%)]"
-      />
-
       <div className="relative mb-4 flex items-center justify-between gap-3">
         <h2 className="card-title">
           <span className="icon-tile border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
@@ -154,6 +153,16 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave }) {
           </span>
           {t('workout.title')}
         </h2>
+      </div>
+
+      {/* ส่วนบน: บันทึกด้วยเสียง (พูด/พิมพ์ "สควอท 60 กิโล 5 ครั้ง 3 เซต" -> ตรวจ -> บันทึก) */}
+      <VoiceRecorder embedded onSave={onSaveVoice} exerciseHint={exerciseHint} onClearHint={onClearHint} />
+
+      {/* ส่วนล่าง: เลือกท่าเอง */}
+      <div className="relative my-5 flex items-center gap-3" role="separator">
+        <span className="h-px flex-1 bg-white/10" />
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{t('workout.orPickManually')}</span>
+        <span className="h-px flex-1 bg-white/10" />
       </div>
 
       {/* หมวดกิจกรรม */}
