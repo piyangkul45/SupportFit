@@ -205,7 +205,17 @@
       "carbs": "Carbs",
       "fat": "Fat",
       "remaining": "{{value}} {{unit}} to go",
-      "over": "{{value}} {{unit}} over"
+      "over": "{{value}} {{unit}} over",
+      "remainingLabel": "Remaining",
+      "overLabel": "Over by",
+      "ofGoal": "Goal {{goal}} kcal",
+      "caloriesIn": "Calories In",
+      "caloriesOut": "Calories Out",
+      "caloriesOutNote": "Estimated from your sets",
+      "net": "Net Calories",
+      "netOver": "{{value}} kcal above target",
+      "netUnder": "{{value}} kcal below target",
+      "noTarget": "Set a target in Profile Settings"
     },
     "logs": {
       "empty": "Nothing logged yet today",

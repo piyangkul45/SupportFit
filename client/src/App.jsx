@@ -20,6 +20,7 @@ import BrandMark from './components/BrandMark'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { speak } from './utils/speech'
 import { isToday, localDateString } from './utils/date'
+import { estimateWorkoutCalories } from './utils/calories'
 import { countSetsByExercise } from './utils/programs'
 import {
   getMe,
@@ -101,6 +102,7 @@ const DashboardPages = memo(function DashboardPages({
   notify,
   isResting,
   totalsToday,
+  caloriesOutToday,
   workoutLogs,
   foodLogs,
   isLoadingLogs,
@@ -172,6 +174,7 @@ const DashboardPages = memo(function DashboardPages({
                 <motion.div variants={RISE}>
                   <MacroDashboard
                     totals={totalsToday}
+                    caloriesOut={caloriesOutToday}
                     targetCalories={user?.target_calories ?? 2000}
                     targetProtein={user?.target_protein ?? 150}
                     targetCarbs={user?.target_carbs}
@@ -491,6 +494,12 @@ function Dashboard() {
     }
   }, [foodLogs])
 
+  // แคลอรีที่เผาผลาญวันนี้ (ประมาณจากจำนวนเซตและน้ำหนักตัว ดู utils/calories.js)
+  const caloriesOutToday = useMemo(
+    () => estimateWorkoutCalories(workoutLogs.filter((log) => isToday(log.created_at)), user?.weight_kg),
+    [workoutLogs, user?.weight_kg]
+  )
+
   // เซตที่ทำไปแล้ววันนี้ของแต่ละท่า (ชื่อตัวพิมพ์เล็ก -> จำนวนเซต)
   const setsDoneToday = useMemo(
     () => countSetsByExercise(workoutLogs.filter((log) => isToday(log.created_at))),
@@ -562,6 +571,7 @@ function Dashboard() {
           notify={notify}
           isResting={isResting}
           totalsToday={totalsToday}
+          caloriesOutToday={caloriesOutToday}
           workoutLogs={workoutLogs}
           foodLogs={foodLogs}
           isLoadingLogs={isLoadingLogs}

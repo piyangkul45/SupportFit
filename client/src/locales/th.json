@@ -205,7 +205,17 @@
       "carbs": "คาร์บ",
       "fat": "ไขมัน",
       "remaining": "เหลืออีก {{value}} {{unit}}",
-      "over": "เกินมา {{value}} {{unit}}"
+      "over": "เกินมา {{value}} {{unit}}",
+      "remainingLabel": "เหลืออีก",
+      "overLabel": "เกินมา",
+      "ofGoal": "เป้าหมาย {{goal}} แคล",
+      "caloriesIn": "กินเข้าไป",
+      "caloriesOut": "เผาผลาญ",
+      "caloriesOutNote": "ประมาณจากจำนวนเซตที่ฝึก",
+      "net": "แคลอรีสุทธิ",
+      "netOver": "สูงกว่าเป้าหมาย {{value}} แคล",
+      "netUnder": "ต่ำกว่าเป้าหมาย {{value}} แคล",
+      "noTarget": "ตั้งเป้าหมายได้ใน Profile Settings"
     },
     "logs": {
       "empty": "ยังไม่มีบันทึกวันนี้",
