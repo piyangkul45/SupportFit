@@ -98,6 +98,11 @@ export const analyzeMeal = (text) => request('/meals/analyze', { method: 'POST',
 export const analyzeMealImage = ({ image, mimeType, note }) =>
   request('/meals/analyze-image', { method: 'POST', body: JSON.stringify({ image, mime_type: mimeType, note: note || undefined }) })
 
+// AI Coach: history = [{ role: 'user' | 'model', text }] ข้อความก่อนหน้าใน session -> { reply } (Markdown)
+// server แนบ BMR/TDEE, น้ำหนัก และเป้าหมายจากโปรไฟล์ให้เอง
+export const coachChat = (message, history) =>
+  request('/coach/chat', { method: 'POST', body: JSON.stringify({ message, history }) })
+
 // since (ISO timestamp, ไม่บังคับ) = เฉพาะรายการตั้งแต่เวลานั้น (หน้าสถิติโหลดตามช่วงที่เลือก)
 const sinceParam = (since) => (since ? `&since=${encodeURIComponent(since)}` : '')
 

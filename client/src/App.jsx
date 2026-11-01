@@ -1,7 +1,7 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
-import { ChartColumn, LayoutDashboard, Trophy } from 'lucide-react'
+import { Bot, ChartColumn, LayoutDashboard, Trophy } from 'lucide-react'
 import RestTimer from './components/RestTimer'
 import LogsList from './components/LogsList'
 import MacroDashboard from './components/MacroDashboard'
@@ -9,6 +9,7 @@ import MealLogger from './components/MealLogger'
 import AuthPage from './components/AuthPage'
 import Header from './components/Header'
 import Programs from './pages/Programs'
+import AICoachPage from './pages/AICoachPage'
 import TodayRoutineCard from './components/TodayRoutineCard'
 import AnalyticsSkeleton from './components/AnalyticsSkeleton'
 import EditLogModal from './components/EditLogModal'
@@ -16,6 +17,7 @@ import ProfileModal from './components/ProfileModal'
 import Toast from './components/Toast'
 import BrandMark from './components/BrandMark'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import useCoachChat from './hooks/useCoachChat'
 import { speak } from './utils/speech'
 import { isToday, localDateString } from './utils/date'
 import { calculateCaloriesBurned, estimateWorkoutCalories, logToActivity } from './utils/calories'
@@ -43,6 +45,7 @@ const REST_DURATION = 90
 const TABS = [
   { id: 'home', labelKey: 'nav.dashboard', Icon: LayoutDashboard },
   { id: 'programs', labelKey: 'nav.programs', Icon: Trophy },
+  { id: 'coach', labelKey: 'nav.coach', Icon: Bot },
   { id: 'analytics', labelKey: 'nav.analytics', Icon: ChartColumn },
 ]
 
@@ -110,6 +113,7 @@ const DashboardPages = memo(function DashboardPages({
   handleRestFinish,
   openEditor,
   handleDelete,
+  coach,
 }) {
   return (
     <AnimatePresence mode="wait">
@@ -192,6 +196,12 @@ const DashboardPages = memo(function DashboardPages({
         </motion.div>
       )}
 
+      {activeTab === 'coach' && (
+        <motion.div key="coach" variants={PAGE} initial="initial" animate="animate" exit="exit">
+          <AICoachPage coach={coach} />
+        </motion.div>
+      )}
+
       {activeTab === 'analytics' && (
         <motion.div key="analytics" variants={PAGE} initial="initial" animate="animate" exit="exit">
           <Suspense fallback={<AnalyticsSkeleton />}>
@@ -227,6 +237,7 @@ function Dashboard() {
   const didInitUserRef = useRef(false)
 
   const userId = user?.id ?? null
+  const coach = useCoachChat(userId)
 
   // toast: parts = [{ key, params?, icon? }] แปลตอนแสดง (สลับภาษาแล้วข้อความเปลี่ยนตาม)
   const notify = useCallback((type, ...parts) => setToast({ type, parts, id: Date.now() + Math.random() }), [])
@@ -613,6 +624,7 @@ function Dashboard() {
           handleRestFinish={handleRestFinish}
           openEditor={openEditor}
           handleDelete={handleDelete}
+          coach={coach}
         />
       </main>
 

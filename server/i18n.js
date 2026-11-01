@@ -111,6 +111,13 @@ const MESSAGES = {
         generateFailed: 'The AI could not design a program right now. Please try again.',
       },
     },
+    coach: {
+      messageRequired: 'Please enter a message',
+      unavailable: 'AI Coach is not configured. Set GEMINI_API_KEY in server/.env',
+      timeout: 'The coach took too long to answer. Please try again in a moment.',
+      busy: 'The AI service is busy right now. Please try again in a moment.',
+      failed: 'The coach could not answer right now. Please try again.',
+    },
     email: {
       verify: {
         subject: 'Your SupportFit verification code',
@@ -241,6 +248,13 @@ const MESSAGES = {
         busy: 'ตอนนี้มีผู้ใช้ AI จำนวนมาก กรุณาลองใหม่อีกครั้งในอีกสักครู่',
         generateFailed: 'AI ออกแบบโปรแกรมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
       },
+    },
+    coach: {
+      messageRequired: 'กรุณาพิมพ์ข้อความ',
+      unavailable: 'ยังไม่ได้ตั้งค่า AI Coach กรุณาใส่ GEMINI_API_KEY ใน server/.env',
+      timeout: 'โค้ชใช้เวลาตอบนานเกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่',
+      busy: 'ตอนนี้มีผู้ใช้ AI จำนวนมาก กรุณาลองใหม่อีกครั้งในอีกสักครู่',
+      failed: 'โค้ชตอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
     },
     email: {
       verify: {

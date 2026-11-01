@@ -25,7 +25,40 @@
     "dashboard": "Dashboard",
     "programs": "Programs",
     "analytics": "Analytics",
+    "coach": "AI Coach",
     "label": "Main navigation"
+  },
+
+  "coach": {
+    "title": "SupportFit AI Coach",
+    "status": {
+      "online": "Ready · tailored to your goals",
+      "thinking": "Thinking…",
+      "listening": "Listening…"
+    },
+    "welcome": {
+      "title": "Ask your coach anything",
+      "body": "Training, meals and recovery advice based on your weight, BMR/TDEE and goal."
+    },
+    "prompts": {
+      "label": "Popular questions",
+      "dinner": "High-protein dinner under 400 kcal",
+      "recovery": "Sore after leg day, what should I eat to recover?",
+      "cardio": "Cardio tips to lose fat without losing muscle"
+    },
+    "inputLabel": "Message to the coach",
+    "placeholder": "Ask about training or nutrition…",
+    "send": "Send message",
+    "micStart": "Start voice input",
+    "micStop": "Stop voice input",
+    "micError": "Could not use the microphone. Check your browser's permission.",
+    "you": "You",
+    "coach": "Coach",
+    "conversation": "Conversation with the coach",
+    "clear": "Clear chat",
+    "retry": "Try again",
+    "failed": "The coach could not answer. Please try again.",
+    "disclaimer": "AI advice can be wrong and does not replace a doctor."
   },
 
   "auth": {

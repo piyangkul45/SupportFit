@@ -155,7 +155,7 @@ function Header({ userName, tabs, activeTab, onTabChange, onOpenProfile }) {
             onChange={onTabChange}
             layoutId="nav-pill-desktop"
             className="glass-panel hidden items-center gap-1 p-1 md:flex"
-            itemClassName="gap-2 px-4 py-2 text-sm"
+            itemClassName="gap-1.5 whitespace-nowrap px-2.5 py-2 text-sm lg:gap-2 lg:px-4"
           />
 
           <div className="flex shrink-0 items-center gap-2.5">
@@ -170,7 +170,7 @@ function Header({ userName, tabs, activeTab, onTabChange, onOpenProfile }) {
         activeTab={activeTab}
         onChange={onTabChange}
         layoutId="nav-pill-mobile"
-        className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-obsidian-raised/85 p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.8)] glass-blur md:hidden"
+        className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-4 gap-1 rounded-2xl border border-white/10 bg-obsidian-raised/85 p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.8)] glass-blur md:hidden"
         itemClassName="flex-col gap-1 py-2 text-[11px]"
       />
     </>
