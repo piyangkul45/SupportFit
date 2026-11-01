@@ -1,7 +1,7 @@
 import { memo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Mic, Square } from 'lucide-react'
+import { Camera, Mic, Square } from 'lucide-react'
 import useAudioLevels from '../hooks/useAudioLevels'
 
 // ปุ่มไมค์วงกลม + waveform ใช้ร่วมกันใน Voice Log (VoiceRecorder) และ AI Meal Logger (MealLogger)
@@ -22,7 +22,7 @@ export const MicButton = memo(function MicButton({ isListening, onClick }) {
               className="absolute inset-3 rounded-full border-2 border-red-400/50"
               initial={{ scale: 0.85, opacity: 0.8 }}
               animate={{ scale: 1.55, opacity: 0 }}
-              exit={{ opacity: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.2 } }}
               transition={{ duration: 1.8, delay, repeat: Infinity, ease: 'easeOut' }}
             />
           ))}
@@ -65,6 +65,31 @@ export const MicButton = memo(function MicButton({ isListening, onClick }) {
             {isListening ? <Square className="h-8 w-8 fill-current" /> : <Mic className="h-9 w-9" />}
           </motion.span>
         </AnimatePresence>
+      </motion.button>
+    </div>
+  )
+})
+
+// ปุ่มเปิดกล้อง AI วงกลมขนาดเท่า MicButton สีมินต์ให้แยกจากปุ่มไมค์ (ไอคอนเข้มเพราะพื้นสีอ่อน)
+export const PoseCameraButton = memo(function PoseCameraButton({ disabled, onClick }) {
+  const { t } = useTranslation()
+  return (
+    <div className="relative flex h-32 w-32 items-center justify-center">
+      <span
+        aria-hidden
+        className="absolute -inset-2 rounded-full bg-[radial-gradient(circle,rgba(94,234,212,0.32),transparent_65%)]"
+      />
+      <motion.button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={t('camera.open')}
+        whileHover={disabled ? undefined : { scale: 1.05 }}
+        whileTap={disabled ? undefined : { scale: 0.92 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+        className="relative flex h-24 w-24 items-center justify-center rounded-full border border-teal-100/60 bg-gradient-to-br from-teal-200 to-emerald-300 text-emerald-950 shadow-2xl shadow-teal-300/30 disabled:opacity-50"
+      >
+        <Camera className="h-9 w-9" aria-hidden />
       </motion.button>
     </div>
   )

@@ -51,7 +51,7 @@ export default function useAudioLevels(active, barsRef) {
       cancelAnimationFrame(frame)
       stream?.getTracks().forEach((track) => track.stop())
       audioContext?.close()
-      bars.forEach((bar) => bar && (bar.style.transform = ''))
+      // ไม่ล้าง transform ที่นี่: cleanup ทำงานหลัง React ตั้งค่าของสถานะหยุดแล้ว จะลบค่านั้นทิ้ง
       setIsLive(false)
     }
   }, [active, barsRef])

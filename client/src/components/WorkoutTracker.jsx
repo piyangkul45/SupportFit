@@ -1,9 +1,10 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Activity, Check, Dumbbell, Flame, PersonStanding, Plus, Search, X } from 'lucide-react'
+import { Activity, Check, Dumbbell, Flame, PersonStanding, Plus, Search, Sparkles, X } from 'lucide-react'
 import { calculateCaloriesBurned } from '../utils/calories'
 import { CATEGORIES, DEFAULT_MET, searchExercises } from '../utils/exerciseCatalog'
+import AICameraTracker from './AICameraTracker'
 import { ButtonLabel } from './Spinner'
 import VoiceRecorder from './VoiceRecorder'
 
@@ -43,9 +44,9 @@ function NumberField({ id, label, unit, value, onChange, step = '1', required })
 }
 
 // Workout Tracker (การ์ดเดียวรวม 2 วิธีบันทึก):
-// - ส่วนบน: บันทึกด้วยเสียง (VoiceRecorder แบบ embedded) onSaveVoice(items) คืน boolean[] เหมือนเดิม
+// - บันทึกด้วยเสียง/พิมพ์/กล้อง AI (VoiceRecorder แบบ embedded) onSaveVoice(items) คืน boolean[] เหมือนเดิม
 //   exerciseHint/onClearHint: ท่าที่เลือกจาก "ตารางฝึกวันนี้" ส่งต่อให้ VoiceRecorder
-// - ส่วนล่าง: เลือกหมวด -> ค้นหา/กดเลือกท่า -> กรอกเซต/ครั้ง/น้ำหนัก หรือเวลา/ระยะทาง -> บันทึก
+// - เลือกท่าเอง (children ของ VoiceRecorder): เลือกหมวด -> ค้นหา/กดเลือกท่า -> กรอกเซต/ครั้ง/น้ำหนัก หรือเวลา/ระยะทาง -> บันทึก
 //   แคลอรีที่เผาผลาญคำนวณจาก MET ของท่า + น้ำหนักตัว (utils/calories.js) แสดงก่อนบันทึก
 //   onSave(entry) คืน Promise<boolean> ว่าบันทึกสำเร็จหรือไม่
 export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice, exerciseHint, onClearHint }) {
@@ -56,6 +57,9 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
   const [details, setDetails] = useState(EMPTY_DETAILS)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const openCamera = useCallback(() => setIsCameraOpen(true), [])
+  const closeCamera = useCallback(() => setIsCameraOpen(false), [])
 
   const results = useMemo(() => searchExercises(query, category), [query, category])
   const trimmedQuery = query.trim()
@@ -153,12 +157,17 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
           </span>
           {t('workout.title')}
         </h2>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500">
+          <Sparkles className="h-3.5 w-3.5 text-emerald-300" aria-hidden />
+          {t('meal.poweredBy')}
+        </span>
       </div>
+      {isCameraOpen && <AICameraTracker bodyWeightKg={bodyWeightKg} onSave={onSave} onClose={closeCamera} />}
 
-      {/* ส่วนบน: บันทึกด้วยเสียง (พูด/พิมพ์ "สควอท 60 กิโล 5 ครั้ง 3 เซต" -> ตรวจ -> บันทึก) */}
-      <VoiceRecorder embedded onSave={onSaveVoice} exerciseHint={exerciseHint} onClearHint={onClearHint} />
+      {/* ปุ่มไมค์ + กล้อง AI -> ช่องข้อความ -> (เลือกท่าเอง) -> ปุ่มวิเคราะห์ -> ตรวจ -> บันทึก */}
+      <VoiceRecorder embedded onSave={onSaveVoice} exerciseHint={exerciseHint} onClearHint={onClearHint} onOpenCamera={openCamera}>
 
-      {/* ส่วนล่าง: เลือกท่าเอง */}
+      {/* เลือกท่าเอง: แสดงในช่อง children ของ VoiceRecorder */}
       <div className="relative my-5 flex items-center gap-3" role="separator">
         <span className="h-px flex-1 bg-white/10" />
         <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{t('workout.orPickManually')}</span>
@@ -177,7 +186,7 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
               role="tab"
               aria-selected={active}
               onClick={() => changeCategory(key)}
-              className={`relative flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors sm:text-sm ${
+              className={`relative flex flex-col items-center justify-center gap-1 whitespace-nowrap rounded-lg px-1 py-2 text-xs font-semibold transition-colors sm:flex-row sm:gap-1.5 sm:px-2 sm:text-sm ${
                 active ? 'text-white' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -334,6 +343,7 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
           </motion.form>
         )}
       </AnimatePresence>
+      </VoiceRecorder>
     </section>
   )
 })

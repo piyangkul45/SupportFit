@@ -1,0 +1,115 @@
+// ทดสอบการนับ Squat และตรวจฟอร์มด้วย landmark จำลอง (ไม่ใช้กล้อง)
+// รัน: npm test
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { createSquatTracker, jointAngle, torsoLean } from './squatTracker.js'
+
+// สร้างท่าจากมุมเข่าและมุมลำตัว (ข้างซ้ายของ landmark) ท่อนขาบน/ล่างยาว 0.2
+function pose({ knee, lean = 0, visibility = 0.9 }) {
+  const ankle = { x: 0.5, y: 0.9 }
+  const kneePoint = { x: 0.5, y: 0.7 }
+  const radians = (knee * Math.PI) / 180
+  const hip = { x: kneePoint.x + 0.2 * Math.sin(radians), y: kneePoint.y + 0.2 * Math.cos(radians) }
+  const leanRadians = (lean * Math.PI) / 180
+  const shoulder = { x: hip.x + 0.3 * Math.sin(leanRadians), y: hip.y - 0.3 * Math.cos(leanRadians) }
+  const landmarks = Array.from({ length: 33 }, () => ({ x: 0, y: 0, visibility: 0 }))
+  for (const [index, point] of [[11, shoulder], [23, hip], [25, kneePoint], [27, ankle]]) {
+    landmarks[index] = { ...point, visibility }
+  }
+  return landmarks
+}
+
+// เล่นมุมเข่าตามลำดับ โดยค่อย ๆ เปลี่ยนทีละเฟรมเหมือนวิดีโอจริง คืนสถานะสุดท้าย
+function play(tracker, keyAngles, options = {}) {
+  let state
+  let previous = keyAngles[0]
+  for (const target of keyAngles) {
+    for (let step = 1; step <= 8; step++) {
+      state = tracker.update(pose({ ...options, knee: previous + ((target - previous) * step) / 8 }))
+    }
+    for (let hold = 0; hold < 6; hold++) state = tracker.update(pose({ ...options, knee: target }))
+    previous = target
+  }
+  return state
+}
+
+test('jointAngle and torsoLean measure degrees', () => {
+  assert.equal(Math.round(jointAngle({ x: 0, y: 1 }, { x: 0, y: 0 }, { x: 1, y: 0 })), 90)
+  assert.equal(Math.round(jointAngle({ x: 0, y: 1 }, { x: 0, y: 0 }, { x: 0, y: -1 })), 180)
+  assert.equal(Math.round(torsoLean({ x: 0, y: 0 }, { x: 0, y: 1 })), 0)
+  assert.equal(Math.round(torsoLean({ x: 1, y: 0 }, { x: 0, y: 1 })), 45)
+})
+
+test('stand -> below 90 -> stand counts one rep', () => {
+  const tracker = createSquatTracker()
+  assert.equal(play(tracker, [175, 80, 175]).reps, 1)
+  assert.equal(play(tracker, [175, 80, 175, 80, 175]).reps, 3)
+})
+
+test('the rep counts only after standing back up', () => {
+  const tracker = createSquatTracker()
+  const down = play(tracker, [175, 80])
+  assert.equal(down.phase, 'down')
+  assert.equal(down.reps, 0)
+})
+
+test('needs a standing start', () => {
+  const tracker = createSquatTracker()
+  assert.equal(play(tracker, [120, 80, 120]).reps, 0)
+})
+
+test('a shallow squat is not counted and warns depth', () => {
+  const state = play(createSquatTracker(), [175, 120, 175])
+  assert.equal(state.reps, 0)
+  assert.equal(state.issue, 'depth')
+})
+
+test('turning back between 90 and 100 warns almost', () => {
+  const state = play(createSquatTracker(), [175, 95, 175])
+  assert.equal(state.reps, 0)
+  assert.equal(state.issue, 'almost')
+})
+
+test('the depth warning clears on the next attempt', () => {
+  const tracker = createSquatTracker()
+  const state = play(tracker, [175, 120, 175, 80, 175])
+  assert.equal(state.reps, 1)
+  assert.equal(state.issue, null)
+})
+
+test('small movements while standing do not warn', () => {
+  const state = play(createSquatTracker(), [175, 150, 175, 152, 175])
+  assert.equal(state.reps, 0)
+  assert.equal(state.issue, null)
+})
+
+test('leaning too far warns back while squatting, and the rep still counts', () => {
+  const tracker = createSquatTracker()
+  assert.equal(play(tracker, [175, 80], { lean: 70 }).issue, 'back')
+  const state = play(tracker, [80, 175], { lean: 70 })
+  assert.equal(state.reps, 1)
+  assert.equal(state.issue, null)
+})
+
+test('a normal forward lean does not warn', () => {
+  assert.equal(play(createSquatTracker(), [175, 80], { lean: 40 }).issue, null)
+})
+
+test('a lost body pauses without losing progress', () => {
+  const tracker = createSquatTracker()
+  play(tracker, [175, 80])
+  assert.equal(tracker.update(pose({ knee: 80, visibility: 0.1 })).tracking, false)
+  assert.equal(tracker.update(null).tracking, false)
+  assert.equal(play(tracker, [80, 175]).reps, 1)
+})
+
+test('corrects for the frame aspect ratio', () => {
+  // จุดเดียวกัน: ภาพกว้าง 16:9 ท่อนขาไม่ได้ตั้งฉากจริง ถ้าไม่คูณ aspect จะได้มุมผิด
+  const tracker = createSquatTracker()
+  const raw = pose({ knee: 90 })
+  assert.equal(Math.round(tracker.update(raw, 1).angle), 90)
+  assert.ok(Math.abs(createSquatTracker().update(raw, 16 / 9).angle - 90) < 1)
+  const skewed = raw.map((point) => ({ ...point }))
+  skewed[23] = { ...skewed[23], y: 0.8 }
+  assert.notEqual(Math.round(createSquatTracker().update(skewed, 1).angle), Math.round(createSquatTracker().update(skewed, 16 / 9).angle))
+})

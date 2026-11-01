@@ -220,6 +220,9 @@
   "voice": {
     "title": "Voice Log",
     "tapToStart": "Tap the mic to start",
+    "tapToStartWithCamera": "Tap the mic to speak, or the camera to track your form",
+    "analyze": "Analyze workout with AI",
+    "analyzing": "Analyzing…",
     "listening": "Listening... go ahead",
     "error": "Error: {{error}}",
     "clear": "Clear all",
@@ -678,6 +681,37 @@
       "tooLarge": "The photo is too large (max 5 MB)"
     }
   },
+  "camera": {
+    "open": "AI camera",
+    "close": "Close camera",
+    "title": "AI Camera · Squat",
+    "subtitle": "Place the camera to your side, showing shoulders to ankles",
+    "loading": "Starting the camera and loading the model…",
+    "knee": "Knee",
+    "repsLabel": "{{count}} reps",
+    "summary": "{{reps}} reps · about {{kcal}} kcal",
+    "reset": "Reset count",
+    "save": "Finish set and save",
+    "privacy": "Video is processed on your device and never uploaded",
+    "hints": {
+      "noBody": "Step back so the camera sees your shoulders to ankles",
+      "standUp": "Stand straight to start counting",
+      "ready": "Ready. Squat until your knee is below 90°"
+    },
+    "warnings": {
+      "depth": "Go lower!",
+      "almost": "A little lower!",
+      "back": "Keep your back straight"
+    },
+    "errors": {
+      "denied": "Camera permission was denied. Allow the camera in your browser and try again.",
+      "noCamera": "No camera was found on this device.",
+      "busy": "The camera is being used by another app.",
+      "insecure": "Browsers only allow the camera on HTTPS or localhost.",
+      "failed": "Could not start the AI camera. Check your connection and try again."
+    }
+  },
+
   "workout": {
     "title": "Workout Tracker",
     "orPickManually": "Or pick an exercise",

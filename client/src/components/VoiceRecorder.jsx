@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AudioLines, CalendarCheck, Check, Crosshair, Dumbbell, Eraser, Search, Sparkles, TriangleAlert, Undo2, UtensilsCrossed, X } from 'lucide-react'
 import { parseCommand } from '../utils/api'
-import { MicButton, Waveform } from './VoiceInput'
+import { MicButton, PoseCameraButton, Waveform } from './VoiceInput'
 import Badge from './Badge'
 import { ButtonLabel } from './Spinner'
 
@@ -11,9 +11,6 @@ const SpeechRecognition =
   typeof window !== 'undefined'
     ? window.SpeechRecognition || window.webkitSpeechRecognition
     : null
-
-// หยุดพิมพ์นานเท่านี้ถือว่าแก้เสร็จ แล้วแปลงข้อความใหม่ (ออกจากช่องพิมพ์ = แปลงทันที)
-const REPARSE_DELAY_MS = 350
 
 // 1 บรรทัด = 1 คำสั่ง (เสียงแต่ละช่วงที่ STT ตัดจบจะขึ้นบรรทัดใหม่)
 const splitLines = (text) =>
@@ -145,15 +142,16 @@ const PreviewCard = memo(function PreviewCard({ line, preview }) {
 // exerciseHint: ท่าที่เลือกไว้ใน "ตารางฝึกวันนี้" พูดแค่ตัวเลข ("100 kg 8 reps") จะบันทึกเข้าท่านี้
 // onClearHint(null): เลิกเลือกท่า
 // embedded: แสดงเป็นส่วนหนึ่งของการ์ดอื่น (Workout Tracker) ไม่มีกรอบการ์ดและหัวข้อใหญ่ของตัวเอง
-function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = false }) {
+// onOpenCamera: ปุ่มกล้อง AI ข้างปุ่มไมค์ ; children: แทรกระหว่างช่องข้อความกับปุ่มวิเคราะห์ (ส่วนเลือกท่าเอง)
+// ข้อความที่พิมพ์แปลงเมื่อกดปุ่มวิเคราะห์ ส่วนเสียงแปลงทันทีเพื่อให้ใช้ได้โดยไม่ต้องจับหน้าจอ
+function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = false, onOpenCamera, children }) {
   const { t } = useTranslation()
   const [isListening, setIsListening] = useState(false)
   // textarea เป็น uncontrolled: ข้อความที่กำลังพิมพ์อยู่ใน DOM เท่านั้น ไม่ setState ทุกตัวอักษร
-  // React รู้ค่าใหม่เมื่อหยุดพิมพ์ครบ REPARSE_DELAY_MS (committedText) / ออกจากช่อง / มีเสียงเข้ามา
+  // React รู้ค่าใหม่เมื่อกดวิเคราะห์ (committedText) / มีเสียงเข้ามา
   const textareaRef = useRef(null)
-  const debounceRef = useRef(0)
   const [committedText, setCommittedText] = useState('') // ข้อความที่แปลงไปแล้ว (preview อิงจากนี้)
-  const [isDirty, setIsDirty] = useState(false) // พิมพ์แล้วแต่ยังไม่ครบ debounce
+  const [isDirty, setIsDirty] = useState(false) // พิมพ์แล้วแต่ยังไม่ได้วิเคราะห์
   const [hasText, setHasText] = useState(false)
   const [interimTranscript, setInterimTranscript] = useState('')
   const [previews, setPreviews] = useState({}) // บรรทัด -> { status: 'loading' | 'ok' | 'unknown' | 'error', parsed }
@@ -168,7 +166,6 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = fa
 
   // ให้ preview แปลงข้อความนี้ทันที
   const commit = useCallback((value) => {
-    clearTimeout(debounceRef.current)
     setCommittedText(value)
     setIsDirty(false)
     setHasText(value.trim() !== '')
@@ -183,16 +180,14 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = fa
     [commit]
   )
 
-  // พิมพ์: setState เฉพาะตอนค่า isDirty/hasText เปลี่ยน (ค่าเดิม React ข้ามการ render) แล้วรอ debounce
+  // พิมพ์: setState เฉพาะตอนค่า isDirty/hasText เปลี่ยน (ค่าเดิม React ข้ามการ render)
+  // ลบข้อความจนว่าง = ไม่มีอะไรให้วิเคราะห์ ล้าง preview เก่าทันที
   const handleInput = (event) => {
     const value = event.target.value
+    if (!value.trim()) return commit(value)
     setIsDirty(true)
-    setHasText(value.trim() !== '')
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => commit(value), REPARSE_DELAY_MS)
+    setHasText(true)
   }
-
-  useEffect(() => () => clearTimeout(debounceRef.current), [])
 
   // ข้อความจากเสียง: ต่อเป็นบรรทัดใหม่ แล้วแปลงทันทีไม่ต้องรอ debounce
   const appendSegment = useCallback(
@@ -308,8 +303,8 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = fa
 
   const lines = splitLines(committedText)
   const readyItems = lines.filter((line) => previews[line]?.status === 'ok')
-  const isParsing = isDirty || lines.some((line) => previews[line]?.status === 'loading')
-  const canSave = readyItems.length > 0 && !isParsing && !isSaving
+  const isParsing = lines.some((line) => previews[line]?.status === 'loading')
+  const canSave = readyItems.length > 0 && !isDirty && !isParsing && !isSaving
 
   const handleSave = async () => {
     if (!canSave) return
@@ -330,12 +325,14 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = fa
     }
   }
 
+  const analyze = () => commit(readDraft())
+
   const handleKeyDown = (event) => {
     // Ctrl/Cmd + Enter = บันทึก
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault()
       // ยังพิมพ์ค้างอยู่: แปลงก่อน (กดอีกครั้งเพื่อบันทึกเมื่อ preview พร้อม)
-      if (isDirty) commit(readDraft())
+      if (isDirty) analyze()
       else handleSave()
     }
   }
@@ -372,18 +369,23 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = fa
             {t('voice.title')}
           </h2>
         )}
-        <StatusBadge isListening={isListening} isParsing={isParsing && lines.length > 0} readyCount={readyItems.length} />
       </div>
 
-      {SpeechRecognition ? (
-        <div className="relative flex flex-col items-center gap-2 py-2">
-          <MicButton isListening={isListening} onClick={toggleListening} />
-          <Waveform isListening={isListening} />
-          <p className="text-xs font-medium text-slate-400">
-            {isListening ? t('voice.listening') : t('voice.tapToStart')}
-          </p>
+      <div className="relative flex flex-col items-center gap-2 py-2">
+        <div className="flex items-center justify-center gap-4 sm:gap-8">
+          {SpeechRecognition && <MicButton isListening={isListening} onClick={toggleListening} />}
+          {onOpenCamera && <PoseCameraButton disabled={isListening} onClick={onOpenCamera} />}
         </div>
-      ) : (
+        {SpeechRecognition && <Waveform isListening={isListening} />}
+        <StatusBadge isListening={isListening} isParsing={isParsing} readyCount={readyItems.length} />
+        {SpeechRecognition && (
+          <p className="text-center text-xs font-medium text-slate-400">
+            {isListening ? t('voice.listening') : t(onOpenCamera ? 'voice.tapToStartWithCamera' : 'voice.tapToStart')}
+          </p>
+        )}
+      </div>
+
+      {!SpeechRecognition && (
         <p className="relative mb-4 mt-2 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           {t('voice.unsupported')}
@@ -432,7 +434,6 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = fa
           ref={textareaRef}
           defaultValue=""
           onInput={handleInput}
-          onBlur={() => isDirty && commit(readDraft())}
           onKeyDown={handleKeyDown}
           placeholder={t('voice.placeholder')}
           rows={3}
@@ -468,6 +469,22 @@ function VoiceRecorder({ onSave, exerciseHint = null, onClearHint, embedded = fa
           </button>
         </div>
       </div>
+
+      {children}
+
+      <button
+        type="button"
+        onClick={analyze}
+        disabled={!isDirty || !hasText || isParsing}
+        className="btn-accent relative mt-4 flex w-full items-center justify-center gap-2"
+      >
+        <ButtonLabel loading={isParsing} loadingText={t('voice.analyzing')}>
+          <span className="inline-flex items-center gap-2">
+            <Sparkles className="h-4 w-4" aria-hidden />
+            {t('voice.analyze')}
+          </span>
+        </ButtonLabel>
+      </button>
 
       <AnimatePresence initial={false}>
         {lines.length > 0 && (
