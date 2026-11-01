@@ -1,6 +1,6 @@
-// บัญชี Demo สำหรับนำเสนอโปรเจกต์ (ชั่วคราว): กดปุ่มเดียวเข้า Dashboard พร้อมข้อมูลตัวอย่าง
+// บัญชี Demo (ทางเข้าหลักของหน้า Login): กดปุ่มเดียวเข้า Dashboard พร้อมข้อมูลตัวอย่าง
 //
-// เปิดด้วย DEMO_LOGIN_ENABLED=true และ SKIP_EMAIL_OTP=true ข้าม OTP ตอนสมัคร/ล็อกอิน (ไม่ตั้ง = ปิด)
+// เปิดอยู่เป็นค่าเริ่มต้น ปิดด้วย DEMO_LOGIN_ENABLED=false
 // session ของ demo เป็น token จริงของบัญชีนี้บัญชีเดียว เพราะทุก API ตรวจ token ฝั่ง server
 // รหัสผ่านของบัญชีนี้เป็นค่าสุ่มที่ไม่มีใครรู้ เข้าได้ทางปุ่ม Demo เท่านั้น
 
@@ -11,12 +11,7 @@ const SEED_DAYS = 14
 const DAY_MS = 24 * 60 * 60 * 1000
 const HOUR_MS = 60 * 60 * 1000
 
-const isDemoLoginEnabled = () => process.env.DEMO_LOGIN_ENABLED === 'true'
-const isOtpSkipped = () => process.env.SKIP_EMAIL_OTP === 'true'
-
-// ข้าม OTP ตอนสมัครได้เฉพาะอีเมลใหม่ หรือแถวที่เคยสมัครค้างไว้ (มี password แต่ยังไม่ยืนยัน)
-// แถวเดิมจาก Supabase Auth ไม่มี password แต่มีข้อมูลอยู่ ต้องพิสูจน์ด้วย OTP ไม่งั้นใครก็ตั้งรหัสแล้วเข้าบัญชีได้
-const canSkipSignupOtp = (existing) => isOtpSkipped() && (!existing || Boolean(existing.password_hash))
+const isDemoLoginEnabled = () => process.env.DEMO_LOGIN_ENABLED !== 'false'
 
 // โปรไฟล์คนน้ำหนัก 72 กก. เป้าหมายเพิ่มกล้าม (เป้าหมายรายวันคำนวณแบบเดียวกับ client/src/utils/macroCalculator.js)
 const DEMO_PROFILE = {
@@ -118,4 +113,4 @@ async function ensureDemoUser(supabase, hashPassword) {
   return created
 }
 
-module.exports = { DEMO_EMAIL, DEMO_PROFILE, SEED_DAYS, isDemoLoginEnabled, isOtpSkipped, canSkipSignupOtp, ensureDemoUser, seedDemoData }
+module.exports = { DEMO_EMAIL, DEMO_PROFILE, SEED_DAYS, isDemoLoginEnabled, ensureDemoUser, seedDemoData }

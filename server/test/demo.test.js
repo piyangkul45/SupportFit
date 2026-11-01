@@ -1,8 +1,8 @@
-// ทดสอบบัญชี Demo และเงื่อนไขการข้าม OTP (ไม่แตะฐานข้อมูลจริง)
+// ทดสอบบัญชี Demo (ไม่แตะฐานข้อมูลจริง)
 // รัน: npm test
 const { test, describe, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
-const { DEMO_EMAIL, SEED_DAYS, canSkipSignupOtp, isDemoLoginEnabled, ensureDemoUser, seedDemoData } = require('../demo/account')
+const { DEMO_EMAIL, SEED_DAYS, isDemoLoginEnabled, ensureDemoUser, seedDemoData } = require('../demo/account')
 
 // เก็บแถวที่ insert/upsert ไว้ใน tables และตอบ select จาก food_logs
 function fakeSupabase(tables = {}) {
@@ -40,27 +40,11 @@ describe('feature flags', () => {
     process.env = { ...saved }
   })
 
-  test('both are off unless set to exactly "true"', () => {
+  test('demo login is on by default and off only with "false"', () => {
     delete process.env.DEMO_LOGIN_ENABLED
-    delete process.env.SKIP_EMAIL_OTP
-    assert.equal(isDemoLoginEnabled(), false)
-    assert.equal(canSkipSignupOtp(null), false)
-    process.env.DEMO_LOGIN_ENABLED = '1'
-    assert.equal(isDemoLoginEnabled(), false)
-    process.env.DEMO_LOGIN_ENABLED = 'true'
     assert.equal(isDemoLoginEnabled(), true)
-  })
-
-  test('skips OTP for new emails and pending signups only', () => {
-    process.env.SKIP_EMAIL_OTP = 'true'
-    assert.equal(canSkipSignupOtp(null), true)
-    assert.equal(canSkipSignupOtp({ password_hash: 'x', is_verified: false }), true)
-  })
-
-  test('legacy accounts without a password still need OTP (prevents account takeover)', () => {
-    process.env.SKIP_EMAIL_OTP = 'true'
-    assert.equal(canSkipSignupOtp({ password_hash: null, is_verified: true }), false)
-    assert.equal(canSkipSignupOtp({ password_hash: null, is_verified: false }), false)
+    process.env.DEMO_LOGIN_ENABLED = 'false'
+    assert.equal(isDemoLoginEnabled(), false)
   })
 })
 

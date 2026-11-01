@@ -32,7 +32,7 @@ function authHeaders() {
 async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
-    // server ใช้เลือกภาษาของข้อความ error และอีเมล OTP ให้ตรงกับภาษาที่ผู้ใช้เลือก
+    // server ใช้เลือกภาษาของข้อความ error ให้ตรงกับภาษาที่ผู้ใช้เลือก
     'Accept-Language': i18n.resolvedLanguage || 'en',
     ...authHeaders(),
     ...(options.headers || {}),
@@ -53,33 +53,17 @@ async function request(path, options = {}) {
   return res.status === 204 ? null : res.json()
 }
 
-// ---- Auth (Email + Password + OTP) ----
-// สมัครสมาชิก: บันทึกบัญชี (ยังไม่ยืนยัน) แล้ว server ส่ง OTP ไปที่อีเมล
-// โหมดข้าม OTP (SKIP_EMAIL_OTP ฝั่ง server): ได้ { token, user } กลับมาเลย
+// ---- Auth (Demo Account / Email + Password) ----
+// สมัครสมาชิกแล้วเข้าใช้ได้ทันที -> { token, user }
 export const signup = ({ name, email, password }) =>
   request('/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) })
 
-// สำเร็จจะได้ { token, user } ถ้ายังไม่ยืนยันอีเมลจะ throw error ที่มี reason = 'unverified'
+// สำเร็จจะได้ { token, user }
 export const login = (email, password) =>
   request('/login', { method: 'POST', body: JSON.stringify({ email, password }) })
 
 // ปุ่ม Demo Account: server ออก session ของบัญชีตัวอย่าง -> { token, user } (404 = ปิดอยู่)
 export const demoLogin = () => request('/auth/demo', { method: 'POST' })
-
-// ขอรหัส OTP ใหม่ (ปุ่ม Resend)
-export const resendOtp = (email) =>
-  request('/send-otp', { method: 'POST', body: JSON.stringify({ email }) })
-
-// ลืมรหัสผ่าน: ขอ OTP ไปที่อีเมล แล้วตั้งรหัสผ่านใหม่ด้วย OTP นั้น
-export const forgotPassword = (email) =>
-  request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) })
-
-export const resetPassword = ({ email, otp, newPassword }) =>
-  request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ email, otp, newPassword }) })
-
-// สำเร็จจะได้ { token, user } กลับมา
-export const verifyOtp = (email, code) =>
-  request('/verify-otp', { method: 'POST', body: JSON.stringify({ email, code }) })
 
 // โปรไฟล์ผู้ใช้ (ตาราง users) ของบัญชีที่ล็อกอินอยู่
 export const getMe = () => request('/users/me', { method: 'POST' })

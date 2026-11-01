@@ -2,7 +2,7 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const supabase = require('./supabaseClient')
-const otpAuth = require('./otpAuth')
+const auth = require('./auth')
 const { runMigrations } = require('./migrate')
 const { i18nMiddleware, translate } = require('./i18n')
 const { parseCommand } = require('./parser')
@@ -12,7 +12,7 @@ const createProgramsRouter = require('./routes/programs')
 const createWeightRouter = require('./routes/weight')
 const createCoachRouter = require('./routes/coach')
 const createCommunityRouter = require('./routes/community')
-const { DEMO_EMAIL, isDemoLoginEnabled, isOtpSkipped, canSkipSignupOtp, ensureDemoUser, seedDemoData } = require('./demo/account')
+const { DEMO_EMAIL, isDemoLoginEnabled, ensureDemoUser, seedDemoData } = require('./demo/account')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -37,14 +37,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'SupportFit API is running' })
 })
 
-// ---- Auth (Custom OTP ทางอีเมล) ----
+// ---- Auth (Demo Account / อีเมล + password) ----
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase()
 
 // ข้อความ error เมื่อ schema บน Supabase ยังไม่อัปเดต (ยังไม่ได้รัน migrate.js)
 // t = req.t ของ request นั้น (หรือ translate ภาษาใดภาษาหนึ่งตอน start server)
 function describeDbError(error, t) {
-  if (/users\.email does not exist|otp_codes/i.test(error?.message || '')) {
+  if (/users\.email does not exist/i.test(error?.message || '')) {
     return t('data.dbNotReady')
   }
   return error?.message
@@ -64,38 +64,9 @@ async function findUserByEmail(email) {
   return data
 }
 
-// สุ่ม OTP 6 หลัก (หมดอายุใน 5 นาที) ส่งผ่าน Resend API แล้วคืน { status, body } ให้ route ตอบกลับ
-// ใช้ร่วมกันทั้งตอนสมัคร, ขอรหัสใหม่, ล็อกอินด้วยบัญชีที่ยังไม่ยืนยันอีเมล และลืมรหัสผ่าน (purpose = 'reset')
-// req ใช้เลือกภาษาของข้อความตอบกลับและของอีเมล
-async function issueOtp(req, email, purpose = 'verify') {
-  const { t } = req
-  if (!otpAuth.isMailConfigured()) {
-    return { status: 500, body: { error: t('mail.notConfigured') } }
-  }
-
-  try {
-    const waitSeconds = await otpAuth.getResendWaitSeconds(email)
-    if (waitSeconds > 0) {
-      return {
-        status: 429,
-        body: { error: t('otp.waitBeforeResend', { seconds: waitSeconds }), retryAfter: waitSeconds },
-      }
-    }
-
-    await otpAuth.sendOtp(email, purpose, req.lang)
-    return { status: 200, body: { message: t('otp.sent', { email }), expiresIn: 300 } }
-  } catch (error) {
-    console.error('send-otp failed:', error)
-    if (error.isMailError) {
-      return { status: 502, body: { error: t('mail.sendFailed') } }
-    }
-    return { status: 500, body: { error: describeDbError(error, t) || t('mail.genericSendFailed') } }
-  }
-}
-
-// สมัครสมาชิก: บันทึกอีเมล + password (hash) เป็นบัญชีที่ยังไม่ยืนยัน (is_verified = false) แล้วส่ง OTP
-// ถ้าอีเมลนี้มีอยู่แล้วแต่ยังไม่ยืนยัน หรือเป็นบัญชีเดิมจาก Supabase Auth ที่ยังไม่มี password
-// จะตั้ง password ใหม่ให้แถวเดิม (ข้อมูล workout/food เดิมยังอยู่ครบ)
+// สมัครสมาชิก: บันทึกอีเมล + password (hash) แล้วออก session ทันที (ไม่พิสูจน์ความเป็นเจ้าของอีเมล)
+// แถวเดิมที่สมัครค้างไว้ (มี password แต่ยังไม่ยืนยัน) สมัครทับได้ เพราะยังไม่เคยเข้าใช้จึงไม่มีข้อมูล
+// แถวเดิมจาก Supabase Auth ไม่มี password แต่มีข้อมูลอยู่ ห้ามสมัครทับ ไม่งั้นใครก็ตั้งรหัสแล้วเข้าบัญชีนั้นได้
 app.post('/api/signup', async (req, res) => {
   const email = normalizeEmail(req.body?.email)
   const password = String(req.body?.password || '')
@@ -108,60 +79,32 @@ app.post('/api/signup', async (req, res) => {
 
   try {
     const existing = await findUserByEmail(email)
-    if (existing?.is_verified && existing.password_hash) {
+    if (existing && (existing.is_verified || !existing.password_hash)) {
       return res.status(409).json({ error: req.t('auth.emailTaken') })
     }
 
-    const password_hash = await otpAuth.hashPassword(password)
-    const skipOtp = canSkipSignupOtp(existing)
-    // ตั้ง password ให้แถวเดิม -> ต้องยืนยัน OTP ใหม่เสมอ (is_verified = false) ไม่งั้นบัญชีเดิมที่ยืนยันแล้ว
-    // แต่ยังไม่มี password จะถูกคนอื่นตั้ง password แล้วล็อกอินได้เลยโดยไม่ผ่านอีเมลเจ้าของ
+    const password_hash = await auth.hashPassword(password)
     const { data: saved, error } = existing
       ? await supabase
           .from('users')
-          .update({ password_hash, is_verified: skipOtp, ...(name ? { name } : {}) })
+          .update({ password_hash, is_verified: true, ...(name ? { name } : {}) })
           .eq('id', existing.id)
           .select()
           .single()
       : await supabase
           .from('users')
-          .insert({ email, name: name || email.split('@')[0], password_hash, is_verified: skipOtp })
+          .insert({ email, name: name || email.split('@')[0], password_hash, is_verified: true })
           .select()
           .single()
     if (error) throw error
-    if (skipOtp) return res.json({ token: otpAuth.createSessionToken(saved), user: publicUser(saved) })
+    res.json({ token: auth.createSessionToken(saved), user: publicUser(saved) })
   } catch (error) {
     console.error(error)
-    return res.status(500).json({ error: describeDbError(error, req.t) || req.t('auth.signupFailed') })
+    res.status(500).json({ error: describeDbError(error, req.t) || req.t('auth.signupFailed') })
   }
-
-  const { status, body } = await issueOtp(req, email)
-  res.status(status).json(body)
 })
 
-// ขอรหัส OTP ใหม่ (ปุ่ม Resend) ใช้ได้เฉพาะอีเมลที่สมัครไว้แล้ว
-app.post('/api/send-otp', async (req, res) => {
-  const email = normalizeEmail(req.body?.email)
-  if (!EMAIL_PATTERN.test(email)) return res.status(400).json({ error: req.t('validation.invalidEmail') })
-
-  try {
-    const user = await findUserByEmail(email)
-    if (!user?.password_hash) {
-      return res.status(404).json({ error: req.t('auth.noSignup') })
-    }
-    if (user.is_verified) {
-      return res.status(409).json({ error: req.t('auth.alreadyVerified') })
-    }
-  } catch (error) {
-    console.error(error)
-    return res.status(500).json({ error: describeDbError(error, req.t) || req.t('mail.genericSendFailed') })
-  }
-
-  const { status, body } = await issueOtp(req, email)
-  res.status(status).json(body)
-})
-
-// เข้าสู่ระบบด้วยอีเมล + password ถ้ายังไม่ได้ยืนยันอีเมล จะส่ง OTP ให้แล้วตอบ 403 (reason: unverified)
+// เข้าสู่ระบบด้วยอีเมล + password ; บัญชีที่สมัครค้างไว้สมัยมี OTP จะถูกยืนยันให้เมื่อ password ถูก
 app.post('/api/login', async (req, res) => {
   const email = normalizeEmail(req.body?.email)
   const password = String(req.body?.password || '')
@@ -177,156 +120,30 @@ app.post('/api/login', async (req, res) => {
     return res.status(500).json({ error: describeDbError(error, req.t) || req.t('auth.loginFailed') })
   }
 
-  if (!user?.password_hash || !(await otpAuth.verifyPassword(password, user.password_hash))) {
+  if (!user?.password_hash || !(await auth.verifyPassword(password, user.password_hash))) {
     return res.status(401).json({ error: req.t('auth.wrongCredentials') })
   }
 
-  // password ถูกแล้ว: โหมดข้าม OTP ถือว่ายืนยันบัญชีนี้เลย
-  if (!user.is_verified && isOtpSkipped()) {
+  if (!user.is_verified) {
     const { error } = await supabase.from('users').update({ is_verified: true }).eq('id', user.id)
     if (error) return handleSupabaseError(res, error, req.t('auth.loginFailed'))
-    user.is_verified = true
   }
 
-  if (!user.is_verified) {
-    const { status, body } = await issueOtp(req, email)
-    if (status !== 200 && status !== 429) return res.status(status).json(body)
-    return res.status(403).json({
-      error: req.t('auth.unverified'),
-      reason: 'unverified',
-      retryAfter: body.retryAfter ?? 60,
-    })
-  }
-
-  res.json({ token: otpAuth.createSessionToken(user), user: publicUser(user) })
+  res.json({ token: auth.createSessionToken(user), user: publicUser(user) })
 })
 
-// ปุ่ม Demo Account (ชั่วคราว ดู demo/account.js): ออก session ของบัญชี Demo บัญชีเดียว ไม่แตะบัญชีผู้ใช้อื่น
+// ปุ่ม Demo Account (ทางเข้าหลัก ดู demo/account.js): ออก session ของบัญชี Demo บัญชีเดียว ไม่แตะบัญชีผู้ใช้อื่น
 // ข้อมูลตัวอย่างเติมไม่สำเร็จก็ยังเข้าได้ แค่ Dashboard มีข้อมูลน้อยลง
 app.post('/api/auth/demo', async (req, res) => {
   if (!isDemoLoginEnabled()) return res.status(404).json({ error: req.t('auth.demoDisabled'), reason: 'demo_disabled' })
 
   try {
-    const user = await ensureDemoUser(supabase, otpAuth.hashPassword)
+    const user = await ensureDemoUser(supabase, auth.hashPassword)
     await seedDemoData(supabase, user.id).catch((error) => console.error('demo seed failed:', error.message))
-    res.json({ token: otpAuth.createSessionToken(user), user: publicUser(user) })
+    res.json({ token: auth.createSessionToken(user), user: publicUser(user) })
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: req.t('auth.loginFailed') })
-  }
-})
-
-// [HTTP status, message key ใน i18n.js]
-const OTP_FAILURES = {
-  invalid: [400, 'otp.invalid'],
-  expired: [410, 'otp.expired'],
-  not_found: [410, 'otp.notFound'],
-  too_many_attempts: [429, 'otp.tooManyAttempts'],
-}
-
-// ตรวจสอบ OTP ถ้าถูกต้องและยังไม่หมดอายุ -> ตั้ง is_verified = true แล้วออก session token
-app.post('/api/verify-otp', async (req, res) => {
-  const email = normalizeEmail(req.body?.email)
-  const code = String(req.body?.code || '').trim()
-  if (!EMAIL_PATTERN.test(email) || !/^\d{6}$/.test(code)) {
-    return res.status(400).json({ error: req.t('validation.emailAndCodeRequired'), reason: 'invalid' })
-  }
-
-  try {
-    const result = await otpAuth.verifyOtp(email, code)
-    if (result !== 'ok') {
-      const [status, messageKey] = OTP_FAILURES[result]
-      return res.status(status).json({ error: req.t(messageKey), reason: result })
-    }
-
-    const { data: user, error: updateError } = await supabase
-      .from('users')
-      .update({ is_verified: true })
-      .eq('email', email)
-      .select()
-      .maybeSingle()
-    if (updateError) throw updateError
-    if (!user) {
-      return res.status(404).json({ error: req.t('auth.noSignup') })
-    }
-
-    res.json({ token: otpAuth.createSessionToken(user), user: publicUser(user) })
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: describeDbError(error, req.t) || req.t('auth.loginFailed') })
-  }
-})
-
-// ---- Forgot / Reset password ----
-// หาผู้ใช้และส่ง OTP เบื้องหลัง หลังตอบ client ไปแล้ว เพื่อให้เวลาตอบกลับเท่ากันไม่ว่าจะมีบัญชีหรือไม่
-// (req ใช้เลือกภาษาของอีเมล)
-async function sendResetOtpInBackground(req, email) {
-  try {
-    const user = await findUserByEmail(email)
-    if (!user?.is_verified) return
-    const { status, body } = await issueOtp(req, email, 'reset')
-    if (status !== 200 && status !== 429) console.error('forgot-password: ส่ง OTP ไม่สำเร็จ', status, body.error)
-  } catch (error) {
-    console.error('forgot-password:', error)
-  }
-}
-
-// ขอรหัส OTP สำหรับตั้งรหัสผ่านใหม่ ส่งจริงเฉพาะบัญชีที่ยืนยันอีเมลแล้ว แต่ตอบเหมือนกันทุกกรณี
-app.post('/api/auth/forgot-password', (req, res) => {
-  const email = normalizeEmail(req.body?.email)
-  if (!EMAIL_PATTERN.test(email)) return res.status(400).json({ error: req.t('validation.invalidEmail') })
-  // เช็คก่อนแตะข้อมูลผู้ใช้ จึงไม่เปิดเผยว่าอีเมลนี้มีบัญชีหรือไม่
-  if (!otpAuth.isMailConfigured()) {
-    return res.status(500).json({ error: req.t('mail.unavailable') })
-  }
-
-  // ข้อความเดียวกันทุกกรณี (มี/ไม่มีบัญชี, ยังไม่ยืนยัน, ติด cooldown) กันการไล่เช็คว่าอีเมลไหนมีบัญชี
-  res.json({
-    message: req.t('auth.forgotPasswordSent'),
-    expiresIn: 300,
-    retryAfter: otpAuth.RESEND_COOLDOWN_SECONDS,
-  })
-  sendResetOtpInBackground(req, email)
-})
-
-// ตรวจ OTP แล้วตั้งรหัสผ่านใหม่ (bcrypt) รหัส OTP ถูกลบทันทีเมื่อใช้สำเร็จ
-app.post('/api/auth/reset-password', async (req, res) => {
-  const email = normalizeEmail(req.body?.email)
-  const code = String(req.body?.otp || '').trim()
-  const newPassword = String(req.body?.newPassword || '')
-  if (!EMAIL_PATTERN.test(email) || !/^\d{6}$/.test(code)) {
-    return res.status(400).json({ error: req.t('validation.emailAndCodeRequired'), reason: 'invalid' })
-  }
-  // ตรวจ password ก่อนตรวจ OTP เพื่อไม่ให้รหัส OTP ถูกนับครั้งผิด/ถูกใช้ไปเพราะ password สั้นเกิน
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return res.status(400).json({ error: req.t('validation.passwordTooShort', { min: MIN_PASSWORD_LENGTH }) })
-  }
-
-  try {
-    // อีเมลที่ไม่มีบัญชีตอบเหมือน "ไม่พบรหัส" ทุกประการ ไม่บอกว่าบัญชีมีอยู่หรือไม่
-    const user = await findUserByEmail(email)
-    if (!user?.is_verified) {
-      const [status, messageKey] = OTP_FAILURES.not_found
-      return res.status(status).json({ error: req.t(messageKey), reason: 'not_found' })
-    }
-
-    const result = await otpAuth.verifyOtp(email, code)
-    if (result !== 'ok') {
-      const [status, messageKey] = OTP_FAILURES[result]
-      return res.status(status).json({ error: req.t(messageKey), reason: result })
-    }
-
-    const { error } = await supabase
-      .from('users')
-      .update({ password_hash: await otpAuth.hashPassword(newPassword) })
-      .eq('id', user.id)
-    if (error) throw error
-
-    // password_hash เปลี่ยนแล้ว -> session token เดิมทุกอุปกรณ์ใช้ไม่ได้อีก (ดู requireAuth)
-    res.json({ message: req.t('auth.passwordResetDone') })
-  } catch (error) {
-    console.error(error)
-    res.status(500).json({ error: describeDbError(error, req.t) || req.t('auth.passwordResetFailed') })
   }
 })
 
@@ -338,7 +155,7 @@ async function requireAuth(req, res, next) {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
   if (!token) return res.status(401).json({ error: req.t('auth.noToken') })
 
-  const session = otpAuth.verifySessionToken(token)
+  const session = auth.verifySessionToken(token)
   if (!session) return res.status(401).json({ error: req.t('auth.sessionExpired') })
 
   const { data: user, error } = await supabase
@@ -347,7 +164,7 @@ async function requireAuth(req, res, next) {
     .eq('id', session.uid)
     .maybeSingle()
   if (error) return handleSupabaseError(res, error, req.t('auth.sessionCheckFailed'))
-  if (!user?.is_verified || !otpAuth.isSessionCurrent(session, user.password_hash)) {
+  if (!user?.is_verified || !auth.isSessionCurrent(session, user.password_hash)) {
     return res.status(401).json({ error: req.t('auth.sessionRevoked') })
   }
 
@@ -801,7 +618,7 @@ app.use('/api', createCoachRouter({ supabase, requireAuth, handleSupabaseError }
 // ---- SupportFit Community (routes/community.js) ----
 app.use('/api', createCommunityRouter({ supabase, requireAuth, handleSupabaseError }))
 
-// อัปเดต schema บน Supabase อัตโนมัติ (ถ้าตั้ง DATABASE_URL) แล้วเช็คว่าตาราง/คอลัมน์ที่ระบบ OTP ใช้พร้อมหรือยัง
+// อัปเดต schema บน Supabase อัตโนมัติ (ถ้าตั้ง DATABASE_URL) แล้วเช็คว่าตาราง users พร้อมหรือยัง
 async function prepareDatabase() {
   try {
     const { skipped } = await runMigrations()
@@ -810,13 +627,9 @@ async function prepareDatabase() {
     console.error('❌ อัปเดต schema ไม่สำเร็จ:', error.message)
   }
 
-  const checks = await Promise.all([
-    supabase.from('users').select('email').limit(1),
-    supabase.from('otp_codes').select('email').limit(1),
-  ])
-  const failed = checks.find(({ error }) => error)
-  if (failed) console.error('❌ ฐานข้อมูลยังไม่พร้อมสำหรับระบบ OTP:', describeDbError(failed.error, (key) => translate('th', key)))
-  else console.log('✅ ฐานข้อมูลพร้อมใช้งาน (users.email, otp_codes)')
+  const { error } = await supabase.from('users').select('email').limit(1)
+  if (error) console.error('❌ ฐานข้อมูลยังไม่พร้อม:', describeDbError(error, (key) => translate('th', key)))
+  else console.log('✅ ฐานข้อมูลพร้อมใช้งาน (users.email)')
 }
 
 prepareDatabase().finally(() => {

@@ -56,11 +56,8 @@ PORT=5000
 SUPABASE_URL=https://xxxxxxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key   # แนะนำให้ใช้ (Settings > API > service_role secret)
 SUPABASE_ANON_KEY=your_anon_or_publishable_key    # fallback ถ้าไม่ได้ตั้ง service_role key ด้านบน
-RESEND_API_KEY=re_xxxxxxxx                        # Resend API key ที่ใช้ส่งอีเมล OTP
 AUTH_SECRET=your_random_secret                    # ใช้เซ็น session token
 ```
-
-> **Resend:** สร้าง API key ที่ Resend Dashboard > API Keys ถ้ายังไม่ได้ยืนยันโดเมน ผู้ส่งจะเป็น `onboarding@resend.dev` ซึ่งส่งได้เฉพาะอีเมลเจ้าของบัญชี Resend — ยืนยันโดเมนแล้วตั้ง `RESEND_FROM` เพื่อส่งถึงผู้ใช้ทุกคน
 
 > **สำคัญ:** `SUPABASE_SERVICE_ROLE_KEY` เป็นคีย์ลับที่ bypass RLS ได้ทั้งหมด ใช้ได้แค่ฝั่ง server เท่านั้น ห้ามใส่ในโค้ดฝั่ง client หรือ commit ขึ้น git (ไฟล์ `.env` ถูก gitignore ไว้แล้ว)
 
@@ -77,22 +74,11 @@ cp .env.example .env
 VITE_API_URL=http://localhost:5000
 ```
 
-### ระบบเข้าสู่ระบบ (Custom OTP)
+### ระบบเข้าสู่ระบบ
 
-สมัคร/เข้าสู่ระบบด้วยอีเมลแบบไม่ใช้รหัสผ่าน: กรอกอีเมล → server สุ่ม OTP 6 หลัก (หมดอายุใน 5 นาที, กรอกผิดได้ไม่เกิน 5 ครั้ง, ขอใหม่ได้ทุก 60 วินาที) แล้วส่งอีเมลผ่าน Resend API → กรอกรหัสถูกต้องแล้ว server ออก session token (อายุ 7 วัน) ที่ client แนบไปกับทุก request ใน header `Authorization: Bearer <token>` โค้ดอยู่ที่ `server/otpAuth.js`
+ทางเข้าหลักคือปุ่ม **Demo Account** ในหน้า Login: server ออก session ของบัญชีตัวอย่าง `demo@supportfit.invalid` พร้อมข้อมูล 14 วัน ทุกคนที่กดใช้บัญชีเดียวกัน ปิดได้ด้วย `DEMO_LOGIN_ENABLED=false`
 
-> หลังเปลี่ยนจาก Supabase Auth ต้องรันสคริปต์ `server/sql/schema.sql` อีกครั้ง (ส่วน migration ท้ายไฟล์) เพื่อเพิ่มคอลัมน์ `users.email`
-
-### โหมดนำเสนอ (ชั่วคราว)
-
-ตั้งค่า 2 ตัวนี้ที่ server (`server/.env` หรือ Render) ไม่ตั้ง = ปิด กลับไปใช้ OTP ตามปกติ:
-
-| ตัวแปร | ผล |
-|--------|-----|
-| `DEMO_LOGIN_ENABLED=true` | เปิดปุ่ม Demo Account: เข้าบัญชีตัวอย่าง `demo@supportfit.invalid` พร้อมข้อมูล 14 วัน (ทุกคนที่กดใช้บัญชีเดียวกัน) |
-| `SKIP_EMAIL_OTP=true` | สมัครบัญชีใหม่/ล็อกอินโดยไม่ต้องยืนยัน OTP (ไม่พิสูจน์ว่าเป็นเจ้าของอีเมล) |
-
-การลืมรหัสผ่านและบัญชีเดิมที่ไม่มีรหัสผ่านยังต้องใช้ OTP เสมอ ไม่งั้นใครก็ยึดบัญชีคนอื่นได้ นำเสนอเสร็จแล้วควรลบทั้งสองตัวแปร
+สมัครด้วยอีเมล + รหัสผ่านเข้าใช้ได้ทันที ไม่มีการยืนยันอีเมลและไม่มีระบบลืมรหัสผ่าน session token อายุ 7 วัน แนบใน header `Authorization: Bearer <token>` โค้ดอยู่ที่ `server/auth.js`
 
 ## วิธีรันโปรเจกต์
 
@@ -128,13 +114,14 @@ Client (Vite dev server) จะรันที่ `http://localhost:5173` แล
 
 ## API เบื้องต้น
 
-endpoint ที่ต้องล็อกอินทั้งหมด (ทำเครื่องหมาย 🔒) ต้องแนบ header `Authorization: Bearer <session_token>` (ได้จาก `/api/verify-otp`) มาด้วย
+endpoint ที่ต้องล็อกอินทั้งหมด (ทำเครื่องหมาย 🔒) ต้องแนบ header `Authorization: Bearer <session_token>` (ได้จาก `/api/auth/demo`, `/api/login` หรือ `/api/signup`) มาด้วย
 
 | Method | Endpoint              | คำอธิบาย                          |
 |--------|------------------------|-----------------------------------|
 | GET    | `/api/health`          | ตรวจสอบสถานะเซิร์ฟเวอร์            |
-| POST   | `/api/send-otp`        | ส่ง OTP 6 หลักไปที่อีเมล (`{ email }`) |
-| POST   | `/api/verify-otp`      | ตรวจ OTP (`{ email, code, name? }`) ถ้าถูกต้องคืน `{ token, user }` และสร้างผู้ใช้ใหม่ให้อัตโนมัติ |
+| POST   | `/api/auth/demo`       | เข้าบัญชี Demo คืน `{ token, user }` |
+| POST   | `/api/signup`          | สมัครสมาชิก (`{ email, password, name? }`) คืน `{ token, user }` |
+| POST   | `/api/login`           | เข้าสู่ระบบ (`{ email, password }`) คืน `{ token, user }` |
 | POST   | `/api/users/me`        | 🔒 โปรไฟล์ (ตาราง `users`) ของผู้ใช้ที่ล็อกอินอยู่ |
 | GET    | `/api/workout-logs`    | 🔒 รายการบันทึกการออกกำลังกาย (ต้องส่ง `?user_id=` และเป็นเจ้าของข้อมูลเท่านั้น) |
 | POST   | `/api/workout-logs`    | 🔒 บันทึกการออกกำลังกายใหม่           |
@@ -151,7 +138,7 @@ endpoint ที่ต้องล็อกอินทั้งหมด (ทำ
 
 ดูสคริปต์เต็มที่ [`server/sql/schema.sql`](server/sql/schema.sql)
 
-- **users**: `id`, `email` (unique, ใช้ล็อกอินด้วย OTP), `name`, `auth_id` (เดิมจาก Supabase Auth ไม่ได้ใช้แล้ว), `target_calories` (default 2000), `target_protein` (default 150)
+- **users**: `id`, `email` (unique, ใช้ล็อกอิน), `name`, `auth_id` (เดิมจาก Supabase Auth ไม่ได้ใช้แล้ว), `target_calories` (default 2000), `target_protein` (default 150)
 - **workout_logs**: `id`, `user_id`, `exercise_name`, `weight_kg`, `reps`, `sets`, `rpe`, `estimated_1rm`, `volume_load`, `created_at`
 - **food_logs**: `id`, `user_id`, `food_name`, `calories`, `protein`, `carbs`, `fat`, `created_at`
 

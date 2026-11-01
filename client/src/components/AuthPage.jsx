@@ -1,60 +1,40 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { demoLogin, login, resendOtp, signup, verifyOtp } from '../utils/api'
-import { ErrorMessage, PasswordInput, ResendRow } from './AuthUi'
+import { demoLogin, login, signup } from '../utils/api'
+import { ErrorMessage, PasswordInput } from './AuthUi'
 import BrandMark from './BrandMark'
-import ForgotPasswordForm from './ForgotPasswordForm'
 import LanguageSwitcher from './LanguageSwitcher'
-import OtpInput from './OtpInput'
 import PasswordStrengthMeter, { MIN_PASSWORD_LENGTH } from './PasswordStrengthMeter'
 import { ButtonLabel } from './Spinner'
 import Toast from './Toast'
 
-const RESEND_COOLDOWN_SECONDS = 60
-const OTP_LENGTH = 6
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-// เวลาแสดง toast "รหัสถูกต้อง" ก่อนเข้า Dashboard
-const SIGN_IN_DELAY_MS = 1200
 
 function FieldError({ children }) {
   return <p className="mt-1 text-xs text-red-300">{children}</p>
 }
 
+// ทางเข้าหลัก: ปุ่ม Demo Account กดครั้งเดียวเข้า Dashboard ; อีเมล + รหัสผ่านเป็นทางเลือกรอง
 export default function AuthPage() {
   const { t } = useTranslation()
   const { signIn } = useAuth()
-  const [mode, setMode] = useState('login') // 'login' | 'signup' | 'verify' | 'forgot'
-  const [previousMode, setPreviousMode] = useState('login')
+  const [mode, setMode] = useState('login') // 'login' | 'signup'
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [touched, setTouched] = useState({})
-  const [otp, setOtp] = useState('')
   // error = { key, params } (แปลตอน render จึงเปลี่ยนภาษาทันที) หรือ { text } (ข้อความจาก server)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
-  const [verified, setVerified] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [resendCooldown, setResendCooldown] = useState(0)
   const [toast, setToast] = useState(null)
   // id ใหม่ทุกครั้ง ให้ toast ข้อความเดิมที่เด้งซ้ำเล่นอนิเมชันและนับเวลาใหม่
   const notify = useCallback((next) => setToast({ ...next, id: Date.now() + Math.random() }), [])
 
   const isSignup = mode === 'signup'
-  const isVerify = mode === 'verify'
-  const isForgot = mode === 'forgot'
-
-  const isCoolingDown = resendCooldown > 0
-  useEffect(() => {
-    if (!isCoolingDown) return undefined
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0))
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [isCoolingDown])
+  const busy = loading || demoLoading
 
   const fieldErrors = useMemo(() => {
     const errors = {}
@@ -77,11 +57,22 @@ export default function AuthPage() {
   const markTouched = (field) => setTouched((prev) => ({ ...prev, [field]: true }))
   const showError = (field) => (touched[field] || field === 'confirmPassword') && fieldErrors[field]
 
-  const goToVerify = (cooldown) => {
-    setOtp('')
-    setPreviousMode(mode)
-    setMode('verify')
-    setResendCooldown(cooldown)
+  const showFailure = (err) => {
+    const message = err.message || t('auth.toast.genericError')
+    setError({ text: message })
+    notify({ type: 'error', message })
+  }
+
+  const handleDemoLogin = async () => {
+    if (busy) return
+    setError(null)
+    setDemoLoading(true)
+    try {
+      signIn(await demoLogin())
+    } catch (err) {
+      showFailure(err)
+      setDemoLoading(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -105,95 +96,16 @@ export default function AuthPage() {
 
     setLoading(true)
     try {
-      if (isSignup) {
-        const { message, ...session } = await signup({ name: name.trim(), email, password })
-        if (session.token) {
-          notify({ type: 'success', message: t('auth.toast.loginSuccess') })
-          setVerified(true)
-          setTimeout(() => signIn(session), SIGN_IN_DELAY_MS)
-        } else {
-          goToVerify(RESEND_COOLDOWN_SECONDS)
-          notify({ type: 'success', message })
-        }
-      } else {
-        const session = await login(email, password)
-        notify({ type: 'success', message: t('auth.toast.loginSuccess') })
-        setVerified(true)
-        setTimeout(() => signIn(session), SIGN_IN_DELAY_MS)
-      }
+      signIn(isSignup ? await signup({ name: name.trim(), email, password }) : await login(email, password))
     } catch (err) {
-      // บัญชียังไม่ยืนยันอีเมล (login) หรือขอรหัสถี่เกินไป แต่รหัสเดิมยังใช้ได้ (signup)
-      // -> พาไปหน้ากรอกรหัสพร้อมนับเวลาที่เหลือ
-      if (err.reason === 'unverified' || (err.status === 429 && err.retryAfter)) {
-        goToVerify(err.retryAfter ?? RESEND_COOLDOWN_SECONDS)
-        notify({ type: err.reason === 'unverified' ? 'success' : 'error', message: err.message })
-      } else {
-        const message = err.message || t('auth.toast.genericError')
-        setError({ text: message })
-        notify({ type: 'error', message })
-      }
-    } finally {
+      showFailure(err)
       setLoading(false)
-    }
-  }
-
-  const handleDemoLogin = async () => {
-    if (demoLoading || loading || verified) return
-    setError(null)
-    setDemoLoading(true)
-    try {
-      signIn(await demoLogin())
-    } catch (err) {
-      const message = err.message || t('auth.toast.genericError')
-      setError({ text: message })
-      notify({ type: 'error', message })
-      setDemoLoading(false)
-    }
-  }
-
-  const handleVerifyOtp = async (code = otp) => {
-    if (loading || verified || code.length !== OTP_LENGTH) return
-    setError(null)
-    setLoading(true)
-    try {
-      const session = await verifyOtp(email, code)
-      setVerified(true)
-      notify({ type: 'success', message: t('auth.toast.verifySuccess') })
-      setTimeout(() => signIn(session), SIGN_IN_DELAY_MS)
-    } catch (err) {
-      const nextError =
-        err.reason === 'invalid'
-          ? { key: 'auth.toast.invalidCode' }
-          : { text: err.message || t('auth.toast.verifyFailed') }
-      setError(nextError)
-      notify({ type: 'error', message: nextError.key ? t(nextError.key) : nextError.text })
-      setOtp('')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleResendOtp = async () => {
-    if (resendCooldown > 0 || resending) return
-    setError(null)
-    setResending(true)
-    try {
-      await resendOtp(email)
-      setOtp('')
-      setResendCooldown(RESEND_COOLDOWN_SECONDS)
-      notify({ type: 'success', message: t('auth.toast.otpResent') })
-    } catch (err) {
-      if (err.retryAfter) setResendCooldown(err.retryAfter)
-      notify({ type: 'error', message: err.message || t('auth.toast.resendFailed') })
-    } finally {
-      setResending(false)
     }
   }
 
   const switchMode = (nextMode) => {
     setMode(nextMode)
     setError(null)
-    setOtp('')
     setTouched({})
     setPassword('')
     setConfirmPassword('')
@@ -230,234 +142,134 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {(mode === 'login' || isSignup) && (
-            <div className="relative mb-6 grid grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1" role="tablist">
-              <span
-                aria-hidden
-                className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-emerald-400/15 ring-1 ring-emerald-400/30 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  isSignup ? 'translate-x-full' : ''
+          <button type="button" onClick={handleDemoLogin} disabled={busy} className="btn-accent w-full py-3.5 text-base">
+            <ButtonLabel loading={demoLoading} loadingText={t('auth.buttons.demoLoading')}>
+              {t('auth.buttons.demo')}
+            </ButtonLabel>
+          </button>
+
+          <div className="my-6 flex items-center gap-3" role="separator">
+            <span className="h-px flex-1 bg-white/10" />
+            <span className="text-xs text-slate-500">{t('auth.orWithEmail')}</span>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+
+          <div className="relative mb-6 grid grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1" role="tablist">
+            <span
+              aria-hidden
+              className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-emerald-400/15 ring-1 ring-emerald-400/30 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                isSignup ? 'translate-x-full' : ''
+              }`}
+            />
+            {[
+              ['login', t('auth.tabs.login')],
+              ['signup', t('auth.tabs.signup')],
+            ].map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={mode === tab}
+                onClick={() => mode !== tab && switchMode(tab)}
+                className={`relative z-10 rounded-lg py-2 text-sm font-medium transition-colors duration-200 ${
+                  mode === tab ? 'text-emerald-200' : 'text-slate-400 hover:text-slate-200'
                 }`}
-              />
-              {[
-                ['login', t('auth.tabs.login')],
-                ['signup', t('auth.tabs.signup')],
-              ].map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === tab}
-                  onClick={() => mode !== tab && switchMode(tab)}
-                  className={`relative z-10 rounded-lg py-2 text-sm font-medium transition-colors duration-200 ${
-                    mode === tab ? 'text-emerald-200' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
           <div key={mode} className="animate-view-in">
-            {isForgot ? (
-              <ForgotPasswordForm
-                initialEmail={email}
-                notify={notify}
-                onBack={() => switchMode('login')}
-                onSuccess={(resetEmail) => {
-                  setEmail(resetEmail)
-                  switchMode('login')
-                }}
-              />
-            ) : isVerify ? (
-              <>
-                <div className="mb-6 flex justify-center">
-                  <span className="max-w-full truncate rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-medium text-slate-200">
-                    {email}
-                  </span>
-                </div>
-
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    handleVerifyOtp()
-                  }}
-                  className="space-y-4"
-                >
-                  <OtpInput
-                    value={otp}
-                    onChange={(next) => {
-                      setOtp(next)
-                      if (error) setError(null)
-                    }}
-                    onComplete={handleVerifyOtp}
-                    length={OTP_LENGTH}
-                    disabled={loading || verified}
-                    hasError={Boolean(error)}
-                  />
-                  <p className="text-center text-xs text-slate-500">{t('auth.codeExpiry')}</p>
-
-                  {errorText && <ErrorMessage key={errorText}>{errorText}</ErrorMessage>}
-
-                  <button
-                    type="submit"
-                    disabled={loading || verified || otp.length !== OTP_LENGTH}
-                    className="btn-accent w-full"
-                  >
-                    <ButtonLabel
-                      loading={loading || verified}
-                      loadingText={verified ? t('auth.buttons.loggingIn') : t('auth.buttons.checking')}
-                    >
-                      {t('auth.buttons.verify')}
-                    </ButtonLabel>
-                  </button>
-                </form>
-
-                <ResendRow
-                  cooldown={resendCooldown}
-                  resending={resending}
-                  disabled={verified}
-                  onResend={handleResendOtp}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => switchMode(previousMode)}
-                  disabled={verified}
-                  className="auth-link mt-4 block w-full text-center"
-                >
-                  {t('auth.buttons.backToEditEmail')}
-                </button>
-              </>
-            ) : (
-              <form onSubmit={handleSubmit} noValidate className="space-y-4">
-                {isSignup && (
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('auth.fields.name')}</label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder={t('auth.fields.namePlaceholder')}
-                      className="input-field"
-                    />
-                  </div>
-                )}
-
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {isSignup && (
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('auth.fields.email')}</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('auth.fields.name')}</label>
                   <input
-                    type="email"
-                    required
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value.trim())}
-                    onBlur={() => markTouched('email')}
-                    placeholder="you@example.com"
-                    aria-invalid={Boolean(showError('email'))}
-                    className={`input-field ${showError('email') ? 'border-red-400/60' : ''}`}
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('auth.fields.namePlaceholder')}
+                    className="input-field"
                   />
-                  {showError('email') && <FieldError>{fieldErrors.email}</FieldError>}
                 </div>
+              )}
 
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('auth.fields.email')}</label>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value.trim())}
+                  onBlur={() => markTouched('email')}
+                  placeholder="you@example.com"
+                  aria-invalid={Boolean(showError('email'))}
+                  className={`input-field ${showError('email') ? 'border-red-400/60' : ''}`}
+                />
+                {showError('email') && <FieldError>{fieldErrors.email}</FieldError>}
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('auth.fields.password')}</label>
+                <PasswordInput
+                  required
+                  autoComplete={isSignup ? 'new-password' : 'current-password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => markTouched('password')}
+                  placeholder={
+                    isSignup
+                      ? t('auth.fields.newPasswordPlaceholder', { min: MIN_PASSWORD_LENGTH })
+                      : t('auth.fields.passwordPlaceholder')
+                  }
+                  aria-invalid={Boolean(showError('password'))}
+                  className={`input-field ${showError('password') ? 'border-red-400/60' : ''}`}
+                />
+                {isSignup && <PasswordStrengthMeter password={password} />}
+                {showError('password') && <FieldError>{fieldErrors.password}</FieldError>}
+              </div>
+
+              {isSignup && (
                 <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label className="block text-sm font-medium text-slate-300">{t('auth.fields.password')}</label>
-                    {!isSignup && (
-                      <button type="button" onClick={() => switchMode('forgot')} className="auth-link text-xs">
-                        {t('auth.forgotLink')}
-                      </button>
-                    )}
-                  </div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('auth.fields.confirmPassword')}</label>
                   <PasswordInput
                     required
-                    autoComplete={isSignup ? 'new-password' : 'current-password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onBlur={() => markTouched('password')}
-                    placeholder={
-                      isSignup
-                        ? t('auth.fields.newPasswordPlaceholder', { min: MIN_PASSWORD_LENGTH })
-                        : t('auth.fields.passwordPlaceholder')
-                    }
-                    aria-invalid={Boolean(showError('password'))}
-                    className={`input-field ${showError('password') ? 'border-red-400/60' : ''}`}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder={t('auth.fields.confirmPasswordPlaceholder')}
+                    aria-invalid={Boolean(fieldErrors.confirmPassword)}
+                    className={`input-field ${
+                      fieldErrors.confirmPassword
+                        ? 'border-red-400/60'
+                        : passwordsMatch
+                          ? 'border-emerald-400/50'
+                          : ''
+                    }`}
                   />
-                  {isSignup && <PasswordStrengthMeter password={password} />}
-                  {showError('password') && <FieldError>{fieldErrors.password}</FieldError>}
+                  {fieldErrors.confirmPassword ? (
+                    <FieldError>{fieldErrors.confirmPassword}</FieldError>
+                  ) : (
+                    passwordsMatch && <p className="mt-1 text-xs text-emerald-300">{t('auth.validation.passwordsMatch')}</p>
+                  )}
                 </div>
+              )}
 
-                {isSignup && (
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-300">{t('auth.fields.confirmPassword')}</label>
-                    <PasswordInput
-                      required
-                      autoComplete="new-password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder={t('auth.fields.confirmPasswordPlaceholder')}
-                      aria-invalid={Boolean(fieldErrors.confirmPassword)}
-                      className={`input-field ${
-                        fieldErrors.confirmPassword
-                          ? 'border-red-400/60'
-                          : passwordsMatch
-                            ? 'border-emerald-400/50'
-                            : ''
-                      }`}
-                    />
-                    {fieldErrors.confirmPassword ? (
-                      <FieldError>{fieldErrors.confirmPassword}</FieldError>
-                    ) : (
-                      passwordsMatch && <p className="mt-1 text-xs text-emerald-300">{t('auth.validation.passwordsMatch')}</p>
-                    )}
-                  </div>
-                )}
+              {errorText && <ErrorMessage key={errorText}>{errorText}</ErrorMessage>}
 
-                {errorText && <ErrorMessage key={errorText}>{errorText}</ErrorMessage>}
-
-                <button
-                  type="submit"
-                  disabled={loading || verified || (isSignup && !canSubmitSignup)}
-                  className="btn-accent w-full"
+              <button type="submit" disabled={busy || (isSignup && !canSubmitSignup)} className="btn-ghost w-full disabled:cursor-not-allowed disabled:opacity-60">
+                <ButtonLabel
+                  loading={loading}
+                  loadingText={isSignup ? t('auth.buttons.creatingAccount') : t('auth.buttons.checking')}
                 >
-                  <ButtonLabel
-                    loading={loading || verified}
-                    loadingText={
-                      verified
-                        ? t('auth.buttons.loggingIn')
-                        : isSignup
-                          ? t('auth.buttons.creatingAccount')
-                          : t('auth.buttons.checking')
-                    }
-                  >
-                    {isSignup ? t('auth.buttons.signup') : t('auth.buttons.login')}
-                  </ButtonLabel>
-                </button>
-
-                {!isSignup && (
-                  <button
-                    type="button"
-                    onClick={handleDemoLogin}
-                    disabled={demoLoading || loading || verified}
-                    className="btn-ghost w-full border-emerald-400/30 text-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <ButtonLabel loading={demoLoading} loadingText={t('auth.buttons.demoLoading')}>
-                      {t('auth.buttons.demo')}
-                    </ButtonLabel>
-                  </button>
-                )}
-              </form>
-            )}
+                  {isSignup ? t('auth.buttons.signup') : t('auth.buttons.login')}
+                </ButtonLabel>
+              </button>
+            </form>
           </div>
         </div>
-
-        <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-slate-500">
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <rect x="5" y="11" width="14" height="10" rx="2" />
-            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-          </svg>
-          {t('auth.securityFooter')}
-        </p>
       </div>
     </div>
   )

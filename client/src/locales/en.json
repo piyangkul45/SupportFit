@@ -108,10 +108,8 @@
 
   "auth": {
     "headings": {
-      "login": { "title": "Welcome back", "subtitle": "Log in to keep tracking your training" },
-      "signup": { "title": "Create your account", "subtitle": "Start logging workouts and meals with your voice" },
-      "verify": { "title": "Verify your email", "subtitle": "Enter the 6-digit code we sent to your email" },
-      "forgot": { "title": "Forgot password", "subtitle": "Set a new password with an email verification code" }
+      "login": { "title": "Welcome back", "subtitle": "One tap and you are in" },
+      "signup": { "title": "Create your account", "subtitle": "Start logging workouts and meals with your voice" }
     },
     "tabs": {
       "login": "Log in",
@@ -132,18 +130,14 @@
     },
     "forgotLink": "Forgot password?",
     "buttons": {
-      "demo": "🚀 Enter with Demo Account",
+      "demo": "🚀 Log in (Demo Account)",
       "demoLoading": "Starting up, this may take a moment...",
       "login": "Log in",
-      "signup": "Sign up & send OTP",
-      "verify": "Verify code",
-      "loggingIn": "Logging in...",
+      "signup": "Sign up",
       "creatingAccount": "Creating account...",
-      "checking": "Checking...",
-      "backToEditEmail": "← Back to edit email"
+      "checking": "Checking..."
     },
-    "codeExpiry": "The code expires in 5 minutes",
-    "securityFooter": "Your account is protected with email verification",
+    "orWithEmail": "or use email and password",
     "validation": {
       "invalidEmail": "Invalid email format",
       "passwordTooShort": "Password must be at least {{min}} characters",
@@ -162,39 +156,6 @@
       "verifyFailed": "Verification failed. Please try again.",
       "resendFailed": "Could not resend the code. Please try again."
     }
-  },
-
-  "forgot": {
-    "intro": "Enter the email you signed up with and we'll send you a 6-digit code to set a new password.",
-    "sendCode": "Send reset code",
-    "sending": "Sending code...",
-    "backToLogin": "← Back to log in",
-    "codeHint": "If this email has an account, the code will arrive within a few seconds · The code expires in 5 minutes",
-    "newPassword": "New password",
-    "confirmNewPassword": "Confirm new password",
-    "confirmNewPasswordPlaceholder": "Re-enter your new password",
-    "submit": "Set new password",
-    "saving": "Saving...",
-    "changeEmail": "← Change email",
-    "checkEmailTitle": "Check your email",
-    "successTitle": "Password updated",
-    "errors": {
-      "invalidEmail": "Please enter a valid email",
-      "sendFailed": "Could not send the code. Please try again.",
-      "incompleteCode": "Please enter all 6 digits of the OTP code",
-      "passwordTooShort": "Password must be at least {{min}} characters",
-      "mismatch": "New password and confirmation do not match",
-      "invalidCode": "Incorrect OTP code. Please try again.",
-      "resetFailed": "Could not set the new password"
-    }
-  },
-
-  "otp": {
-    "groupLabel": "6-digit verification code",
-    "digitLabel": "Digit {{n}}",
-    "resendIn": "Request a new code in",
-    "resend": "Resend code",
-    "resending": "Sending..."
   },
 
   "password": {
