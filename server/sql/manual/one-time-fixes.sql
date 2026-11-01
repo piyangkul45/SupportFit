@@ -23,3 +23,9 @@ update users u set email = lower(a.email)
 alter table users drop constraint if exists users_auth_id_fkey;
 alter table users add constraint users_auth_id_fkey
   foreign key (auth_id) references auth.users (id) on delete set null;
+
+-- ตาราง Community: เปิด RLS (ไม่มี policy = เข้าถึงได้เฉพาะ service_role ที่ server ใช้)
+-- กันไม่ให้ใครเขียนตรงผ่าน anon key ; migrate.js ไม่แตะ RLS จึงต้องรันเอง
+alter table community_posts enable row level security;
+alter table community_comments enable row level security;
+alter table community_post_likes enable row level security;

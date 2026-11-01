@@ -26,7 +26,52 @@
     "programs": "โปรแกรม",
     "analytics": "สถิติ",
     "coach": "AI Coach",
+    "community": "Community",
     "label": "เมนูหลัก"
+  },
+
+  "community": {
+    "title": "SupportFit Community",
+    "filterLabel": "ตัวกรองโพสต์",
+    "feedLabel": "ฟีดโพสต์",
+    "anonymous": "ผู้ใช้ SupportFit",
+    "empty": "ยังไม่มีโพสต์ในหมวดนี้ มาเริ่มโพสต์แรกกัน!",
+    "loadMore": "โหลดเพิ่ม",
+    "loadingMore": "กำลังโหลด…",
+    "like_one": "ส่งไฟ ตอนนี้มี {{count}} ไฟ",
+    "like_other": "ส่งไฟ ตอนนี้มี {{count}} ไฟ",
+    "commentsCount_one": "{{count}} ความคิดเห็น",
+    "commentsCount_other": "{{count}} ความคิดเห็น",
+    "categories": {
+      "weight_training": "#เวทเทรนนิ่ง",
+      "nutrition": "#โภชนาการ",
+      "program_share": "#แชร์ตารางฝึก",
+      "qa": "#ถามตอบ"
+    },
+    "filters": {
+      "all": "ทั้งหมด",
+      "popular": "ยอดนิยม"
+    },
+    "create": {
+      "label": "ข้อความโพสต์",
+      "placeholder": "แชร์เรื่องการฝึก อาหาร หรือถามเพื่อน ๆ ได้เลย…",
+      "category": "หมวดหมู่",
+      "submit": "โพสต์",
+      "posting": "กำลังโพสต์…"
+    },
+    "comments": {
+      "title": "ความคิดเห็น",
+      "empty": "ยังไม่มีความคิดเห็น เป็นคนแรกเลย!",
+      "label": "ข้อความความคิดเห็น",
+      "placeholder": "เขียนความคิดเห็น…",
+      "send": "ส่งความคิดเห็น"
+    },
+    "errors": {
+      "load": "โหลดคอมมูนิตี้ไม่สำเร็จ",
+      "post": "โพสต์ไม่สำเร็จ",
+      "like": "ส่งไฟไม่สำเร็จ",
+      "comment": "แสดงความคิดเห็นไม่สำเร็จ"
+    }
   },
 
   "coach": {

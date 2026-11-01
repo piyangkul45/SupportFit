@@ -1,7 +1,7 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
-import { Bot, ChartColumn, LayoutDashboard, Trophy } from 'lucide-react'
+import { Bot, ChartColumn, LayoutDashboard, Trophy, Users } from 'lucide-react'
 import RestTimer from './components/RestTimer'
 import LogsList from './components/LogsList'
 import MacroDashboard from './components/MacroDashboard'
@@ -10,6 +10,7 @@ import AuthPage from './components/AuthPage'
 import Header from './components/Header'
 import Programs from './pages/Programs'
 import AICoachPage from './pages/AICoachPage'
+import CommunityPage from './pages/CommunityPage'
 import TodayRoutineCard from './components/TodayRoutineCard'
 import AnalyticsSkeleton from './components/AnalyticsSkeleton'
 import EditLogModal from './components/EditLogModal'
@@ -46,6 +47,7 @@ const TABS = [
   { id: 'home', labelKey: 'nav.dashboard', Icon: LayoutDashboard },
   { id: 'programs', labelKey: 'nav.programs', Icon: Trophy },
   { id: 'coach', labelKey: 'nav.coach', Icon: Bot },
+  { id: 'community', labelKey: 'nav.community', Icon: Users },
   { id: 'analytics', labelKey: 'nav.analytics', Icon: ChartColumn },
 ]
 
@@ -199,6 +201,12 @@ const DashboardPages = memo(function DashboardPages({
       {activeTab === 'coach' && (
         <motion.div key="coach" variants={PAGE} initial="initial" animate="animate" exit="exit">
           <AICoachPage coach={coach} />
+        </motion.div>
+      )}
+
+      {activeTab === 'community' && (
+        <motion.div key="community" variants={PAGE} initial="initial" animate="animate" exit="exit">
+          <CommunityPage userName={user?.name} />
         </motion.div>
       )}
 

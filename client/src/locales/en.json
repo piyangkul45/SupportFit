@@ -26,7 +26,52 @@
     "programs": "Programs",
     "analytics": "Analytics",
     "coach": "AI Coach",
+    "community": "Community",
     "label": "Main navigation"
+  },
+
+  "community": {
+    "title": "SupportFit Community",
+    "filterLabel": "Post filters",
+    "feedLabel": "Post feed",
+    "anonymous": "SupportFit user",
+    "empty": "No posts here yet. Be the first!",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "like_one": "Send fire, currently {{count}} fire",
+    "like_other": "Send fire, currently {{count}} fires",
+    "commentsCount_one": "{{count}} comment",
+    "commentsCount_other": "{{count}} comments",
+    "categories": {
+      "weight_training": "#WeightTraining",
+      "nutrition": "#Nutrition",
+      "program_share": "#ShareProgram",
+      "qa": "#QandA"
+    },
+    "filters": {
+      "all": "All",
+      "popular": "Popular"
+    },
+    "create": {
+      "label": "Post message",
+      "placeholder": "Share your training or meals, or ask the community…",
+      "category": "Category",
+      "submit": "Post",
+      "posting": "Posting…"
+    },
+    "comments": {
+      "title": "Comments",
+      "empty": "No comments yet. Be the first!",
+      "label": "Comment message",
+      "placeholder": "Write a comment…",
+      "send": "Send comment"
+    },
+    "errors": {
+      "load": "Could not load the community",
+      "post": "Could not publish your post",
+      "like": "Could not send your fire",
+      "comment": "Could not post your comment"
+    }
   },
 
   "coach": {

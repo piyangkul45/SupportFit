@@ -129,6 +129,11 @@ endpoint ที่ต้องล็อกอินทั้งหมด (ทำ
 | POST   | `/api/workout-logs`    | 🔒 บันทึกการออกกำลังกายใหม่           |
 | GET    | `/api/food-logs`       | 🔒 รายการบันทึกมื้ออาหาร (ต้องส่ง `?user_id=` และเป็นเจ้าของข้อมูลเท่านั้น) |
 | POST   | `/api/food-logs`       | 🔒 บันทึกมื้ออาหารใหม่                |
+| GET    | `/api/community/posts` | 🔒 ฟีด Community (`?filter=all\|popular\|<หมวดหมู่>&offset=`) คืน `{ posts, has_more }` |
+| POST   | `/api/community/posts` | 🔒 สร้างโพสต์ (`{ content, category }`) |
+| POST   | `/api/community/posts/:id/like` | 🔒 กด/ยกเลิกไฟ 🔥 คืน `{ liked, likes_count }` |
+| GET    | `/api/community/posts/:id/comments` | 🔒 คอมเมนต์ของโพสต์ |
+| POST   | `/api/community/posts/:id/comments` | 🔒 เพิ่มคอมเมนต์ (`{ content }`) |
 | POST   | `/api/coach/chat`      | 🔒 คุยกับ AI Coach (`{ message, history? }` คืน `{ reply }`) server แนบ BMR/TDEE, น้ำหนัก และเป้าหมายจากโปรไฟล์ให้เอง ต้องตั้ง `GEMINI_API_KEY` |
 
 ## โครงสร้างฐานข้อมูล (Supabase / PostgreSQL)

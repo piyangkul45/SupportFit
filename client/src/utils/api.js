@@ -103,6 +103,22 @@ export const analyzeMealImage = ({ image, mimeType, note }) =>
 export const coachChat = (message, history) =>
   request('/coach/chat', { method: 'POST', body: JSON.stringify({ message, history }) })
 
+// ---- SupportFit Community ----
+// filter: 'all' | 'popular' | หมวดหมู่ -> { posts: [...], has_more }
+export const getCommunityPosts = (filter, offset = 0) =>
+  request(`/community/posts?filter=${encodeURIComponent(filter)}&offset=${offset}`)
+
+export const createCommunityPost = (data) =>
+  request('/community/posts', { method: 'POST', body: JSON.stringify(data) })
+
+// กดไฟ/เอาไฟออก -> { liked, likes_count }
+export const toggleCommunityLike = (postId) => request(`/community/posts/${postId}/like`, { method: 'POST' })
+
+export const getCommunityComments = (postId) => request(`/community/posts/${postId}/comments`)
+
+export const createCommunityComment = (postId, content) =>
+  request(`/community/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ content }) })
+
 // since (ISO timestamp, ไม่บังคับ) = เฉพาะรายการตั้งแต่เวลานั้น (หน้าสถิติโหลดตามช่วงที่เลือก)
 const sinceParam = (since) => (since ? `&since=${encodeURIComponent(since)}` : '')
 

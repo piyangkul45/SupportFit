@@ -118,6 +118,18 @@ const MESSAGES = {
       busy: 'The AI service is busy right now. Please try again in a moment.',
       failed: 'The coach could not answer right now. Please try again.',
     },
+    community: {
+      contentRequired: 'Please enter a message',
+      tooLong: 'Messages can be at most {max} characters',
+      invalidCategory: 'Please choose a valid category',
+      notFound: 'This post no longer exists',
+      loadFailed: 'Could not load the community right now',
+      saveFailed: 'Could not publish your post',
+      likeFailed: 'Could not send your fire',
+      commentFailed: 'Could not post your comment',
+      dbNotReady:
+        'Database not ready for Community (community_posts table missing). Run server/sql/schema.sql in the Supabase SQL Editor, or set DATABASE_URL in server/.env and restart the server',
+    },
     email: {
       verify: {
         subject: 'Your SupportFit verification code',
@@ -255,6 +267,18 @@ const MESSAGES = {
       timeout: 'โค้ชใช้เวลาตอบนานเกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่',
       busy: 'ตอนนี้มีผู้ใช้ AI จำนวนมาก กรุณาลองใหม่อีกครั้งในอีกสักครู่',
       failed: 'โค้ชตอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+    },
+    community: {
+      contentRequired: 'กรุณาพิมพ์ข้อความ',
+      tooLong: 'ข้อความยาวได้ไม่เกิน {max} ตัวอักษร',
+      invalidCategory: 'กรุณาเลือกหมวดหมู่ให้ถูกต้อง',
+      notFound: 'ไม่พบโพสต์นี้แล้ว',
+      loadFailed: 'โหลดคอมมูนิตี้ไม่สำเร็จ',
+      saveFailed: 'โพสต์ไม่สำเร็จ',
+      likeFailed: 'ส่งไฟไม่สำเร็จ',
+      commentFailed: 'แสดงความคิดเห็นไม่สำเร็จ',
+      dbNotReady:
+        'ฐานข้อมูลยังไม่พร้อมสำหรับ Community (ไม่พบตาราง community_posts) กรุณารัน server/sql/schema.sql ใน Supabase SQL Editor หรือใส่ DATABASE_URL ใน server/.env แล้ว restart server',
     },
     email: {
       verify: {

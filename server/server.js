@@ -11,6 +11,7 @@ const { createMealAnalyzer, createMealImageAnalyzer } = require('./parser/mealGe
 const createProgramsRouter = require('./routes/programs')
 const createWeightRouter = require('./routes/weight')
 const createCoachRouter = require('./routes/coach')
+const createCommunityRouter = require('./routes/community')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -766,6 +767,9 @@ app.use('/api', createWeightRouter({ supabase, requireAuth, handleSupabaseError 
 
 // ---- SupportFit AI Coach (routes/coach.js) ----
 app.use('/api', createCoachRouter({ supabase, requireAuth, handleSupabaseError }))
+
+// ---- SupportFit Community (routes/community.js) ----
+app.use('/api', createCommunityRouter({ supabase, requireAuth, handleSupabaseError }))
 
 // อัปเดต schema บน Supabase อัตโนมัติ (ถ้าตั้ง DATABASE_URL) แล้วเช็คว่าตาราง/คอลัมน์ที่ระบบ OTP ใช้พร้อมหรือยัง
 async function prepareDatabase() {

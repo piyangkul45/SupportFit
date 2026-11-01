@@ -145,3 +145,31 @@ create table if not exists weight_logs (
   created_at timestamptz not null default now()
 );
 create unique index if not exists weight_logs_user_day_idx on weight_logs (user_id, logged_on);
+
+-- SupportFit Community: โพสต์ / คอมเมนต์ / ไฟ 🔥
+-- community_post_likes กันการกดไฟซ้ำ (1 คน 1 ครั้งต่อโพสต์) ; likes_count นับใหม่จากตารางนี้ทุกครั้งที่กด (routes/community.js)
+create table if not exists community_posts (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references users (id) on delete cascade,
+  content text not null,
+  category text not null check (category in ('weight_training', 'nutrition', 'program_share', 'qa')),
+  likes_count integer not null default 0,
+  created_at timestamptz not null default now()
+);
+create table if not exists community_comments (
+  id bigint generated always as identity primary key,
+  post_id bigint not null references community_posts (id) on delete cascade,
+  user_id uuid not null references users (id) on delete cascade,
+  content text not null,
+  created_at timestamptz not null default now()
+);
+create table if not exists community_post_likes (
+  post_id bigint not null references community_posts (id) on delete cascade,
+  user_id uuid not null references users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+create index if not exists community_posts_created_at_idx on community_posts (created_at desc);
+create index if not exists community_posts_category_idx on community_posts (category, created_at desc);
+create index if not exists community_posts_popular_idx on community_posts (likes_count desc, created_at desc);
+create index if not exists community_comments_post_id_idx on community_comments (post_id, created_at);
