@@ -28,3 +28,8 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      # โหมดนำเสนอ (ชั่วคราว) นำเสนอเสร็จแล้วลบ 2 ตัวนี้ ดู README
+      - key: DEMO_LOGIN_ENABLED
+        value: "true"
+      - key: SKIP_EMAIL_OTP
+        value: "true"

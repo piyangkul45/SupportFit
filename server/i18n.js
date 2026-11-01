@@ -25,6 +25,7 @@ const MESSAGES = {
     },
     auth: {
       emailTaken: 'An account with this email already exists. Please log in.',
+      demoDisabled: 'Demo Account is turned off. Set DEMO_LOGIN_ENABLED=true on the server.',
       signupFailed: 'Sign up failed',
       noSignup: 'No sign-up found for this email. Please sign up first.',
       alreadyVerified: 'This account is already verified. Please log in.',
@@ -175,6 +176,7 @@ const MESSAGES = {
     },
     auth: {
       emailTaken: 'อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบ',
+      demoDisabled: 'ปิดใช้งาน Demo Account อยู่ กรุณาตั้ง DEMO_LOGIN_ENABLED=true ที่ server',
       signupFailed: 'สมัครสมาชิกไม่สำเร็จ',
       noSignup: 'ไม่พบการสมัครสมาชิกของอีเมลนี้ กรุณาสมัครสมาชิกก่อน',
       alreadyVerified: 'บัญชีนี้ยืนยันอีเมลแล้ว กรุณาเข้าสู่ระบบ',

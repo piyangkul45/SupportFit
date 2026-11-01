@@ -12,6 +12,7 @@ const createProgramsRouter = require('./routes/programs')
 const createWeightRouter = require('./routes/weight')
 const createCoachRouter = require('./routes/coach')
 const createCommunityRouter = require('./routes/community')
+const { DEMO_EMAIL, isDemoLoginEnabled, isOtpSkipped, canSkipSignupOtp, ensureDemoUser, seedDemoData } = require('./demo/account')
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -103,6 +104,7 @@ app.post('/api/signup', async (req, res) => {
   if (password.length < MIN_PASSWORD_LENGTH) {
     return res.status(400).json({ error: req.t('validation.passwordTooShort', { min: MIN_PASSWORD_LENGTH }) })
   }
+  if (email === DEMO_EMAIL) return res.status(409).json({ error: req.t('auth.emailTaken') })
 
   try {
     const existing = await findUserByEmail(email)
@@ -111,17 +113,23 @@ app.post('/api/signup', async (req, res) => {
     }
 
     const password_hash = await otpAuth.hashPassword(password)
+    const skipOtp = canSkipSignupOtp(existing)
     // ตั้ง password ให้แถวเดิม -> ต้องยืนยัน OTP ใหม่เสมอ (is_verified = false) ไม่งั้นบัญชีเดิมที่ยืนยันแล้ว
     // แต่ยังไม่มี password จะถูกคนอื่นตั้ง password แล้วล็อกอินได้เลยโดยไม่ผ่านอีเมลเจ้าของ
-    const { error } = existing
+    const { data: saved, error } = existing
       ? await supabase
           .from('users')
-          .update({ password_hash, is_verified: false, ...(name ? { name } : {}) })
+          .update({ password_hash, is_verified: skipOtp, ...(name ? { name } : {}) })
           .eq('id', existing.id)
+          .select()
+          .single()
       : await supabase
           .from('users')
-          .insert({ email, name: name || email.split('@')[0], password_hash, is_verified: false })
+          .insert({ email, name: name || email.split('@')[0], password_hash, is_verified: skipOtp })
+          .select()
+          .single()
     if (error) throw error
+    if (skipOtp) return res.json({ token: otpAuth.createSessionToken(saved), user: publicUser(saved) })
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: describeDbError(error, req.t) || req.t('auth.signupFailed') })
@@ -173,6 +181,13 @@ app.post('/api/login', async (req, res) => {
     return res.status(401).json({ error: req.t('auth.wrongCredentials') })
   }
 
+  // password ถูกแล้ว: โหมดข้าม OTP ถือว่ายืนยันบัญชีนี้เลย
+  if (!user.is_verified && isOtpSkipped()) {
+    const { error } = await supabase.from('users').update({ is_verified: true }).eq('id', user.id)
+    if (error) return handleSupabaseError(res, error, req.t('auth.loginFailed'))
+    user.is_verified = true
+  }
+
   if (!user.is_verified) {
     const { status, body } = await issueOtp(req, email)
     if (status !== 200 && status !== 429) return res.status(status).json(body)
@@ -184,6 +199,21 @@ app.post('/api/login', async (req, res) => {
   }
 
   res.json({ token: otpAuth.createSessionToken(user), user: publicUser(user) })
+})
+
+// ปุ่ม Demo Account (ชั่วคราว ดู demo/account.js): ออก session ของบัญชี Demo บัญชีเดียว ไม่แตะบัญชีผู้ใช้อื่น
+// ข้อมูลตัวอย่างเติมไม่สำเร็จก็ยังเข้าได้ แค่ Dashboard มีข้อมูลน้อยลง
+app.post('/api/auth/demo', async (req, res) => {
+  if (!isDemoLoginEnabled()) return res.status(404).json({ error: req.t('auth.demoDisabled'), reason: 'demo_disabled' })
+
+  try {
+    const user = await ensureDemoUser(supabase, otpAuth.hashPassword)
+    await seedDemoData(supabase, user.id).catch((error) => console.error('demo seed failed:', error.message))
+    res.json({ token: otpAuth.createSessionToken(user), user: publicUser(user) })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: req.t('auth.loginFailed') })
+  }
 })
 
 // [HTTP status, message key ใน i18n.js]

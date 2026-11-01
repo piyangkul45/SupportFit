@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import { login, resendOtp, signup, verifyOtp } from '../utils/api'
+import { demoLogin, login, resendOtp, signup, verifyOtp } from '../utils/api'
 import { ErrorMessage, PasswordInput, ResendRow } from './AuthUi'
 import BrandMark from './BrandMark'
 import ForgotPasswordForm from './ForgotPasswordForm'
@@ -35,6 +35,7 @@ export default function AuthPage() {
   // error = { key, params } (แปลตอน render จึงเปลี่ยนภาษาทันที) หรือ { text } (ข้อความจาก server)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(false)
   const [verified, setVerified] = useState(false)
   const [resending, setResending] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
@@ -105,9 +106,15 @@ export default function AuthPage() {
     setLoading(true)
     try {
       if (isSignup) {
-        const { message } = await signup({ name: name.trim(), email, password })
-        goToVerify(RESEND_COOLDOWN_SECONDS)
-        notify({ type: 'success', message })
+        const { message, ...session } = await signup({ name: name.trim(), email, password })
+        if (session.token) {
+          notify({ type: 'success', message: t('auth.toast.loginSuccess') })
+          setVerified(true)
+          setTimeout(() => signIn(session), SIGN_IN_DELAY_MS)
+        } else {
+          goToVerify(RESEND_COOLDOWN_SECONDS)
+          notify({ type: 'success', message })
+        }
       } else {
         const session = await login(email, password)
         notify({ type: 'success', message: t('auth.toast.loginSuccess') })
@@ -127,6 +134,20 @@ export default function AuthPage() {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDemoLogin = async () => {
+    if (demoLoading || loading || verified) return
+    setError(null)
+    setDemoLoading(true)
+    try {
+      signIn(await demoLogin())
+    } catch (err) {
+      const message = err.message || t('auth.toast.genericError')
+      setError({ text: message })
+      notify({ type: 'error', message })
+      setDemoLoading(false)
     }
   }
 
@@ -412,6 +433,19 @@ export default function AuthPage() {
                     {isSignup ? t('auth.buttons.signup') : t('auth.buttons.login')}
                   </ButtonLabel>
                 </button>
+
+                {!isSignup && (
+                  <button
+                    type="button"
+                    onClick={handleDemoLogin}
+                    disabled={demoLoading || loading || verified}
+                    className="btn-ghost w-full border-emerald-400/30 text-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ButtonLabel loading={demoLoading} loadingText={t('auth.buttons.demoLoading')}>
+                      {t('auth.buttons.demo')}
+                    </ButtonLabel>
+                  </button>
+                )}
               </form>
             )}
           </div>

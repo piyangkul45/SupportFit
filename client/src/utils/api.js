@@ -55,12 +55,16 @@ async function request(path, options = {}) {
 
 // ---- Auth (Email + Password + OTP) ----
 // สมัครสมาชิก: บันทึกบัญชี (ยังไม่ยืนยัน) แล้ว server ส่ง OTP ไปที่อีเมล
+// โหมดข้าม OTP (SKIP_EMAIL_OTP ฝั่ง server): ได้ { token, user } กลับมาเลย
 export const signup = ({ name, email, password }) =>
   request('/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) })
 
 // สำเร็จจะได้ { token, user } ถ้ายังไม่ยืนยันอีเมลจะ throw error ที่มี reason = 'unverified'
 export const login = (email, password) =>
   request('/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+
+// ปุ่ม Demo Account: server ออก session ของบัญชีตัวอย่าง -> { token, user } (404 = ปิดอยู่)
+export const demoLogin = () => request('/auth/demo', { method: 'POST' })
 
 // ขอรหัส OTP ใหม่ (ปุ่ม Resend)
 export const resendOtp = (email) =>
