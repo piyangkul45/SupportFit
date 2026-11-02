@@ -1,12 +1,18 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { Bot, Mic, RotateCcw, SendHorizontal, Sparkles, Square, Trash2 } from 'lucide-react'
+import { Bot, Mic, RotateCcw, SendHorizontal, Sparkles, Square, Trash2, X } from 'lucide-react'
 import useSpeechInput from '../hooks/useSpeechInput'
+import BodyPartFilter from '../components/BodyPartFilter'
+import ExerciseBadges from '../components/ExerciseBadges'
+import { MuscleIcon } from '../components/MuscleTargetCard'
+import { exercisesForBodyPart, findExerciseInText, getAnatomy } from '../utils/exerciseAnatomy'
 
 const MAX_TEXT_LENGTH = 1000
 const QUICK_PROMPTS = ['dinner', 'recovery', 'cardio']
 const WAVE_DELAYS = [0, 0.15, 0.3, 0.45]
+// ชื่อท่ามือใหม่ที่ใส่เป็นตัวอย่างในคำขอ: ให้ AI ใช้ชื่อที่แอปรู้จัก จะได้แสดงรูปกล้ามเนื้อประกอบได้
+const PLAN_EXAMPLE_COUNT = 5
 
 // ---- แสดงคำตอบ ----
 // รองรับเฉพาะที่ prompt ของ coach อนุญาต (bullet, ลำดับ, **ตัวหนา**) และ render เป็น element ของ React
@@ -45,6 +51,26 @@ function toBlocks(text) {
   return blocks
 }
 
+// ข้อในรายการที่เป็นท่าฝึกที่แอปรู้จัก = แสดงรูปกล้ามเนื้อ (ส้ม = หลัก, ฟ้า = รอง) + ป้ายระดับ/อุปกรณ์ประกอบ
+function ListItem({ text }) {
+  const exercise = findExerciseInText(text)
+  const anatomy = exercise && getAnatomy(exercise.name)
+  if (!anatomy) return <li><Inline text={text} /></li>
+  return (
+    <li>
+      <div className="mt-1 flex gap-2.5 rounded-xl border border-white/[0.07] bg-black/20 p-2">
+        <span className="flex h-14 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
+          <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} className="h-12 w-6" title={exercise.name} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p><Inline text={text} /></p>
+          <ExerciseBadges anatomy={anatomy} className="mt-1.5" />
+        </div>
+      </div>
+    </li>
+  )
+}
+
 function CoachReply({ text }) {
   return (
     <div className="space-y-2">
@@ -59,7 +85,7 @@ function CoachReply({ text }) {
             className={`space-y-1 pl-5 marker:text-emerald-400 ${block.type === 'ul' ? 'list-disc' : 'list-decimal'}`}
           >
             {block.items.map((item, itemIndex) => (
-              <li key={itemIndex}><Inline text={item} /></li>
+              <ListItem key={itemIndex} text={item} />
             ))}
           </List>
         )
@@ -130,6 +156,7 @@ export default memo(function AICoachPage({ coach }) {
   const { messages, isThinking, error, send, retry, clear } = coach
   const [text, setText] = useState('')
   const [micFailed, setMicFailed] = useState(false)
+  const [isPickingPart, setIsPickingPart] = useState(false) // คำสั่งลัด "แนะนำท่าฝึก [ส่วนร่างกาย] สำหรับมือใหม่"
   const listRef = useRef(null)
 
   const speech = useSpeechInput({
@@ -155,6 +182,16 @@ export default memo(function AICoachPage({ coach }) {
     setMicFailed(false)
     setText('')
     send(message)
+  }
+
+  const askBeginnerPlan = (bodyPart) => {
+    if (!bodyPart) return
+    setIsPickingPart(false)
+    const examples = exercisesForBodyPart(bodyPart, { level: 'beginner' })
+      .slice(0, PLAN_EXAMPLE_COUNT)
+      .map((exercise) => exercise.name)
+      .join(', ')
+    submit(t('coach.beginnerPlan.message', { part: t(`anatomy.bodyParts.${bodyPart}`), examples }))
   }
 
   const toggleMic = () => {
@@ -227,7 +264,31 @@ export default memo(function AICoachPage({ coach }) {
       </div>
 
       <div className="border-t border-white/[0.07] px-4 py-3 sm:px-5">
+        {isPickingPart && (
+          <div className="mb-2.5 rounded-xl border border-orange-400/20 bg-orange-400/[0.05] p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-orange-100">{t('coach.beginnerPlan.pick')}</p>
+              <button type="button" onClick={() => setIsPickingPart(false)} aria-label={t('coach.beginnerPlan.cancel')} className="btn-icon p-1">
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
+            <BodyPartFilter value={null} onChange={askBeginnerPlan} showAll={false} disabled={isThinking} label={t('coach.beginnerPlan.pick')} />
+          </div>
+        )}
         <div role="group" aria-label={t('coach.prompts.label')} className="-mx-4 mb-2.5 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-5 sm:px-5">
+          <button
+            type="button"
+            onClick={() => setIsPickingPart((open) => !open)}
+            disabled={isThinking}
+            aria-expanded={isPickingPart}
+            className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              isPickingPart
+                ? 'border-orange-400/50 bg-orange-400/20 text-orange-100'
+                : 'border-orange-400/25 bg-orange-400/[0.08] text-orange-200 hover:bg-orange-400/15'
+            }`}
+          >
+            {t('coach.beginnerPlan.chip')}
+          </button>
           {QUICK_PROMPTS.map((key) => (
             <button
               key={key}

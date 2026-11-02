@@ -103,7 +103,13 @@
     "clear": "Clear chat",
     "retry": "Try again",
     "failed": "The coach could not answer. Please try again.",
-    "disclaimer": "AI advice can be wrong and does not replace a doctor."
+    "disclaimer": "AI advice can be wrong and does not replace a doctor.",
+    "beginnerPlan": {
+      "chip": "💡 Beginner [pick a body part] workout",
+      "pick": "Pick a body part to train",
+      "cancel": "Cancel",
+      "message": "Suggest a beginner {{part}} workout: a 1-day plan with 4-5 exercises, sets × reps and a short tip for each (e.g. {{examples}})"
+    }
   },
 
   "auth": {
@@ -772,6 +778,48 @@
       "loggedDays_other": "Average of {{count}} logged days",
       "weeklyNote": "Long ranges show weekly averages per logged day.",
       "targetLabel": "Target {{value}} g"
+    }
+  },
+  "anatomy": {
+    "primary": "Target muscles",
+    "secondary": "Secondary muscles",
+    "figureLabel": "Target: {{primary}} · Secondary: {{secondary}}",
+    "views": {
+      "front": "Front",
+      "back": "Back"
+    },
+    "muscles": {
+      "chest": "Chest",
+      "back": "Back",
+      "shoulders": "Shoulders",
+      "biceps": "Biceps",
+      "triceps": "Triceps",
+      "forearms": "Forearms",
+      "abs": "Abs",
+      "glutes": "Glutes",
+      "quads": "Quads",
+      "hamstrings": "Hamstrings",
+      "calves": "Calves",
+      "fullbody": "Full body"
+    },
+    "bodyParts": {
+      "all": "All",
+      "chest": "Chest",
+      "legs": "Legs",
+      "core": "Core",
+      "arms": "Arms",
+      "back": "Back",
+      "shoulders": "Shoulders"
+    },
+    "filterLabel": "Filter exercises by body part",
+    "levels": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
+    "equipment": {
+      "none": "No equipment",
+      "required": "Equipment"
     }
   }
 }

@@ -3,8 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Activity, Check, Dumbbell, Flame, PersonStanding, Plus, Search, Sparkles, X } from 'lucide-react'
 import { calculateCaloriesBurned } from '../utils/calories'
-import { CATEGORIES, DEFAULT_MET, searchExercises } from '../utils/exerciseCatalog'
+import { CATEGORIES, DEFAULT_MET, EXERCISES, searchExercises } from '../utils/exerciseCatalog'
+import { getAnatomy, matchesBodyPart } from '../utils/exerciseAnatomy'
 import AICameraTracker from './AICameraTracker'
+import BodyPartFilter from './BodyPartFilter'
+import ExerciseBadges from './ExerciseBadges'
+import MuscleTargetCard, { MuscleIcon } from './MuscleTargetCard'
 import { ButtonLabel } from './Spinner'
 import VoiceRecorder from './VoiceRecorder'
 
@@ -53,6 +57,7 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
   const { t } = useTranslation()
   const [category, setCategory] = useState('strength')
   const [query, setQuery] = useState('')
+  const [bodyPart, setBodyPart] = useState(null) // Quick Filter ตามส่วนร่างกาย (null = ทั้งหมด)
   const [selected, setSelected] = useState(null) // { name, category, met, kcalPerKgKm? }
   const [details, setDetails] = useState(EMPTY_DETAILS)
   const [error, setError] = useState('')
@@ -61,7 +66,13 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
   const openCamera = useCallback(() => setIsCameraOpen(true), [])
   const closeCamera = useCallback(() => setIsCameraOpen(false), [])
 
-  const results = useMemo(() => searchExercises(query, category), [query, category])
+  // เลือกส่วนร่างกาย = แสดงท่าที่เน้นส่วนนั้นจากทุกหมวด (ยังพิมพ์ค้นหาชื่อได้)
+  const results = useMemo(() => {
+    if (!bodyPart) return searchExercises(query, category)
+    const pool = query.trim() ? searchExercises(query, category) : EXERCISES
+    return pool.filter((exercise) => matchesBodyPart(exercise.name, bodyPart))
+  }, [query, category, bodyPart])
+  const selectedAnatomy = selected && !selected.custom ? getAnatomy(selected.name) : null
   const trimmedQuery = query.trim()
   const hasExactMatch = results.some((exercise) => exercise.name.toLowerCase() === trimmedQuery.toLowerCase())
 
@@ -204,6 +215,9 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
         })}
       </div>
 
+      {/* Quick Filter: จิ้มไอคอนส่วนร่างกาย */}
+      <BodyPartFilter value={bodyPart} onChange={setBodyPart} className="relative mt-3" />
+
       {/* ค้นหาท่า */}
       <div className="relative mt-3">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
@@ -217,26 +231,36 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
         />
       </div>
 
-      <div className="relative mt-3 flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1">
+      {/* การ์ดท่าฝึก: ไอคอนกล้ามเนื้อ + ป้ายระดับความยาก/อุปกรณ์ */}
+      <div className="relative mt-3 grid max-h-72 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
         {results.map((exercise) => {
           const active = selected?.name === exercise.name && !selected.custom
+          const anatomy = getAnatomy(exercise.name)
           return (
             <button
               key={exercise.name}
               type="button"
               onClick={() => selectExercise(exercise)}
               aria-pressed={active}
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-2.5 rounded-xl border p-2 text-left transition-colors ${
                 active
-                  ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-200'
-                  : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/20 hover:bg-white/[0.08]'
+                  ? 'border-emerald-400/50 bg-emerald-400/15'
+                  : 'border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.08]'
               }`}
             >
-              {active && <Check className="h-3.5 w-3.5" aria-hidden />}
-              {exercise.name}
-              {exercise.category !== category && (
-                <span className="text-[10px] text-slate-500">· {categoryLabel(exercise.category)}</span>
-              )}
+              <span className="flex h-11 w-8 shrink-0 items-center justify-center rounded-lg bg-black/25">
+                {anatomy && <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} className="h-10 w-5" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={`flex items-center gap-1 text-xs font-semibold ${active ? 'text-emerald-200' : 'text-slate-100'}`}>
+                  {active && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+                  <span className="truncate">{exercise.name}</span>
+                  {exercise.category !== category && (
+                    <span className="shrink-0 text-[10px] font-normal text-slate-500">· {categoryLabel(exercise.category)}</span>
+                  )}
+                </span>
+                <ExerciseBadges anatomy={anatomy} className="mt-1" />
+              </span>
             </button>
           )
         })}
@@ -279,6 +303,8 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
                   <X className="h-4 w-4" aria-hidden />
                 </button>
               </div>
+
+              <MuscleTargetCard anatomy={selectedAnatomy} className="mb-3" />
 
               {isCardio ? (
                 <div className="grid grid-cols-2 gap-2">
