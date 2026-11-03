@@ -5,7 +5,7 @@ import { BODY_PART_ICON, BODY_PART_KEYS, exercisesForBodyPart } from '../utils/e
 import { EXERCISES } from '../utils/exerciseCatalog'
 import { MuscleIcon } from './MuscleTargetCard'
 
-export const TARGET_RED = '#ef4444'
+const TARGET_RED = '#ef4444'
 
 // ซูมรูปร่างกาย (viewBox 60×120) เข้าไปที่ส่วนนั้นให้พอดีวงกลม + ด้านที่มองเห็นกล้ามเนื้อชัด
 const CROPS = {
@@ -63,6 +63,7 @@ export default memo(function MuscleCategorySelector({ value, onChange, className
                   primary={primary}
                   view={crop.view}
                   viewBox={crop.viewBox}
+                  tone="anatomy"
                   primaryFill={active ? TARGET_RED : 'rgba(248,113,113,0.55)'}
                   pulse={active && key !== 'all'}
                   className="h-full w-full"

@@ -244,6 +244,13 @@ body {
   animation: shake 0.35s ease-in-out;
 }
 
+/* ภาพวาดท่าฝึก (เส้นเข้มบนพื้นขาว) -> เส้นขาว-เทาบนพื้นโปร่ง:
+   invert ทำให้พื้นขาวเป็นดำ แล้ว screen ทำให้สีดำกลืนหายไปกับพื้นหลังเข้มของการ์ด */
+.anatomy-art {
+  filter: invert(1) grayscale(1) contrast(1.15) brightness(0.92);
+  mix-blend-mode: screen;
+}
+
 /* กล้ามเนื้อเป้าหมาย (Target) เต้นเป็นจังหวะสีแดงใน Exercise Library */
 @keyframes muscle-pulse {
   0%,

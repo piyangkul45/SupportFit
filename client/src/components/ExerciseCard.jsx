@@ -4,12 +4,11 @@ import { Check, Play } from 'lucide-react'
 import useFrameAnimation from '../hooks/useFrameAnimation'
 import ExerciseBadges from './ExerciseBadges'
 import { MuscleIcon } from './MuscleTargetCard'
-import { TARGET_RED } from './MuscleCategorySelector'
 
 const TOUCH_PLAY_MS = 2500
 
-// การ์ดท่าฝึกใน Exercise Library: ภาพพรีวิวท่า (เฟรมแรก) ; ชี้เมาส์ / แตะบนมือถือ / โฟกัสด้วยคีย์บอร์ด = เล่นภาพเคลื่อนไหว
-// ไม่มีภาพสาธิต (media = null หรือโหลดภาพไม่ได้) -> แสดงรูป Anatomy ด้านหน้า/หลังที่กล้ามเนื้อเป้าหมายเป็นสีแดงแทน
+// การ์ดท่าฝึกใน Exercise Library: ภาพวาด Vector Anatomy ของท่า (เฟรมแรก) ; ชี้เมาส์ / แตะบนมือถือ / โฟกัสด้วยคีย์บอร์ด = เล่นภาพเคลื่อนไหว
+// ไม่มีภาพวาด (media = null หรือโหลดภาพไม่ได้) -> Silhouette Anatomy โปร่ง ขาว-เทา ที่กล้ามเนื้อเป้าหมายเป็นสีแดงแทน
 // กดการ์ด = onOpen(exercise) เปิดป๊อปอัปรายละเอียด
 export default memo(function ExerciseCard({ exercise, anatomy, media, active, categoryNote, onOpen }) {
   const { t } = useTranslation()
@@ -51,7 +50,8 @@ export default memo(function ExerciseCard({ exercise, anatomy, media, active, ca
           : 'border-white/10 bg-white/[0.04] hover:border-white/25 hover:shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)]'
       }`}
     >
-      <span className="relative block aspect-[4/3] w-full overflow-hidden bg-white">
+      {/* ภาพแนวตั้ง 3:4 พื้นโปร่ง (ไม่มีกรอบสีขาว) กลืนกับพื้นเข้มของเว็บ มีแสงแดงจาง ๆ ด้านหลังร่าง */}
+      <span className="relative block aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(239,68,68,0.13),transparent_62%)]">
         {frames ? (
           frames.slice(0, warm ? frames.length : 1).map((src, index) => (
             <img
@@ -62,13 +62,14 @@ export default memo(function ExerciseCard({ exercise, anatomy, media, active, ca
               decoding="async"
               draggable={false}
               onError={() => setBroken(true)}
-              className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-300 group-hover:scale-[1.04] ${
+              className={`anatomy-art absolute inset-x-1 bottom-6 h-[calc(100%-1.75rem)] w-[calc(100%-0.5rem)] object-contain object-bottom transition-[opacity,transform] duration-300 group-hover:scale-[1.04] ${
                 frame === index ? 'opacity-100' : 'opacity-0'
               }`}
             />
           ))
         ) : (
-          <span className="absolute inset-0 flex items-center justify-center gap-1 bg-[radial-gradient(circle_at_50%_40%,#2a1216,#0d0a0b)]">
+          // ไม่มีภาพวาดท่า: Silhouette Anatomy แบบโปร่ง ด้านหน้า + หลัง
+          <span className="absolute inset-0 flex items-center justify-center gap-1.5 px-2">
             {anatomy &&
               ['front', 'back'].map((view) => (
                 <MuscleIcon
@@ -76,18 +77,18 @@ export default memo(function ExerciseCard({ exercise, anatomy, media, active, ca
                   primary={anatomy.primary}
                   secondary={anatomy.secondary}
                   view={view}
-                  primaryFill={TARGET_RED}
+                  tone="anatomy"
                   pulse={playing}
-                  className="h-[82%] w-auto"
+                  className="h-[80%] w-auto drop-shadow-[0_0_10px_rgba(239,68,68,0.25)]"
                 />
               ))}
           </span>
         )}
 
-        {/* มุมซ้ายบน: ไอคอนกล้ามเนื้อเป้าหมาย ; มุมขวาล่าง: ปุ่มเล่น (ซ่อนขณะเล่น) */}
+        {/* มุมซ้ายบน (พื้นที่ว่างเหนือภาพวาด): รูปร่างกาย ขาว-เทา ไฮไลต์กล้ามเนื้อเป้าหมายสีแดง ; มุมขวาล่าง: ปุ่มเล่น (ซ่อนขณะเล่น) */}
         {frames && anatomy && (
-          <span className="absolute left-1.5 top-1.5 flex h-10 w-7 items-center justify-center rounded-lg border border-white/10 bg-black/60 backdrop-blur-sm">
-            <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} primaryFill={TARGET_RED} pulse={playing} className="h-9 w-[18px]" />
+          <span className="absolute left-1.5 top-1.5 flex h-[30%] items-center justify-center rounded-lg bg-black/40 px-1 py-1 backdrop-blur-[2px]">
+            <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} tone="anatomy" pulse={playing} className="h-full w-auto" />
           </span>
         )}
         {active && (

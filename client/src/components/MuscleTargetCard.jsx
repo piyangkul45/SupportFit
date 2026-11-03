@@ -47,25 +47,36 @@ const FIGURES = {
 const pickView = (muscles) => MUSCLES[muscles[0]]?.view || 'front'
 
 // ไอคอนรูปร่างกายที่ไฮไลต์กล้ามเนื้อ (ส้ม = หลัก, ฟ้า = รอง) ใช้ได้ทั้งการ์ดท่า ปุ่ม filter และคำตอบของ AI Coach
-// primaryFill: เปลี่ยนสีกล้ามเนื้อหลัก (เช่น แดงใน Exercise Library) ; pulse: กล้ามเนื้อหลักเต้นเป็นจังหวะ ; viewBox: ซูมเฉพาะส่วน
+// โทน anatomy: ร่างกายขาว-เทา กล้ามเนื้อหลักแดงสด กล้ามเนื้อรองแดงอ่อน (Exercise Library)
+const ANATOMY_TONE = {
+  primary: '#ef4444',
+  secondary: 'rgba(248, 113, 113, 0.5)',
+  base: 'rgba(203, 213, 225, 0.34)',
+  body: 'rgba(226, 232, 240, 0.5)',
+}
+
+// primaryFill: เปลี่ยนสีกล้ามเนื้อหลัก ; pulse: กล้ามเนื้อหลักเต้นเป็นจังหวะ ; viewBox: ซูมเฉพาะส่วน
+// tone="anatomy": ร่างขาว-เทา + แดง ใช้บนพื้นเข้มของ Exercise Library
 export const MuscleIcon = memo(function MuscleIcon({
   primary = [],
   secondary = [],
   view,
   className = 'h-10 w-5',
   title,
-  primaryFill = PRIMARY_FILL,
+  tone,
+  primaryFill,
   pulse = false,
   viewBox = '0 0 60 120',
 }) {
   const side = view || pickView(primary.length ? primary : secondary)
   const fullbody = primary.includes('fullbody')
+  const anatomyTone = tone === 'anatomy'
   const isPrimary = (muscle) => Boolean(muscle) && (fullbody || primary.includes(muscle))
   const fillOf = (muscle) => {
-    if (!muscle) return BODY_FILL
-    if (isPrimary(muscle)) return primaryFill
-    if (secondary.includes(muscle) || secondary.includes('fullbody')) return SECONDARY_FILL
-    return BASE_FILL
+    if (!muscle) return anatomyTone ? ANATOMY_TONE.body : BODY_FILL
+    if (isPrimary(muscle)) return primaryFill || (anatomyTone ? ANATOMY_TONE.primary : PRIMARY_FILL)
+    if (secondary.includes(muscle) || secondary.includes('fullbody')) return anatomyTone ? ANATOMY_TONE.secondary : SECONDARY_FILL
+    return anatomyTone ? ANATOMY_TONE.base : BASE_FILL
   }
   return (
     <svg viewBox={viewBox} className={className} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true}>

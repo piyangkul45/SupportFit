@@ -824,10 +824,10 @@
   },
   "exerciseLibrary": {
     "gif": "Preview",
-    "previewAlt": "{{name}} preview",
+    "previewAlt": "{{name}} illustration",
     "demoAlt": "{{name}} demonstration",
     "targetFigure": "Front and back body view with target muscles in red",
-    "noDemo": "No demo image for this exercise yet. See the muscles worked on the anatomy figure.",
+    "noDemo": "No illustration for this exercise yet. See the muscles worked on the anatomy figure.",
     "play": "Play animation",
     "pause": "Pause animation",
     "phaseStart": "Start",
@@ -840,7 +840,7 @@
       "breathing": "Breathing",
       "caution": "Watch out"
     },
-    "credit": "Demo images from",
+    "credit": "Illustrations from",
     "select": "Choose this exercise",
     "close": "Close",
     "tips": {

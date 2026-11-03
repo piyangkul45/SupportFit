@@ -8,7 +8,6 @@ import { getAnatomy } from '../utils/exerciseAnatomy'
 import { GUIDE_KEYS, MEDIA_SOURCE, getExerciseMedia, getGuidePattern } from '../utils/exerciseMedia'
 import ExerciseBadges from './ExerciseBadges'
 import { MuscleIcon } from './MuscleTargetCard'
-import { TARGET_RED } from './MuscleCategorySelector'
 
 const TIP_STYLES = {
   stance: { Icon: Footprints, tone: 'border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-300' },
@@ -19,10 +18,10 @@ const TIP_STYLES = {
 function MuscleChips({ muscles, tone }) {
   const { t } = useTranslation()
   const styles =
-    tone === 'primary' ? 'border-red-400/30 bg-red-500/10 text-red-100' : 'border-sky-400/20 bg-sky-400/[0.07] text-sky-100'
+    tone === 'primary' ? 'border-red-400/30 bg-red-500/10 text-red-100' : 'border-red-300/15 bg-red-300/[0.05] text-red-100/75'
   return muscles.map((muscle) => (
     <li key={muscle} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${tone === 'primary' ? 'bg-red-500' : 'bg-sky-400'}`} aria-hidden />
+      <span className={`h-1.5 w-1.5 rounded-full ${tone === 'primary' ? 'bg-red-500' : 'bg-red-300/50'}`} aria-hidden />
       {t(`anatomy.muscles.${muscle}`)}
     </li>
   ))
@@ -61,7 +60,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
             primary={anatomy.primary}
             secondary={anatomy.secondary}
             view={view}
-            primaryFill={TARGET_RED}
+            tone="anatomy"
             pulse={playing}
             className="h-32 w-16 sm:h-40 sm:w-20"
           />
@@ -115,7 +114,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
         <div className="overflow-y-auto px-5 pb-5 pt-4">
           {/* ภาพสาธิตเคลื่อนไหว + Anatomy */}
           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-            <div className="relative aspect-[3/2] overflow-hidden rounded-xl border border-white/10 bg-black">
+            <div className="relative aspect-square overflow-hidden rounded-xl border border-white/[0.07] bg-[radial-gradient(circle_at_50%_45%,rgba(239,68,68,0.14),rgba(255,255,255,0.02)_65%)] sm:aspect-[5/4]">
               {frames ? (
                 <>
                   {frames.map((src, index) => (
@@ -125,7 +124,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
                       alt={index === 0 ? t('exerciseLibrary.demoAlt', { name: exercise.name }) : ''}
                       draggable={false}
                       onError={() => setBroken(true)}
-                      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${frame === index ? 'opacity-100' : 'opacity-0'}`}
+                      className={`anatomy-art absolute inset-0 h-full w-full object-contain p-1 pb-9 transition-opacity duration-300 ${frame === index ? 'opacity-100' : 'opacity-0'}`}
                     />
                   ))}
                   <button
@@ -139,20 +138,20 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
                   </button>
                   {/* Anatomy ซ้อนมุมขวาบนบนมือถือ (จอใหญ่แสดงคอลัมน์ข้าง ๆ) */}
                   {anatomy && (
-                    <span className="absolute right-2 top-2 flex rounded-lg border border-white/10 bg-black/70 p-1 backdrop-blur-sm sm:hidden">
-                      <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} primaryFill={TARGET_RED} pulse={playing} className="h-16 w-8" />
+                    <span className="absolute right-2 top-2 flex rounded-lg bg-black/45 p-1 backdrop-blur-[2px] sm:hidden">
+                      <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} tone="anatomy" pulse={playing} className="h-20 w-10" />
                     </span>
                   )}
                 </>
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_50%_40%,#2a1216,#0d0a0b)]">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                   {anatomyFigure}
                   <p className="px-4 text-center text-[11px] text-slate-500">{t('exerciseLibrary.noDemo')}</p>
                 </div>
               )}
             </div>
             {frames && anatomy && (
-              <div className="hidden flex-col items-center justify-center rounded-xl border border-red-500/15 bg-[radial-gradient(circle_at_50%_40%,#2a1216,#0d0a0b)] px-4 py-3 sm:flex">
+              <div className="hidden flex-col items-center justify-center rounded-xl border border-white/[0.07] bg-[radial-gradient(circle_at_50%_45%,rgba(239,68,68,0.12),rgba(255,255,255,0.02)_70%)] px-4 py-3 sm:flex">
                 {anatomyFigure}
               </div>
             )}
@@ -167,7 +166,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
               </ul>
               {anatomy.secondary.length > 0 && (
                 <>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-sky-300">{t('exerciseLibrary.secondary')}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-red-200/60">{t('exerciseLibrary.secondary')}</span>
                   <ul className="flex flex-wrap gap-1.5">
                     <MuscleChips muscles={anatomy.secondary} tone="secondary" />
                   </ul>
@@ -204,7 +203,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
               {t('exerciseLibrary.credit')}{' '}
               <a href={MEDIA_SOURCE.url} target="_blank" rel="noreferrer" className="underline hover:text-slate-400">
                 {MEDIA_SOURCE.name}
-              </a>
+              </a>{' '}({MEDIA_SOURCE.license})
             </p>
           )}
 

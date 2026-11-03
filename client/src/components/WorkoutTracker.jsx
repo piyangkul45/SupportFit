@@ -237,7 +237,7 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
       </div>
 
       {/* การ์ดท่าฝึก: ภาพพรีวิว (ชี้/แตะ = เล่นภาพเคลื่อนไหว) กด = ป๊อปอัปรายละเอียด */}
-      <div className="relative mt-3 grid max-h-[26rem] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+      <div className="relative mt-3 grid max-h-[34rem] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
         {results.map((exercise) => (
           <ExerciseCard
             key={exercise.name}

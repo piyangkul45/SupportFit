@@ -1,64 +1,47 @@
-// ภาพสาธิตท่าฝึก + กลุ่มรูปแบบการเคลื่อนไหว (ใช้เลือกคำแนะนำสำหรับมือใหม่)
+// ภาพวาดท่าฝึก (Vector Anatomy line art) + กลุ่มรูปแบบการเคลื่อนไหว (ใช้เลือกคำแนะนำสำหรับมือใหม่)
 //
-// ภาพจาก Free Exercise DB (https://github.com/yuhonas/free-exercise-db, Public Domain / Unlicense)
-// แต่ละท่ามี 2 เฟรม (ท่าเริ่ม 0.jpg / ท่าจบ 1.jpg) สลับกันเป็นภาพเคลื่อนไหวแบบ GIF
-// โหลดผ่าน jsDelivr CDN ; ท่าที่ไม่มีภาพในฐานข้อมูล (กีฬา, ว่ายน้ำ, โยคะ ...) -> null แล้ว UI ใช้รูป Anatomy แทน
+// ภาพจาก Everkinetic (https://github.com/everkinetic/data, CC BY-SA 4.0) เป็น SVG เส้นเข้มบนพื้นขาว
+// UI กลับสีเป็นเส้นขาว-เทาบนพื้นโปร่ง (ดู .anatomy-art ใน index.css) ให้กลืนกับ Dark Mode
+// แต่ละท่ามี 2 เฟรม (relaxation = ท่าเริ่ม / tension = ท่าเกร็ง) สลับกันเป็นภาพเคลื่อนไหวแบบ GIF
+// กล้ามเนื้อเป้าหมายสีแดงมาจากรูป Anatomy ของแอปเอง (MuscleIcon) เพราะภาพต้นฉบับไม่ได้แยกกล้ามเนื้อ
+// ท่าที่ไม่มีภาพ -> null แล้ว UI ใช้ Silhouette Anatomy แบบโปร่ง (ขาว-เทา + แดง) แทน
+//
+// ใส่ภาพของโปรเจกต์เองได้: ค่าใน MEDIA_IDS เป็น { frames: ['/anatomy/squat-1.png', ...] } (วางไฟล์ไว้ใน client/public)
 import { findExercise } from './exerciseCatalog.js'
 
-export const MEDIA_SOURCE = { name: 'Free Exercise DB', url: 'https://github.com/yuhonas/free-exercise-db' }
-const CDN_BASE = 'https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises'
+export const MEDIA_SOURCE = { name: 'Everkinetic', license: 'CC BY-SA 4.0', url: 'https://github.com/everkinetic/data' }
+// ล็อก commit ไว้ ภาพจะไม่เปลี่ยนเองเมื่อ repo ต้นทางอัปเดต
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/everkinetic/data@446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg'
 
-// ชื่อท่าใน exerciseCatalog -> id ใน Free Exercise DB
+// ชื่อท่าใน exerciseCatalog -> id_num ของ Everkinetic (ไฟล์ <id>-relaxation.svg / <id>-tension.svg)
 export const MEDIA_IDS = {
   // ---- เวทเทรนนิ่ง ----
-  'Squat': 'Barbell_Squat',
-  'Bench Press': 'Barbell_Bench_Press_-_Medium_Grip',
-  'Deadlift': 'Barbell_Deadlift',
-  'Overhead Press': 'Standing_Military_Press',
-  'Barbell Row': 'Bent_Over_Barbell_Row',
-  'Romanian Deadlift': 'Romanian_Deadlift',
-  'Leg Press': 'Leg_Press',
-  'Lat Pulldown': 'Wide-Grip_Lat_Pulldown',
-  'Incline Bench Press': 'Barbell_Incline_Bench_Press_-_Medium_Grip',
-  'Dumbbell Bench Press': 'Dumbbell_Bench_Press',
-  'Hip Thrust': 'Barbell_Hip_Thrust',
-  'Lunge': 'Bodyweight_Walking_Lunge',
-  'Bicep Curl': 'Dumbbell_Bicep_Curl',
-  'Tricep Pushdown': 'Triceps_Pushdown',
-  'Lateral Raise': 'Side_Lateral_Raise',
-  'Leg Extension': 'Leg_Extensions',
-  'Leg Curl': 'Lying_Leg_Curls',
-  'Cable Fly': 'Cable_Crossover',
-  'Clean and Jerk': 'Clean_and_Jerk',
-  'Kettlebell Swing': 'One-Arm_Kettlebell_Swings',
-
-  // ---- คาร์ดิโอ ----
-  'Running': 'Running_Treadmill',
-  'Treadmill Running': 'Jogging_Treadmill',
-  'Walking': 'Walking_Treadmill',
-  'Hiking': 'Trail_Running_Walking',
-  'Cycling': 'Bicycling',
-  'Stationary Bike': 'Bicycling_Stationary',
-  'Rowing Machine': 'Rowing_Stationary',
-  'Elliptical': 'Elliptical_Trainer',
-  'Stair Climber': 'Stairmaster',
-  'Jump Rope': 'Rope_Jumping',
+  'Squat': '0122', // barbell-squat
+  'Bench Press': '0042', // bench-press
+  'Deadlift': '0099', // barbell-dead-lifts
+  'Overhead Press': '0004', // seated-military-press
+  'Barbell Row': '0026', // reverse-grips-bent-over-barbell-rows
+  'Romanian Deadlift': '0118', // romanian-dead-lift
+  'Leg Press': '0127', // leg-press
+  'Lat Pulldown': '0096', // v-bar-pull-down
+  'Incline Bench Press': '0043', // incline-bench-press
+  'Dumbbell Bench Press': '0055', // bench-press-dumbbell
+  'Hip Thrust': '0109', // bridging
+  'Lunge': '0121', // walking-lunges
+  'Bicep Curl': '0224', // biceps-curl-with-dumbbell
+  'Tricep Pushdown': '0205', // triceps-pushdown-with-cable
+  'Lateral Raise': '0018', // lateral-dumbbell-raises
+  'Leg Extension': '0142', // leg-extensions
+  'Leg Curl': '0117', // lying-leg-curl-machine
+  'Cable Fly': '0048', // cable-crossover
 
   // ---- สตรีทเวิร์กเอาต์ ----
-  'Push Up': 'Pushups',
-  'Pull Up': 'Pullups',
-  'Chin Up': 'Chin-Up',
-  'Dips': 'Dips_-_Triceps_Version',
-  'Muscle Up': 'Muscle_Up',
-  'Inverted Row': 'Inverted_Row',
-  'Handstand Push Up': 'Handstand_Push-Ups',
-  'Pistol Squat': 'Kettlebell_Pistol_Squat',
-  'Bodyweight Squat': 'Bodyweight_Squat',
-  'Jump Squat': 'Freehand_Jump_Squat',
-  'Mountain Climber': 'Mountain_Climbers',
-  'Hanging Leg Raise': 'Hanging_Leg_Raise',
-  'Plank': 'Plank',
-  'Crunch': 'Crunches',
+  'Push Up': '0077', // push-ups
+  'Pull Up': '0087', // pull-ups
+  'Chin Up': '0090', // narrow-parallel-grip-chin-ups
+  'Dips': '0172', // tricep-dips-using-body-weight
+  'Inverted Row': '0086', // body-row
+  'Crunch': '0291', // crunches
 }
 
 // ท่า -> รูปแบบการเคลื่อนไหว (คำแนะนำ 3 ข้อ: การวางเท้า / การหายใจ / ข้อควรระวัง อยู่ใน locales: exerciseLibrary.tips.<pattern>)
@@ -84,9 +67,12 @@ export const GUIDE_PATTERNS = {
 }
 export const GUIDE_KEYS = ['stance', 'breathing', 'caution']
 
-const frameUrl = (id, index) => `${CDN_BASE}/${id}/${index}.jpg`
+const toMedia = (entry) =>
+  typeof entry === 'string'
+    ? { id: entry, frames: [`${CDN_BASE}/${entry}-relaxation.svg`, `${CDN_BASE}/${entry}-tension.svg`] }
+    : { id: entry.frames[0], ...entry }
 // object เดิมทุกครั้ง (การ์ดที่ memo ไว้จะไม่ render ซ้ำ)
-const MEDIA = new Map(Object.entries(MEDIA_IDS).map(([name, id]) => [name, { id, frames: [frameUrl(id, 0), frameUrl(id, 1)] }]))
+const MEDIA = new Map(Object.entries(MEDIA_IDS).map(([name, entry]) => [name, toMedia(entry)]))
 
 // ท่าในรายการ -> { id, frames: [ท่าเริ่ม, ท่าจบ] } ; ไม่มีภาพ / ท่าพิมพ์เอง -> null
 export function getExerciseMedia(name) {
