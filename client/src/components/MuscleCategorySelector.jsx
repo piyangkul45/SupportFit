@@ -1,40 +1,40 @@
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { BODY_PART_ICON, BODY_PART_KEYS, exercisesForBodyPart } from '../utils/exerciseAnatomy'
+import { BODY_PART_ICON, exercisesForBodyPart } from '../utils/exerciseAnatomy'
 import { EXERCISES } from '../utils/exerciseCatalog'
-import { MuscleIcon } from './MuscleTargetCard'
+import AnatomyFigure from './AnatomyFigure'
 
-const TARGET_RED = '#ef4444'
+// การ์ดภาพ Anatomy ซูมเฉพาะส่วน (แนวนอน 4:3) ; viewBox อยู่ในพิกัดของ AnatomyFigure (200×430)
+// view = ด้านที่เห็นกล้ามเนื้อนั้นชัด ; "ทั้งหมด" = ร่างเต็มตัวด้านหน้า + หลังคู่กัน
+// มือถือ 3 คอลัมน์: "ทั้งหมด" กว้าง 2 ช่อง (สูงเท่าการ์ดอื่นในแถว) ให้ 8 การ์ดเต็ม 3 แถวพอดี
+const CARDS = [
+  { key: 'all' },
+  { key: 'chest', view: 'front', viewBox: '40 50 120 90' },
+  { key: 'back', view: 'back', viewBox: '16 46 168 126' },
+  { key: 'shoulders', view: 'front', viewBox: '24 44 152 114' },
+  { key: 'arms', view: 'front', viewBox: '0 92 200 150' },
+  { key: 'core', view: 'front', viewBox: '40 112 120 90' },
+  { key: 'glutes', view: 'back', viewBox: '40 176 120 90' },
+  { key: 'legs', view: 'front', viewBox: '24 206 152 114' },
+]
 
-// ซูมรูปร่างกาย (viewBox 60×120) เข้าไปที่ส่วนนั้นให้พอดีวงกลม + ด้านที่มองเห็นกล้ามเนื้อชัด
-const CROPS = {
-  all: { view: 'front', viewBox: '-30 0 120 120' },
-  chest: { view: 'front', viewBox: '11 11 38 38' },
-  back: { view: 'back', viewBox: '8 12 44 44' },
-  arms: { view: 'front', viewBox: '0 20 34 34' },
-  core: { view: 'front', viewBox: '13 25 34 34' },
-  legs: { view: 'front', viewBox: '6 54 48 48' },
-  shoulders: { view: 'front', viewBox: '6 8 48 48' },
-}
+const CARD_BG = 'bg-[radial-gradient(circle_at_50%_30%,#2c313d,#12141b_78%)]'
 
-// ปุ่มหมวดกล้ามเนื้อเป็นวงกลมรูป Anatomy (ทั้งหมด, อก, หลัง, แขน, ท้อง, ขา, ไหล่) ด้านบนสุดของ Exercise Library
+// Muscle Picker แบบการ์ดรูปภาพ Anatomy (ขอบมน พื้นเข้ม) อยู่บนสุดของ Exercise Library
+// กล้ามเนื้อของหมวดเป็นสีส้ม-แดงสด กล้ามเนื้ออื่นเทา-ขาว ; hover/แตะ = ขอบสว่าง + ซูมภาพ 1.03
 // value: key ใน BODY_PARTS หรือ null (= ทั้งหมด) ; onChange(key) เรียกทันทีเมื่อกด -> รายการท่ากรองทันที
 export default memo(function MuscleCategorySelector({ value, onChange, className = '' }) {
   const { t } = useTranslation()
   const counts = useMemo(
-    () => Object.fromEntries([['all', EXERCISES.length], ...BODY_PART_KEYS.map((key) => [key, exercisesForBodyPart(key).length])]),
+    () => Object.fromEntries(CARDS.map(({ key }) => [key, key === 'all' ? EXERCISES.length : exercisesForBodyPart(key).length])),
     []
   )
-  const options = ['all', 'chest', 'back', 'arms', 'core', 'legs', 'shoulders']
 
   return (
-    <div role="radiogroup" aria-label={t('anatomy.filterLabel')} // contain: inline-size = แถววงกลมไม่ดันคอลัมน์ให้กว้างเกินจอมือถือ (เลื่อนแนวนอนแทน)
-      className={`-mx-1 flex snap-x gap-1 overflow-x-auto px-1 pb-1 [contain:inline-size] sm:justify-between ${className}`}>
-      {options.map((key) => {
+    <div role="radiogroup" aria-label={t('anatomy.filterLabel')} className={`grid grid-cols-3 gap-2 sm:grid-cols-4 ${className}`}>
+      {CARDS.map(({ key, view, viewBox }) => {
         const active = (value || 'all') === key
-        const crop = CROPS[key]
-        const primary = key === 'all' ? ['fullbody'] : BODY_PART_ICON[key]
         return (
           <button
             key={key}
@@ -42,43 +42,53 @@ export default memo(function MuscleCategorySelector({ value, onChange, className
             role="radio"
             aria-checked={active}
             onClick={() => onChange(key === 'all' ? null : key)}
-            className="group flex w-[4.25rem] shrink-0 snap-start flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
+            className={`group relative overflow-hidden rounded-xl border ${key === 'all' ? 'col-span-2 min-h-full sm:col-span-1 sm:aspect-[4/3]' : 'aspect-[4/3]'} text-left outline-none transition-[border-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-orange-300/70 ${CARD_BG} ${
+              active
+                ? 'border-orange-400/90 shadow-[0_0_0_1px_rgba(251,146,60,0.55),0_0_22px_-6px_rgba(244,81,30,0.85)]'
+                : 'border-white/10 hover:border-orange-200/70 hover:shadow-[0_0_16px_-8px_rgba(255,255,255,0.6)] active:border-orange-200/70'
+            }`}
           >
-            <span className="relative flex h-14 w-14 items-center justify-center sm:h-16 sm:w-16">
-              {active && (
-                <motion.span
-                  layoutId="muscle-category-ring"
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-red-500 via-rose-500 to-orange-400 shadow-[0_0_18px_-4px_rgba(239,68,68,0.9)]"
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                />
-              )}
-              <span
-                className={`relative flex h-[calc(100%-5px)] w-[calc(100%-5px)] items-center justify-center overflow-hidden rounded-full border transition-[transform,border-color,background-color] duration-200 group-hover:scale-105 group-active:scale-95 ${
-                  active
-                    ? 'border-transparent bg-[radial-gradient(circle_at_50%_35%,#3b1218,#120a0c)]'
-                    : 'border-white/10 bg-[radial-gradient(circle_at_50%_35%,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] group-hover:border-white/25'
-                }`}
-              >
-                <MuscleIcon
-                  primary={primary}
-                  view={crop.view}
-                  viewBox={crop.viewBox}
+            {/* ภาพซูมเบา ๆ 1.03 เมื่อชี้/แตะ */}
+            <span className="absolute inset-0 transition-transform duration-300 ease-out group-hover:scale-[1.03] group-active:scale-[1.03]">
+              {key === 'all' ? (
+                <span className="flex h-full items-center justify-center gap-1 px-2 pb-4 pt-1">
+                  {['front', 'back'].map((side) => (
+                    <AnatomyFigure key={side} view={side} primary={active ? ['fullbody'] : []} tone="anatomy" className="h-full w-auto" />
+                  ))}
+                </span>
+              ) : (
+                <AnatomyFigure
+                  view={view}
+                  viewBox={viewBox}
+                  fit="slice"
+                  primary={BODY_PART_ICON[key]}
                   tone="anatomy"
-                  primaryFill={active ? TARGET_RED : 'rgba(248,113,113,0.55)'}
-                  pulse={active && key !== 'all'}
+                  pulse={active}
                   className="h-full w-full"
                 />
+              )}
+            </span>
+
+            {/* เงาไล่ด้านล่างให้อ่านชื่อหมวดชัด */}
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+            {active && (
+              <motion.span
+                layoutId="muscle-card-active"
+                className="pointer-events-none absolute inset-0 rounded-xl bg-orange-500/[0.08]"
+                transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+              />
+            )}
+            <span className="absolute inset-x-2 bottom-1.5 flex items-end justify-between gap-1">
+              <span className={`truncate text-xs font-bold tracking-tight sm:text-sm ${active ? 'text-orange-100' : 'text-white'}`}>
+                {t(`anatomy.bodyParts.${key}`)}
               </span>
               <span
-                className={`absolute -right-0.5 -top-0.5 min-w-[1.25rem] rounded-full border px-1 text-center text-[10px] font-bold tabular-nums leading-[1.1rem] ${
-                  active ? 'border-red-300/40 bg-red-500 text-white' : 'border-white/10 bg-obsidian-raised text-slate-400'
+                className={`shrink-0 rounded-md px-1.5 text-[10px] font-bold tabular-nums leading-4 ${
+                  active ? 'bg-orange-500 text-white' : 'bg-white/10 text-slate-300'
                 }`}
               >
                 {counts[key]}
               </span>
-            </span>
-            <span className={`whitespace-nowrap text-[11px] font-semibold transition-colors ${active ? 'text-red-200' : 'text-slate-400 group-hover:text-slate-200'}`}>
-              {t(`anatomy.bodyParts.${key}`)}
             </span>
           </button>
         )

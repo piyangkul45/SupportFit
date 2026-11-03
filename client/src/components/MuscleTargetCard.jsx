@@ -1,91 +1,25 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MUSCLES } from '../utils/exerciseAnatomy'
-
-// สีเดียวกันทั้งแอป: กล้ามเนื้อหลัก = ส้ม, กล้ามเนื้อรอง = ฟ้า
-const PRIMARY_FILL = '#fb923c'
-const SECONDARY_FILL = '#38bdf8'
-const BASE_FILL = 'rgba(148, 163, 184, 0.16)'
-const BODY_FILL = 'rgba(148, 163, 184, 0.09)'
-
-// รูปร่างกายแบบเรียบ (viewBox 60×120) แต่ละชิ้นผูกกับกล้ามเนื้อ ; muscle: null = ส่วนที่ไม่ใช่กล้ามเนื้อ (หัว มือ เท้า)
-const ellipse = (cx, cy, rx, ry, muscle) => ({ kind: 'ellipse', cx, cy, rx, ry, muscle })
-const path = (d, muscle) => ({ kind: 'path', d, muscle })
-const pair = (make, cx, mirror = 60) => [make(cx), make(mirror - cx)]
-
-const SHARED = [
-  ellipse(30, 9, 6, 6.5, null),
-  path('M27 14.5h6v4h-6z', null),
-  ...pair((cx) => ellipse(cx, 23, 5, 4.2, 'shoulders'), 17.5),
-  ...pair((cx) => ellipse(cx, 50, 2.8, 7.5, 'forearms'), 11),
-  ...pair((cx) => ellipse(cx, 60.5, 2.4, 2.6, null), 10),
-  ...pair((cx) => ellipse(cx, 109.5, 3.8, 2, null), 23.5),
-]
-
-const FIGURES = {
-  front: [
-    ...SHARED,
-    path('M20 20.5h9.4v11.2q-5.2 2.2-9.4-1.2z', 'chest'),
-    path('M30.6 20.5H40v10q-4.2 3.4-9.4 1.2z', 'chest'),
-    ...pair((cx) => ellipse(cx, 34, 3.4, 7, 'biceps'), 13.5),
-    path('M22.5 33.5h15q.8 0 .8.8v15.4q0 1.8-1.8 1.8h-13q-1.8 0-1.8-1.8V34.3q0-.8.8-.8z', 'abs'),
-    path('M22 52.5h16l1.2 6.5H20.8z', null),
-    ...pair((cx) => ellipse(cx, 71.5, 5.2, 12, 'quads'), 24.5),
-    ...pair((cx) => ellipse(cx, 96, 3.5, 9.5, null), 24),
-  ],
-  back: [
-    ...SHARED,
-    path('M20 20h20l-1.2 27.5q-8.8 3.6-17.6 0z', 'back'),
-    ...pair((cx) => ellipse(cx, 34, 3.4, 7, 'triceps'), 13.5),
-    ...pair((cx) => ellipse(cx, 56, 5.6, 5.2, 'glutes'), 25),
-    ...pair((cx) => ellipse(cx, 74, 5, 10.5, 'hamstrings'), 24.5),
-    ...pair((cx) => ellipse(cx, 95.5, 3.8, 9, 'calves'), 24),
-  ],
-}
+import AnatomyFigure from './AnatomyFigure'
 
 // front ถ้ากล้ามเนื้อหลักตัวแรกมองเห็นจากด้านหน้า ไม่งั้น back
 const pickView = (muscles) => MUSCLES[muscles[0]]?.view || 'front'
 
-// ไอคอนรูปร่างกายที่ไฮไลต์กล้ามเนื้อ (ส้ม = หลัก, ฟ้า = รอง) ใช้ได้ทั้งการ์ดท่า ปุ่ม filter และคำตอบของ AI Coach
-// โทน anatomy: ร่างกายขาว-เทา กล้ามเนื้อหลักแดงสด กล้ามเนื้อรองแดงอ่อน (Exercise Library)
-const ANATOMY_TONE = {
-  primary: '#ef4444',
-  secondary: 'rgba(248, 113, 113, 0.5)',
-  base: 'rgba(203, 213, 225, 0.34)',
-  body: 'rgba(226, 232, 240, 0.5)',
-}
-
-// primaryFill: เปลี่ยนสีกล้ามเนื้อหลัก ; pulse: กล้ามเนื้อหลักเต้นเป็นจังหวะ ; viewBox: ซูมเฉพาะส่วน
-// tone="anatomy": ร่างขาว-เทา + แดง ใช้บนพื้นเข้มของ Exercise Library
-export const MuscleIcon = memo(function MuscleIcon({
-  primary = [],
-  secondary = [],
-  view,
-  className = 'h-10 w-5',
-  title,
-  tone,
-  primaryFill,
-  pulse = false,
-  viewBox = '0 0 60 120',
-}) {
-  const side = view || pickView(primary.length ? primary : secondary)
-  const fullbody = primary.includes('fullbody')
-  const anatomyTone = tone === 'anatomy'
-  const isPrimary = (muscle) => Boolean(muscle) && (fullbody || primary.includes(muscle))
-  const fillOf = (muscle) => {
-    if (!muscle) return anatomyTone ? ANATOMY_TONE.body : BODY_FILL
-    if (isPrimary(muscle)) return primaryFill || (anatomyTone ? ANATOMY_TONE.primary : PRIMARY_FILL)
-    if (secondary.includes(muscle) || secondary.includes('fullbody')) return anatomyTone ? ANATOMY_TONE.secondary : SECONDARY_FILL
-    return anatomyTone ? ANATOMY_TONE.base : BASE_FILL
-  }
+// ไอคอนรูปร่างกายที่ไฮไลต์กล้ามเนื้อ ใช้ได้ทั้งการ์ดท่า ปุ่ม filter และคำตอบของ AI Coach
+// วาดด้วย AnatomyFigure (เวกเตอร์ลงเงาแบบ 3D): กล้ามเนื้ออื่นเทา-ขาว ; tone ค่าเริ่มต้น = หลักส้ม / รองฟ้า
+// tone='anatomy' = หลักส้ม-แดงสด / รองแดงอ่อน (Exercise Library) ; pulse: กล้ามเนื้อหลักเต้นเป็นจังหวะ
+export const MuscleIcon = memo(function MuscleIcon({ primary = [], secondary = [], view, className = 'h-10 w-5', title, tone, pulse = false }) {
   return (
-    <svg viewBox={viewBox} className={className} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true}>
-      {title && <title>{title}</title>}
-      {FIGURES[side].map(({ kind, muscle, ...shape }, index) => {
-        const props = { ...shape, fill: fillOf(muscle), className: pulse && isPrimary(muscle) ? 'animate-muscle-pulse' : undefined }
-        return kind === 'ellipse' ? <ellipse key={index} {...props} /> : <path key={index} {...props} />
-      })}
-    </svg>
+    <AnatomyFigure
+      primary={primary}
+      secondary={secondary}
+      view={view || pickView(primary.length ? primary : secondary)}
+      tone={tone === 'anatomy' ? 'anatomy' : 'default'}
+      pulse={pulse}
+      className={className}
+      title={title}
+    />
   )
 })
 

@@ -23,6 +23,7 @@ export const MUSCLES = {
 export const BODY_PARTS = {
   chest: ['chest'],
   legs: ['quads', 'hamstrings', 'glutes', 'calves'],
+  glutes: ['glutes'],
   core: ['abs'],
   arms: ['biceps', 'triceps', 'forearms'],
   back: ['back'],
@@ -33,6 +34,7 @@ export const BODY_PART_KEYS = Object.keys(BODY_PARTS)
 export const BODY_PART_ICON = {
   chest: ['chest'],
   legs: ['quads'],
+  glutes: ['glutes'],
   core: ['abs'],
   arms: ['biceps', 'forearms'],
   back: ['back'],
