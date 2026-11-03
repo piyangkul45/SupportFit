@@ -46,8 +46,8 @@ const REST_DURATION = 90
 
 const TABS = [
   { id: 'home', labelKey: 'nav.dashboard', Icon: LayoutDashboard },
-  { id: 'programs', labelKey: 'nav.programs', Icon: Trophy },
   { id: 'nutrition', labelKey: 'nav.nutrition', Icon: Salad },
+  { id: 'programs', labelKey: 'nav.programs', Icon: Trophy },
   { id: 'coach', labelKey: 'nav.coach', Icon: Bot },
   { id: 'community', labelKey: 'nav.community', Icon: Users },
   { id: 'analytics', labelKey: 'nav.analytics', Icon: ChartColumn },
