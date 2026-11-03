@@ -251,6 +251,12 @@ body {
   mix-blend-mode: screen;
 }
 
+/* วิดีโอ Anatomy (public/anatomy) เป็นเส้นขาว-เทาบนพื้นดำสนิทอยู่แล้ว: screen ทำพื้นดำให้โปร่ง (รวม poster) */
+.anatomy-video {
+  mix-blend-mode: screen;
+  background: #000;
+}
+
 /* กล้ามเนื้อเป้าหมาย (Target) เต้นเป็นจังหวะสีแดงใน Exercise Library */
 @keyframes muscle-pulse {
   0%,

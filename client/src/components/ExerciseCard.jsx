@@ -1,31 +1,40 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Play } from 'lucide-react'
-import useFrameAnimation from '../hooks/useFrameAnimation'
 import ExerciseBadges from './ExerciseBadges'
+import { prefersReducedMotion } from '../utils/motion'
+import ExerciseVideo from './ExerciseVideo'
 import { MuscleIcon } from './MuscleTargetCard'
 
 const TOUCH_PLAY_MS = 2500
 
-// การ์ดท่าฝึกใน Exercise Library: ภาพวาด Vector Anatomy ของท่า (เฟรมแรก) ; ชี้เมาส์ / แตะบนมือถือ / โฟกัสด้วยคีย์บอร์ด = เล่นภาพเคลื่อนไหว
-// ไม่มีภาพวาด (media = null หรือโหลดภาพไม่ได้) -> Silhouette Anatomy โปร่ง ขาว-เทา ที่กล้ามเนื้อเป้าหมายเป็นสีแดงแทน
+// การ์ดท่าฝึกใน Exercise Library: วิดีโอ Anatomy ของท่า (แสดง poster นิ่งไว้ก่อน ไม่เล่นอัตโนมัติ)
+// ชี้เมาส์ / แตะบนมือถือ / โฟกัสด้วยคีย์บอร์ด = video.play() ; เลื่อนออก / ครบเวลาหลังแตะ = video.pause() (ประหยัด GPU มือถือ)
+// ไม่มีวิดีโอ (media = null) -> Silhouette Anatomy โปร่ง ขาว-เทา ที่กล้ามเนื้อเป้าหมายเป็นสีแดงแทน
 // กดการ์ด = onOpen(exercise) เปิดป๊อปอัปรายละเอียด
 export default memo(function ExerciseCard({ exercise, anatomy, media, active, categoryNote, onOpen }) {
   const { t } = useTranslation()
   const [playing, setPlaying] = useState(false)
-  const [broken, setBroken] = useState(false)
-  const [warm, setWarm] = useState(false) // เฟรมที่ 2 โหลดเมื่อเริ่มเล่นครั้งแรก (ประหยัดเน็ตตอนเลื่อนดูรายการ)
+  const [hovered, setHovered] = useState(false) // การ์ดที่ไม่มีวิดีโอ: ให้กล้ามเนื้อสีแดงเต้นแทน
+  const videoRef = useRef(null)
   const touchTimer = useRef(null)
-  const frames = media && !broken ? media.frames : null
-  const frame = useFrameAnimation(frames?.length || 0, playing)
 
   useEffect(() => () => clearTimeout(touchTimer.current), [])
 
   const start = () => {
-    setWarm(true)
-    setPlaying(true)
+    setHovered(true)
+    const video = videoRef.current
+    if (!video || prefersReducedMotion()) return
+    // play() คืน Promise ที่ reject ได้ (เช่น ถูก pause ก่อนโหลดเสร็จ) ไม่ใช่ error จริง
+    video.play().catch(() => {})
   }
-  const stop = () => setPlaying(false)
+  const stop = () => {
+    setHovered(false)
+    const video = videoRef.current
+    if (!video) return
+    video.pause()
+    video.currentTime = 0 // กลับท่าเริ่ม ให้ตรงกับ poster
+  }
   const onPointerDown = (event) => {
     if (event.pointerType === 'mouse') return
     clearTimeout(touchTimer.current)
@@ -50,23 +59,18 @@ export default memo(function ExerciseCard({ exercise, anatomy, media, active, ca
           : 'border-white/10 bg-white/[0.04] hover:border-white/25 hover:shadow-[0_10px_24px_-14px_rgba(0,0,0,0.9)]'
       }`}
     >
-      {/* ภาพแนวตั้ง 3:4 พื้นโปร่ง (ไม่มีกรอบสีขาว) กลืนกับพื้นเข้มของเว็บ มีแสงแดงจาง ๆ ด้านหลังร่าง */}
-      <span className="relative block aspect-[3/4] w-full overflow-hidden bg-[radial-gradient(circle_at_50%_42%,rgba(239,68,68,0.13),transparent_62%)]">
-        {frames ? (
-          frames.slice(0, warm ? frames.length : 1).map((src, index) => (
-            <img
-              key={src}
-              src={src}
-              alt={index === 0 ? t('exerciseLibrary.previewAlt', { name: exercise.name }) : ''}
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-              onError={() => setBroken(true)}
-              className={`anatomy-art absolute inset-x-1 bottom-6 h-[calc(100%-1.75rem)] w-[calc(100%-0.5rem)] object-contain object-bottom transition-[opacity,transform] duration-300 group-hover:scale-[1.04] ${
-                frame === index ? 'opacity-100' : 'opacity-0'
-              }`}
-            />
-          ))
+      {/* ภาพแนวตั้ง 3:4 กลืนกับพื้นเข้มของเว็บ มีแสงแดงจาง ๆ ด้านหลังร่าง
+          พื้นทึบ #1d1f26 (= สีการ์ดที่เห็นจริง) จำเป็น: ตอน hover การ์ดมี transform ทำให้ mix-blend-mode: screen
+          ผสมได้แค่กับสิ่งที่อยู่ในการ์ด ถ้าพื้นโปร่งจะเห็นกรอบดำของวิดีโอ */}
+      <span className="relative block aspect-[3/4] w-full overflow-hidden bg-[#1d1f26] bg-[radial-gradient(circle_at_50%_42%,rgba(239,68,68,0.13),transparent_62%)]">
+        {media ? (
+          <ExerciseVideo
+            ref={videoRef}
+            media={media}
+            label={t('exerciseLibrary.previewAlt', { name: exercise.name })}
+            onPlayingChange={setPlaying}
+            className="absolute inset-x-1 bottom-6 h-[calc(100%-1.75rem)] w-[calc(100%-0.5rem)] object-contain object-bottom"
+          />
         ) : (
           // ไม่มีภาพวาดท่า: Silhouette Anatomy แบบโปร่ง ด้านหน้า + หลัง
           <span className="absolute inset-0 flex items-center justify-center gap-1.5 px-2">
@@ -78,7 +82,7 @@ export default memo(function ExerciseCard({ exercise, anatomy, media, active, ca
                   secondary={anatomy.secondary}
                   view={view}
                   tone="anatomy"
-                  pulse={playing}
+                  pulse={hovered}
                   className="h-[80%] w-auto drop-shadow-[0_0_10px_rgba(239,68,68,0.25)]"
                 />
               ))}
@@ -86,7 +90,7 @@ export default memo(function ExerciseCard({ exercise, anatomy, media, active, ca
         )}
 
         {/* มุมซ้ายบน (พื้นที่ว่างเหนือภาพวาด): รูปร่างกาย ขาว-เทา ไฮไลต์กล้ามเนื้อเป้าหมายสีแดง ; มุมขวาล่าง: ปุ่มเล่น (ซ่อนขณะเล่น) */}
-        {frames && anatomy && (
+        {media && anatomy && (
           <span className="absolute left-1.5 top-1.5 flex h-[30%] items-center justify-center rounded-lg bg-black/40 px-1 py-1 backdrop-blur-[2px]">
             <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} tone="anatomy" pulse={playing} className="h-full w-auto" />
           </span>
@@ -96,7 +100,7 @@ export default memo(function ExerciseCard({ exercise, anatomy, media, active, ca
             <Check className="h-3.5 w-3.5" aria-hidden />
           </span>
         )}
-        {frames && (
+        {media && (
           <span
             className={`absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm transition-opacity duration-200 ${
               playing ? 'opacity-0' : 'opacity-100'

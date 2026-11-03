@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Check, Footprints, Pause, Play, TriangleAlert, Wind, X } from 'lucide-react'
-import useFrameAnimation from '../hooks/useFrameAnimation'
 import { getAnatomy } from '../utils/exerciseAnatomy'
 import { GUIDE_KEYS, MEDIA_SOURCE, getExerciseMedia, getGuidePattern } from '../utils/exerciseMedia'
 import ExerciseBadges from './ExerciseBadges'
+import { prefersReducedMotion } from '../utils/motion'
+import ExerciseVideo from './ExerciseVideo'
 import { MuscleIcon } from './MuscleTargetCard'
 
 const TIP_STYLES = {
@@ -27,22 +28,27 @@ function MuscleChips({ muscles, tone }) {
   ))
 }
 
-// ป๊อปอัปรายละเอียดท่า: ภาพสาธิตเคลื่อนไหวขนาดใหญ่ + รูป Anatomy ที่กล้ามเนื้อเป้าหมายเต้นเป็นสีแดง
+// ป๊อปอัปรายละเอียดท่า: วิดีโอ Anatomy ขนาดใหญ่ (เล่นทันทีเมื่อเปิด หยุดเมื่อปิด) + รูป Anatomy ที่กล้ามเนื้อเป้าหมายเต้นเป็นสีแดง
 // + คำแนะนำมือใหม่ 3 ข้อ (การวางเท้า / การหายใจ / ข้อควรระวัง) ; onSelect(exercise) = เลือกท่านี้ไปกรอกเซต/ครั้ง
 export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect, onClose }) {
   const { t } = useTranslation()
   const anatomy = getAnatomy(exercise.name)
   const media = getExerciseMedia(exercise.name)
   const pattern = getGuidePattern(exercise.name)
-  const [playing, setPlaying] = useState(true)
-  const [broken, setBroken] = useState(false)
-  const frames = media && !broken ? media.frames : null
-  const frame = useFrameAnimation(frames?.length || 0, playing, 900)
+  const [autoPlay] = useState(() => !prefersReducedMotion())
+  const [playing, setPlaying] = useState(false) // สถานะจริงจาก event play/pause ของวิดีโอ
+  const videoRef = useRef(null)
   const closeRef = useRef(null)
+
+  // ปิด Modal = หยุดวิดีโอทันที (ไม่รอให้อนิเมชันปิดจบ)
+  const close = useCallback(() => {
+    videoRef.current?.pause()
+    onClose()
+  }, [onClose])
 
   useEffect(() => {
     closeRef.current?.focus()
-    const onKeyDown = (event) => event.key === 'Escape' && onClose()
+    const onKeyDown = (event) => event.key === 'Escape' && close()
     window.addEventListener('keydown', onKeyDown)
     const { overflow } = document.body.style
     document.body.style.overflow = 'hidden'
@@ -50,7 +56,21 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
       window.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = overflow
     }
-  }, [onClose])
+  }, [close])
+
+  // เปิด Modal = เริ่มเล่นทันที (สำรอง autoPlay ที่บางเบราว์เซอร์ข้าม) ; unmount = หยุดและคืนทรัพยากร
+  useEffect(() => {
+    const video = videoRef.current
+    if (video && autoPlay) video.play().catch(() => {})
+    return () => video?.pause()
+  }, [autoPlay])
+
+  const togglePlay = () => {
+    const video = videoRef.current
+    if (!video) return
+    if (video.paused) video.play().catch(() => {})
+    else video.pause()
+  }
 
   const anatomyFigure = anatomy && (
     <figure className="flex items-end justify-center gap-2" aria-label={t('exerciseLibrary.targetFigure')}>
@@ -61,7 +81,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
             secondary={anatomy.secondary}
             view={view}
             tone="anatomy"
-            pulse={playing}
+            pulse={playing || !media}
             className="h-32 w-16 sm:h-40 sm:w-20"
           />
           <figcaption className="text-[9px] uppercase tracking-wider text-slate-500">{t(`anatomy.views.${view}`)}</figcaption>
@@ -77,7 +97,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+      onMouseDown={(event) => event.target === event.currentTarget && close()}
     >
       <motion.div
         initial={{ opacity: 0, y: 40, scale: 0.97 }}
@@ -103,7 +123,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
           <button
             ref={closeRef}
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label={t('exerciseLibrary.close')}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
           >
@@ -115,26 +135,24 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
           {/* ภาพสาธิตเคลื่อนไหว + Anatomy */}
           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
             <div className="relative aspect-square overflow-hidden rounded-xl border border-white/[0.07] bg-[radial-gradient(circle_at_50%_45%,rgba(239,68,68,0.14),rgba(255,255,255,0.02)_65%)] sm:aspect-[5/4]">
-              {frames ? (
+              {media ? (
                 <>
-                  {frames.map((src, index) => (
-                    <img
-                      key={src}
-                      src={src}
-                      alt={index === 0 ? t('exerciseLibrary.demoAlt', { name: exercise.name }) : ''}
-                      draggable={false}
-                      onError={() => setBroken(true)}
-                      className={`anatomy-art absolute inset-0 h-full w-full object-contain p-1 pb-9 transition-opacity duration-300 ${frame === index ? 'opacity-100' : 'opacity-0'}`}
-                    />
-                  ))}
+                  <ExerciseVideo
+                    ref={videoRef}
+                    media={media}
+                    autoPlay={autoPlay}
+                    label={t('exerciseLibrary.demoAlt', { name: exercise.name })}
+                    onPlayingChange={setPlaying}
+                    className="absolute inset-0 h-full w-full object-contain p-1 pb-9"
+                  />
                   <button
                     type="button"
-                    onClick={() => setPlaying((value) => !value)}
+                    onClick={togglePlay}
                     aria-label={t(playing ? 'exerciseLibrary.pause' : 'exerciseLibrary.play')}
                     className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm hover:bg-black/85"
                   >
                     {playing ? <Pause className="h-3 w-3 fill-current" aria-hidden /> : <Play className="h-3 w-3 fill-current" aria-hidden />}
-                    {t(frame === 0 ? 'exerciseLibrary.phaseStart' : 'exerciseLibrary.phaseEnd')}
+                    {t(playing ? 'exerciseLibrary.pauseShort' : 'exerciseLibrary.playShort')}
                   </button>
                   {/* Anatomy ซ้อนมุมขวาบนบนมือถือ (จอใหญ่แสดงคอลัมน์ข้าง ๆ) */}
                   {anatomy && (
@@ -150,7 +168,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
                 </div>
               )}
             </div>
-            {frames && anatomy && (
+            {media && anatomy && (
               <div className="hidden flex-col items-center justify-center rounded-xl border border-white/[0.07] bg-[radial-gradient(circle_at_50%_45%,rgba(239,68,68,0.12),rgba(255,255,255,0.02)_70%)] px-4 py-3 sm:flex">
                 {anatomyFigure}
               </div>
@@ -208,10 +226,17 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
           )}
 
           <div className="mt-4 flex gap-2">
-            <button type="button" onClick={onClose} className="btn-ghost flex-1">
+            <button type="button" onClick={close} className="btn-ghost flex-1">
               {t('exerciseLibrary.close')}
             </button>
-            <button type="button" onClick={() => onSelect(exercise)} className="btn-accent flex flex-[2] items-center justify-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                videoRef.current?.pause()
+                onSelect(exercise)
+              }}
+              className="btn-accent flex flex-[2] items-center justify-center gap-1.5"
+            >
               <Check className="h-4 w-4" aria-hidden />
               {t('exerciseLibrary.select')}
             </button>
