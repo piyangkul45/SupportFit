@@ -674,7 +674,7 @@
     "hints": {
       "noBody": "Step back so the camera sees your shoulders to ankles",
       "standUp": "Stand straight to start counting",
-      "ready": "Ready. Squat until your knee is below 90°"
+      "ready": "Ready. Squat until your knee is at 90° or lower"
     },
     "warnings": {
       "depth": "Go lower!",
@@ -682,21 +682,27 @@
       "back": "Keep your back straight"
     },
     "counters": {
-      "correct": "Correct",
-      "incorrect": "Bad form",
+      "total": "🔢 Total",
+      "correct": "🟢 Correct",
+      "incorrect": "🔴 Wrong",
       "unit_one": "rep",
-      "unit_other": "reps",
-      "total": "Total"
+      "unit_other": "reps"
     },
     "feedback": {
-      "great": "✅ Great form!",
       "deep": "💪 Deep enough, drive up!",
-      "back": "⚠️ Straighten your back",
-      "almost": "⚠️ Bend your knees a bit more",
-      "depth": "⚠️ Squat deeper",
-      "lastAlmost": "🔴 Rep {{n}}: not deep enough (lowest {{angle}}°)",
-      "lastDepth": "🔴 Rep {{n}}: not deep enough (lowest {{angle}}°)",
-      "lastBack": "🔴 Rep {{n}}: leaning too far forward"
+      "repGood": "✅ Rep {{n}}: correct (Good Form)",
+      "repBad": "❌ Rep {{n}}: wrong ({{reasons}})",
+      "liveBad": "Rep {{n}}: wrong! {{tip}}",
+      "reasons": {
+        "TOO_SHALLOW": "not deep enough",
+        "BAD_POSTURE": "leaning forward"
+      },
+      "tips": {
+        "almost": "Bend your knees a bit more",
+        "depth": "Squat deeper",
+        "back": "Straighten your back"
+      },
+      "separator": " / "
     },
     "stop": "Stop & see summary",
     "voice": {
@@ -715,18 +721,28 @@
       "resultIncorrect": "bad form",
       "tipsTitle": "How to improve your form",
       "tips": {
-        "depth_one": "Not deep enough on 1 rep: lower until your thighs are parallel or below (knee under 90°), push your hips back like sitting on a chair and keep weight on your heels.",
-        "depth_other": "Not deep enough on {{count}} reps: lower until your thighs are parallel or below (knee under 90°), push your hips back like sitting on a chair and keep weight on your heels.",
-        "back_one": "Leaning too far forward on 1 rep: brace your core, open your chest, look straight ahead and don’t let your shoulders drift far past your toes.",
-        "back_other": "Leaning too far forward on {{count}} reps: brace your core, open your chest, look straight ahead and don’t let your shoulders drift far past your toes.",
+        "TOO_SHALLOW_one": "Not deep enough on 1 rep: lower until your thighs are parallel or below (knee at 90° or lower), push your hips back like sitting on a chair and keep weight on your heels.",
+        "TOO_SHALLOW_other": "Not deep enough on {{count}} reps: lower until your thighs are parallel or below (knee at 90° or lower), push your hips back like sitting on a chair and keep weight on your heels.",
+        "BAD_POSTURE_one": "Leaning too far forward on 1 rep: brace your core, open your chest, look straight ahead and don’t let your shoulders drift far past your toes.",
+        "BAD_POSTURE_other": "Leaning too far forward on {{count}} reps: brace your core, open your chest, look straight ahead and don’t let your shoulders drift far past your toes.",
         "great": "Great form on every rep! Try more reps or another set for a challenge.",
-        "none": "No reps counted yet. Stand so the camera sees shoulders to ankles, then squat until your knee is below 90°."
+        "none": "No reps counted yet. Stand so the camera sees shoulders to ankles, then squat until your knee is at 90° or lower."
       },
       "save": "Save {{reps}} reps",
       "save_one": "Save 1 rep",
       "resume": "Resume",
       "restart": "New set",
-      "saveNote": "Saves the total rep count to your workout history"
+      "saveNote": "Saves the total rep count to your workout history",
+      "statsLine": "{{total}} reps in total | {{correct}} correct | {{incorrect}} wrong ({{accuracy}}% accuracy)",
+      "mistakesTitle": "Common mistakes",
+      "mistakesLine": "You {{list}}",
+      "mistakes": {
+        "TOO_SHALLOW_one": "didn’t squat deep enough on 1 rep",
+        "TOO_SHALLOW_other": "didn’t squat deep enough on {{count}} reps",
+        "BAD_POSTURE_one": "leaned too far forward on 1 rep",
+        "BAD_POSTURE_other": "leaned too far forward on {{count}} reps"
+      },
+      "noMistakes": "No mistakes found, every rep was correct 🎉"
     },
     "errors": {
       "denied": "Camera permission was denied. Allow the camera in your browser and try again.",

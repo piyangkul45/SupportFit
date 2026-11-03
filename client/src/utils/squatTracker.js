@@ -2,16 +2,19 @@
 //
 // 1 rep = ยืนตรง (เข่า > 160°) -> ย่อลง (เข่า < 140° ถือว่าตั้งใจย่อ) -> กลับมายืนตรง
 // ครบรอบแล้วตัดสินฟอร์มจากทั้งรอบ:
-//   - มุมเข่าต่ำสุด < 90° (ต้นขาขนานพื้นหรือต่ำกว่า) และ
+//   - มุมเข่าต่ำสุด <= 90° (ต้นขาขนานพื้นหรือต่ำกว่า) และ
 //   - ลำตัวไม่ก้มเกิน 55° จากแนวดิ่งติดกันหลายเฟรม
 //   ผ่านทั้งคู่ = "ทำถูกต้อง" ไม่งั้น = "ทำผิดท่า" พร้อมเหตุผล (faults)
-// faults: 'almost' (ต่ำสุด 90-100°) | 'depth' (ต่ำสุด >= 100°) | 'back' (ก้มตัวมากเกินไป)
+// faults: 'almost' (ต่ำสุด 91-99°) | 'depth' (ต่ำสุด >= 100°) | 'back' (ก้มตัวมากเกินไป)
+// สถานะของแต่ละครั้ง (REP_STATUS): PERFECT | TOO_SHALLOW (almost/depth) | BAD_POSTURE (back)
 // มุมหลังวัดจาก shoulder-hip เทียบแนวดิ่ง ตรวจได้เฉพาะการก้มตัว (หลังงอจับจาก landmark ไม่ได้)
 // กล้องต้องอยู่ด้านข้างผู้เล่น มุมเข่าจากด้านหน้าจะเพี้ยน
 
 export const STAND_ANGLE = 160
 export const DOWN_ANGLE = 90
 export const DEPTH_WARNING_ANGLE = 100
+// เทียบเป็นองศาเต็มเหมือนตัวเลขที่แสดงบนจอ: จอขึ้น 90° = ผ่าน (มุมที่ smooth แล้วเข้าใกล้ 90 จากด้านบน เช่น 90.03)
+const isDeep = (value) => Math.round(value) <= DOWN_ANGLE
 // ต่ำกว่านี้ถึงถือว่าตั้งใจย่อ (ขยับตัวเล็กน้อยตอนยืนไม่นับเป็น rep และไม่เตือน)
 export const ATTEMPT_ANGLE = 140
 // มุมต้องเด้งขึ้นจากจุดต่ำสุดเท่านี้ถึงถือว่ากลับตัว (กัน noise ของ landmark)
@@ -54,17 +57,19 @@ function visiblePoints(landmarks, aspect) {
   return Object.fromEntries(Object.entries(points).map(([name, point]) => [name, { x: point.x * aspect, y: point.y }]))
 }
 
-// กลุ่มของ fault สำหรับสรุปผล: almost/depth = ย่อไม่ลึกพอ
-export const faultGroup = (fault) => (fault === 'back' ? 'back' : 'depth')
+export const REP_STATUS = { PERFECT: 'PERFECT', TOO_SHALLOW: 'TOO_SHALLOW', BAD_POSTURE: 'BAD_POSTURE' }
+// fault -> สถานะ: almost/depth = ย่อไม่สุด, back = ท่าทาง/หลังไม่ดี
+export const statusOfFault = (fault) => (fault === 'back' ? REP_STATUS.BAD_POSTURE : REP_STATUS.TOO_SHALLOW)
 
 // update(landmarks, aspect) -> {
-//   reps, correct, incorrect,            จำนวนทั้งหมด / ทำถูกต้อง / ทำผิดท่า
+//   totalReps, correctReps, incorrectReps,   จำนวนทั้งหมด / ทำถูกต้อง / ทำผิดฟอร์ม
+//   currentRepStatus: REP_STATUS             ระหว่างทำ = สถานะสดของครั้งนี้ ; ยืนอยู่ = ผลของครั้งล่าสุด
 //   phase: 'waiting' (ยังไม่เคยยืนตรง) | 'up' | 'moving' | 'down' (ย่อถึง 90° แล้ว),
-//   issue: null | 'depth' | 'almost' | 'back'   ปัญหาสดของรอบที่กำลังทำ
-//   lastRep: null | { number, correct, faults, lowest }   ผลของรอบล่าสุด (ค้างจนจบรอบถัดไป)
+//   issue: null | 'depth' | 'almost' | 'back'   ปัญหาสดของครั้งที่กำลังทำ (ขึ้นเมื่อครั้งนี้จะนับเป็นผิดแล้ว)
+//   lastRep: null | { number, correct, status, faults, lowest }   ผลของครั้งล่าสุด
 //   tracking, angle
 // }
-// summary() -> { total, correct, incorrect, accuracy (%), faultCounts: { depth, back }, history: lastRep[] }
+// summary() -> { totalReps, correctReps, incorrectReps, accuracy (%), faultCounts: { TOO_SHALLOW, BAD_POSTURE }, history: lastRep[] }
 export function createSquatTracker() {
   let correct = 0
   let incorrect = 0
@@ -77,14 +82,27 @@ export function createSquatTracker() {
   let leanFrames = 0
   let lastRep = null
   const history = []
-  const faultCounts = { depth: 0, back: 0 }
+  const faultCounts = { [REP_STATUS.TOO_SHALLOW]: 0, [REP_STATUS.BAD_POSTURE]: 0 }
+
+  // ก้มเกินติดกันครบเกณฑ์แล้ว = ครั้งนี้นับเป็นผิดแน่นอน (ไม่เตือนจาก landmark กระตุกสั้น ๆ)
+  const postureFault = () => leanFrames >= LEAN_FAULT_FRAMES
+  const inRep = () => phase === 'moving' || phase === 'down'
+  const currentRepStatus = () => {
+    if (inRep()) {
+      if (postureFault()) return REP_STATUS.BAD_POSTURE
+      if (depthIssue) return REP_STATUS.TOO_SHALLOW
+      return REP_STATUS.PERFECT
+    }
+    return lastRep?.status ?? REP_STATUS.PERFECT
+  }
 
   const snapshot = (tracking) => ({
-    reps: correct + incorrect,
-    correct,
-    incorrect,
+    totalReps: correct + incorrect,
+    correctReps: correct,
+    incorrectReps: incorrect,
+    currentRepStatus: currentRepStatus(),
     phase,
-    issue: leaning ? 'back' : depthIssue,
+    issue: leaning && postureFault() ? 'back' : depthIssue,
     lastRep,
     tracking,
     angle,
@@ -100,13 +118,14 @@ export function createSquatTracker() {
 
   const completeRep = () => {
     const faults = []
-    if (lowest >= DOWN_ANGLE) faults.push(lowest >= DEPTH_WARNING_ANGLE ? 'depth' : 'almost')
-    if (leanFrames >= LEAN_FAULT_FRAMES) faults.push('back')
+    if (!isDeep(lowest)) faults.push(lowest >= DEPTH_WARNING_ANGLE ? 'depth' : 'almost')
+    if (postureFault()) faults.push('back')
     const ok = faults.length === 0
     if (ok) correct += 1
     else incorrect += 1
-    for (const fault of faults) faultCounts[faultGroup(fault)] += 1
-    lastRep = { number: correct + incorrect, correct: ok, faults, lowest: Math.round(lowest) }
+    for (const fault of faults) faultCounts[statusOfFault(fault)] += 1
+    const status = ok ? REP_STATUS.PERFECT : statusOfFault(faults[0])
+    lastRep = { number: correct + incorrect, correct: ok, status, faults, lowest: Math.round(lowest) }
     history.push(lastRep)
     depthIssue = null
   }
@@ -140,7 +159,7 @@ export function createSquatTracker() {
           if (lowest < ATTEMPT_ANGLE) completeRep()
           phase = 'up'
           leaning = false
-        } else if (angle < DOWN_ANGLE) {
+        } else if (isDeep(angle)) {
           phase = 'down'
           depthIssue = null
         } else if (phase === 'moving' && lowest < ATTEMPT_ANGLE && angle > lowest + TURN_BACK_MARGIN) {
@@ -155,9 +174,9 @@ export function createSquatTracker() {
     summary() {
       const total = correct + incorrect
       return {
-        total,
-        correct,
-        incorrect,
+        totalReps: total,
+        correctReps: correct,
+        incorrectReps: incorrect,
         accuracy: total ? Math.round((correct / total) * 100) : 0,
         faultCounts: { ...faultCounts },
         history: history.map((rep) => ({ ...rep, faults: [...rep.faults] })),

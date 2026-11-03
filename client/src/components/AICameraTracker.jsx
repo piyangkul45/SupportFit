@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { Flame, Lightbulb, Play, RotateCcw, Save, Square, X } from 'lucide-react'
+import { Flame, Lightbulb, Play, RotateCcw, Save, Square, TriangleAlert, X } from 'lucide-react'
 import { calculateCaloriesBurned } from '../utils/calories'
 import { findExercise } from '../utils/exerciseCatalog'
 import { loadPose } from '../utils/poseLoader'
 import { speak } from '../utils/speech'
-import { createSquatTracker } from '../utils/squatTracker'
+import { REP_STATUS, createSquatTracker, statusOfFault } from '../utils/squatTracker'
 import Spinner, { ButtonLabel } from './Spinner'
 
 const EXERCISE = findExercise('Bodyweight Squat')
@@ -20,8 +20,25 @@ const BONES = [
 ]
 const JOINTS = [...new Set(BONES.flat())]
 const MIN_DRAW_VISIBILITY = 0.4
-const EMPTY_VIEW = { reps: 0, correct: 0, incorrect: 0, issue: null, tracking: false, phase: 'waiting', lastRep: null }
+// state ของตัวนับ: totalReps = ทั้งหมด, correctReps = ทำถูกต้อง, incorrectReps = ทำผิดฟอร์ม
+// currentRepStatus = REP_STATUS ของครั้งที่กำลังทำ (ยืนอยู่ = ผลของครั้งล่าสุด)
+const EMPTY_VIEW = {
+  totalReps: 0,
+  correctReps: 0,
+  incorrectReps: 0,
+  currentRepStatus: REP_STATUS.PERFECT,
+  issue: null,
+  tracking: false,
+  phase: 'waiting',
+  lastRep: null,
+}
+const VIEW_KEYS = Object.keys(EMPTY_VIEW)
 
+const STATUS_TONES = {
+  [REP_STATUS.PERFECT]: 'text-emerald-300',
+  [REP_STATUS.TOO_SHALLOW]: 'text-red-400',
+  [REP_STATUS.BAD_POSTURE]: 'text-red-400',
+}
 const severityOf = (issue) => (issue === 'almost' ? 'warn' : issue ? 'bad' : 'ok')
 
 function drawSkeleton(context, landmarks, color) {
@@ -53,19 +70,28 @@ const ERROR_KEYS = {
   InsecureContext: 'camera.errors.insecure',
 }
 
-const LAST_FAULT_KEYS = { almost: 'camera.feedback.lastAlmost', depth: 'camera.feedback.lastDepth', back: 'camera.feedback.lastBack' }
+// เหตุผลที่ครั้งนั้นผิด (ไม่ซ้ำ): "ย่อไม่สุด / หลังก้ม"
+const reasonsOf = (rep, t) =>
+  [...new Set(rep.faults.map(statusOfFault))].map((status) => t(`camera.feedback.reasons.${status}`)).join(t('camera.feedback.separator'))
 
-// ข้อความแนะนำสด (เรียงตามความสำคัญ) -> { text, tone: 'good' | 'warn' | 'bad' | 'info' } หรือ null
+// แถบข้อความด้านล่างกล้อง (เรียงตามความสำคัญ) -> { text, tone: 'good' | 'bad' } หรือ null
+// - ระหว่างทำ: ครั้งนี้จะนับเป็นผิดแล้ว = "ครั้งที่ 6: ผิด! ย่อเข่าลงอีกนิด"
+// - ย่อถึงแล้ว: "ลึกพอแล้ว ดันขึ้น!"
+// - ยืนขึ้นครบครั้ง: "✅ ครั้งที่ X: ถูกต้อง" / "❌ ครั้งที่ X: ทำผิด (ย่อไม่สุด / หลังก้ม)" ค้างจนเริ่มครั้งใหม่
 function liveFeedback(view, t) {
   if (!view.tracking) return null
-  if (view.issue === 'back') return { text: t('camera.feedback.back'), tone: 'bad' }
-  if (view.issue) return { text: t(`camera.feedback.${view.issue}`), tone: 'warn' }
+  if (view.issue) {
+    return {
+      text: t('camera.feedback.liveBad', { n: view.totalReps + 1, tip: t(`camera.feedback.tips.${view.issue}`) }),
+      tone: 'bad',
+    }
+  }
   if (view.phase === 'down') return { text: t('camera.feedback.deep'), tone: 'good' }
-  // ผลของรอบล่าสุดค้างไว้จนเริ่มย่อรอบใหม่
   if (view.lastRep && view.phase === 'up') {
-    if (view.lastRep.correct) return { text: t('camera.feedback.great'), tone: 'good' }
-    const fault = view.lastRep.faults[0]
-    return { text: t(LAST_FAULT_KEYS[fault], { n: view.lastRep.number, angle: view.lastRep.lowest }), tone: 'bad' }
+    const { number } = view.lastRep
+    return view.lastRep.correct
+      ? { text: t('camera.feedback.repGood', { n: number }), tone: 'good' }
+      : { text: t('camera.feedback.repBad', { n: number, reasons: reasonsOf(view.lastRep, t) }), tone: 'bad' }
   }
   return null
 }
@@ -76,13 +102,17 @@ const FEEDBACK_TONES = {
   bad: 'bg-red-600/90',
 }
 
-// กล่องตัวนับบนวิดีโอ: 🟢 ทำถูกต้อง / 🔴 ฟอร์มตก/ทำผิด
+const COUNTER_TONES = {
+  total: 'border-sky-400/40 bg-slate-950/75 text-sky-200',
+  good: 'border-emerald-400/50 bg-emerald-950/75 text-emerald-200',
+  bad: 'border-red-400/50 bg-red-950/75 text-red-200',
+}
+
+// กล่องตัวเลขบนวิดีโอ: 🔢 รวม / 🟢 ถูก / 🔴 ผิด
 function Counter({ tone, label, count, unit }) {
-  const styles =
-    tone === 'good' ? 'border-emerald-400/50 bg-emerald-950/75 text-emerald-200' : 'border-red-400/50 bg-red-950/75 text-red-200'
   return (
-    <div className={`rounded-xl border px-3 py-1.5 backdrop-blur-sm ${styles}`}>
-      <p className="text-[11px] font-semibold sm:text-xs">{label}</p>
+    <div className={`min-w-0 rounded-xl border px-2.5 py-1.5 backdrop-blur-sm sm:px-3 ${COUNTER_TONES[tone]}`}>
+      <p className="truncate text-[11px] font-semibold sm:text-xs">{label}</p>
       <p className="text-xl font-black tabular-nums text-white sm:text-2xl">
         <span key={count} className="inline-block animate-toast-in">
           {count}
@@ -96,14 +126,16 @@ function Counter({ tone, label, count, unit }) {
 // การ์ดสรุปหลังกดหยุด: จำนวนทั้งหมด อัตราความถูกต้อง ผลแต่ละครั้ง และข้อแนะนำปรับปรุงฟอร์ม
 function SummaryCard({ summary, calories, saving, onSave, onResume, onRestart }) {
   const { t } = useTranslation()
-  const { total, correct, incorrect, accuracy, faultCounts, history } = summary
+  const { totalReps: total, correctReps: correct, incorrectReps: incorrect, accuracy, faultCounts, history } = summary
+  // ข้อผิดพลาดที่พบบ่อย (มากไปน้อย): "คุณย่อตัวไม่สุด 3 ครั้ง, หลังก้ม 2 ครั้ง"
+  const mistakes = Object.entries(faultCounts)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])
   const tips = []
   if (!total) tips.push(t('camera.result.tips.none'))
   else {
-    // ปัญหาที่เกิดบ่อยก่อน
-    const faults = Object.entries(faultCounts).filter(([, count]) => count > 0).sort((a, b) => b[1] - a[1])
-    for (const [group, count] of faults) tips.push(t(`camera.result.tips.${group}`, { count }))
-    if (!faults.length) tips.push(t('camera.result.tips.great'))
+    for (const [status, count] of mistakes) tips.push(t(`camera.result.tips.${status}`, { count }))
+    if (!mistakes.length) tips.push(t('camera.result.tips.great'))
   }
   const accuracyTone = accuracy >= 80 ? 'text-emerald-300' : accuracy >= 50 ? 'text-amber-300' : 'text-red-300'
   const ringColor = accuracy >= 80 ? '#34d399' : accuracy >= 50 ? '#fbbf24' : '#f87171'
@@ -115,6 +147,9 @@ function SummaryCard({ summary, calories, saving, onSave, onResume, onRestart })
           {t('camera.result.title')}
         </h3>
         <p className="text-xs text-slate-400">{t('camera.result.subtitle')}</p>
+        <p className="mt-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-100">
+          {t('camera.result.statsLine', { total, correct, incorrect, accuracy })}
+        </p>
 
         <div className="mt-4 grid grid-cols-[auto_1fr] items-center gap-4">
           {/* วงแหวนอัตราความถูกต้อง */}
@@ -172,6 +207,23 @@ function SummaryCard({ summary, calories, saving, onSave, onResume, onRestart })
                 </li>
               ))}
             </ol>
+          </div>
+        )}
+
+        {/* รายงานข้อผิดพลาดที่พบบ่อย */}
+        {total > 0 && (
+          <div className="mt-4 rounded-xl border border-red-400/20 bg-red-500/[0.06] p-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-red-300">
+              <TriangleAlert className="h-4 w-4" aria-hidden />
+              {t('camera.result.mistakesTitle')}
+            </p>
+            <p className="mt-1 text-sm text-slate-100">
+              {mistakes.length
+                ? t('camera.result.mistakesLine', {
+                    list: mistakes.map(([status, count]) => t(`camera.result.mistakes.${status}`, { count })).join(', '),
+                  })
+                : t('camera.result.noMistakes')}
+            </p>
           </div>
         )}
 
@@ -260,32 +312,21 @@ export default function AICameraTracker({ bodyWeightKg, onSave, onClose }) {
     // มุมเปลี่ยนทุกเฟรม เขียนลง DOM ตรง ๆ ไม่ให้ React render ใหม่ 30 ครั้งต่อวินาที
     if (angleRef.current) angleRef.current.textContent = next.tracking && next.angle != null ? `${Math.round(next.angle)}°` : '--'
 
-    setView((prev) => {
-      if (
-        prev.reps === next.reps &&
-        prev.issue === next.issue &&
-        prev.tracking === next.tracking &&
-        prev.phase === next.phase &&
-        prev.lastRep === next.lastRep
-      ) {
-        return prev
-      }
-      const { reps, correct, incorrect, issue, tracking, phase, lastRep } = next
-      return { reps, correct, incorrect, issue, tracking, phase, lastRep }
-    })
+    // render ใหม่เฉพาะเมื่อค่าที่แสดงเปลี่ยน (ไม่ใช่ทุกเฟรม)
+    setView((prev) => (VIEW_KEYS.every((key) => prev[key] === next[key]) ? prev : Object.fromEntries(VIEW_KEYS.map((key) => [key, next[key]]))))
   }, [])
 
   // เสียง: ทำถูก = ขานเลข ; ทำผิด = "ครั้งที่ N ฟอร์มยังไม่ถูก" (สาเหตุเตือนไปแล้วตอนย่อ) ; ปัญหาใหม่ระหว่างย่อ = เตือน
-  const spokenRef = useRef({ reps: 0, issue: null })
+  const spokenRef = useRef({ totalReps: 0, issue: null })
   useEffect(() => {
     const { t: translate, language: voice } = voiceRef.current
-    if (view.reps > spokenRef.current.reps && view.lastRep) {
+    if (view.totalReps > spokenRef.current.totalReps && view.lastRep) {
       speak(view.lastRep.correct ? String(view.lastRep.number) : translate('camera.voice.badRep', { n: view.lastRep.number }), voice)
     } else if (view.issue && view.issue !== spokenRef.current.issue) {
       speak(translate(`camera.warnings.${view.issue}`), voice)
     }
-    spokenRef.current = { reps: view.reps, issue: view.issue }
-  }, [view.reps, view.issue, view.lastRep])
+    spokenRef.current = { totalReps: view.totalReps, issue: view.issue }
+  }, [view.totalReps, view.issue, view.lastRep])
 
   useEffect(() => {
     let stopped = false
@@ -354,7 +395,7 @@ export default function AICameraTracker({ bodyWeightKg, onSave, onClose }) {
   const restart = () => {
     trackerRef.current = createSquatTracker()
     pausedRef.current = false
-    spokenRef.current = { reps: 0, issue: null }
+    spokenRef.current = { totalReps: 0, issue: null }
     setView(EMPTY_VIEW)
     setSummary(null)
   }
@@ -370,14 +411,14 @@ export default function AICameraTracker({ bodyWeightKg, onSave, onClose }) {
   }
 
   const handleSave = async () => {
-    if (!summary?.total || saving) return
+    if (!summary?.totalReps || saving) return
     setSaving(true)
     try {
       const saved = await onSave({
         exercise_name: EXERCISE.name,
         activity_type: EXERCISE.category,
         sets: 1,
-        reps: summary.total,
+        reps: summary.totalReps,
         weight_kg: null,
         calories_burned: calories,
       })
@@ -389,7 +430,9 @@ export default function AICameraTracker({ bodyWeightKg, onSave, onClose }) {
 
   const feedback = liveFeedback(view, t)
   const hint = !view.tracking ? 'camera.hints.noBody' : view.phase === 'waiting' ? 'camera.hints.standUp' : 'camera.hints.ready'
-  const lastTone = view.lastRep ? (view.lastRep.correct ? 'text-emerald-300' : 'text-red-400') : 'text-white/90'
+  // สีตัวเลขใหญ่ตาม currentRepStatus (ยังไม่เริ่มทำครั้งแรก = ขาว)
+  const started = view.totalReps > 0 || view.phase === 'moving' || view.phase === 'down'
+  const statusTone = started ? STATUS_TONES[view.currentRepStatus] : 'text-white/90'
   const unit = (count) => t('camera.counters.unit', { count })
 
   // portal: การ์ดแม่มี overflow และ animation transform ซึ่งจะครอบ position: fixed ของ modal
@@ -416,21 +459,23 @@ export default function AICameraTracker({ bodyWeightKg, onSave, onClose }) {
               {/* จำนวนครั้งทั้งหมด: สีตามผลของครั้งล่าสุด */}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <span
-                  key={view.reps}
-                  aria-label={t('camera.repsLabel', { count: view.reps })}
-                  className={`animate-toast-in text-8xl font-black tabular-nums [text-shadow:0_2px_16px_rgba(0,0,0,0.8)] sm:text-9xl ${lastTone}`}
+                  key={view.totalReps}
+                  aria-hidden
+                  className={`animate-toast-in text-8xl font-black tabular-nums [text-shadow:0_2px_16px_rgba(0,0,0,0.8)] sm:text-9xl ${statusTone}`}
                 >
-                  {view.reps}
+                  {view.totalReps}
                 </span>
               </div>
 
-              {/* ตัวนับแยก 2 ช่อง */}
-              <div className="absolute left-3 top-3 flex flex-col gap-1.5 sm:flex-row" aria-live="polite">
-                <Counter tone="good" label={`🟢 ${t('camera.counters.correct')}`} count={view.correct} unit={unit(view.correct)} />
-                <Counter tone="bad" label={`🔴 ${t('camera.counters.incorrect')}`} count={view.incorrect} unit={unit(view.incorrect)} />
+              {/* HUD ด้านบน: กล่องตัวเลข 3 ช่อง [🔢 รวม] [🟢 ถูก] [🔴 ผิด] */}
+              <div className="absolute inset-x-3 top-3 grid grid-cols-3 gap-1.5 sm:right-auto sm:w-[26rem] sm:gap-2" aria-live="polite">
+                <Counter tone="total" label={t('camera.counters.total')} count={view.totalReps} unit={unit(view.totalReps)} />
+                <Counter tone="good" label={t('camera.counters.correct')} count={view.correctReps} unit={unit(view.correctReps)} />
+                <Counter tone="bad" label={t('camera.counters.incorrect')} count={view.incorrectReps} unit={unit(view.incorrectReps)} />
               </div>
 
-              <span className="absolute right-3 top-3 rounded-lg bg-black/60 px-2.5 py-1 text-sm font-semibold tabular-nums text-emerald-300">
+              {/* มุมเข่า: มือถืออยู่ใต้กล่องตัวเลข จอใหญ่อยู่มุมขวาบน */}
+              <span className="absolute left-3 top-[4.6rem] rounded-lg bg-black/60 px-2.5 py-1 text-sm font-semibold tabular-nums text-emerald-300 sm:left-auto sm:right-3 sm:top-3">
                 {t('camera.knee')} <span ref={angleRef}>--</span>
               </span>
 
@@ -481,9 +526,9 @@ export default function AICameraTracker({ bodyWeightKg, onSave, onClose }) {
             <div className="flex items-center gap-2">
               <span className="flex flex-1 items-center gap-1.5 text-sm text-slate-300">
                 <Flame className="h-4 w-4 text-orange-400" aria-hidden />
-                {t('camera.summary', { reps: view.reps, kcal: view.reps ? calories : 0 })}
+                {t('camera.summary', { reps: view.totalReps, kcal: view.totalReps ? calories : 0 })}
               </span>
-              <button type="button" onClick={restart} disabled={!view.reps} className="btn-icon">
+              <button type="button" onClick={restart} disabled={!view.totalReps} className="btn-icon">
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden />
                 {t('camera.reset')}
               </button>

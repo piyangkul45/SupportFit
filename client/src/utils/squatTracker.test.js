@@ -2,7 +2,7 @@
 // รัน: npm test
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createSquatTracker, jointAngle, torsoLean } from './squatTracker.js'
+import { REP_STATUS, createSquatTracker, jointAngle, torsoLean } from './squatTracker.js'
 
 // สร้างท่าจากมุมเข่าและมุมลำตัว (ข้างซ้ายของ landmark) ท่อนขาบน/ล่างยาว 0.2
 function pose({ knee, lean = 0, visibility = 0.9 }) {
@@ -43,24 +43,24 @@ test('jointAngle and torsoLean measure degrees', () => {
 test('a deep, upright rep counts as correct', () => {
   const tracker = createSquatTracker()
   const state = play(tracker, [175, 80, 175])
-  assert.equal(state.reps, 1)
-  assert.equal(state.correct, 1)
-  assert.equal(state.incorrect, 0)
-  assert.deepEqual(state.lastRep, { number: 1, correct: true, faults: [], lowest: state.lastRep.lowest })
+  assert.equal(state.totalReps, 1)
+  assert.equal(state.correctReps, 1)
+  assert.equal(state.incorrectReps, 0)
+  assert.deepEqual(state.lastRep, { number: 1, correct: true, status: 'PERFECT', faults: [], lowest: state.lastRep.lowest })
   assert.ok(state.lastRep.lowest < 90)
-  assert.equal(play(tracker, [175, 80, 175, 80, 175]).correct, 3)
+  assert.equal(play(tracker, [175, 80, 175, 80, 175]).correctReps, 3)
 })
 
 test('the rep counts only after standing back up', () => {
   const tracker = createSquatTracker()
   const down = play(tracker, [175, 80])
   assert.equal(down.phase, 'down')
-  assert.equal(down.reps, 0)
+  assert.equal(down.totalReps, 0)
 })
 
 test('needs a standing start', () => {
   const tracker = createSquatTracker()
-  assert.equal(play(tracker, [120, 80, 120]).reps, 0)
+  assert.equal(play(tracker, [120, 80, 120]).totalReps, 0)
 })
 
 test('a shallow squat counts as incorrect (depth)', () => {
@@ -68,28 +68,28 @@ test('a shallow squat counts as incorrect (depth)', () => {
   // ระหว่างดันขึ้นก่อนถึง 90° = เตือนสด
   assert.equal(play(tracker, [175, 120, 150]).issue, 'depth')
   const state = play(tracker, [150, 175])
-  assert.equal(state.reps, 1)
-  assert.equal(state.correct, 0)
-  assert.equal(state.incorrect, 1)
+  assert.equal(state.totalReps, 1)
+  assert.equal(state.correctReps, 0)
+  assert.equal(state.incorrectReps, 1)
   assert.deepEqual(state.lastRep.faults, ['depth'])
   assert.equal(state.issue, null)
 })
 
 test('turning back between 90 and 100 is incorrect (almost)', () => {
   const state = play(createSquatTracker(), [175, 95, 175])
-  assert.equal(state.incorrect, 1)
+  assert.equal(state.incorrectReps, 1)
   assert.deepEqual(state.lastRep.faults, ['almost'])
 })
 
 test('a shallow dip that then goes deep is one correct rep', () => {
   const state = play(createSquatTracker(), [175, 120, 140, 80, 175])
-  assert.equal(state.reps, 1)
-  assert.equal(state.correct, 1)
+  assert.equal(state.totalReps, 1)
+  assert.equal(state.correctReps, 1)
 })
 
 test('small movements while standing are not reps and do not warn', () => {
   const state = play(createSquatTracker(), [175, 150, 175, 152, 175])
-  assert.equal(state.reps, 0)
+  assert.equal(state.totalReps, 0)
   assert.equal(state.issue, null)
 })
 
@@ -97,8 +97,8 @@ test('leaning too far warns back live and the rep is incorrect', () => {
   const tracker = createSquatTracker()
   assert.equal(play(tracker, [175, 80], { lean: 70 }).issue, 'back')
   const state = play(tracker, [80, 175], { lean: 70 })
-  assert.equal(state.reps, 1)
-  assert.equal(state.incorrect, 1)
+  assert.equal(state.totalReps, 1)
+  assert.equal(state.incorrectReps, 1)
   assert.deepEqual(state.lastRep.faults, ['back'])
   assert.equal(state.issue, null)
 })
@@ -111,7 +111,7 @@ test('a shallow, leaning rep records both faults', () => {
 test('a normal forward lean is still correct', () => {
   const tracker = createSquatTracker()
   assert.equal(play(tracker, [175, 80], { lean: 40 }).issue, null)
-  assert.equal(play(tracker, [80, 175], { lean: 40 }).correct, 1)
+  assert.equal(play(tracker, [80, 175], { lean: 40 }).correctReps, 1)
 })
 
 test('a one-frame lean glitch does not fail the rep', () => {
@@ -119,21 +119,21 @@ test('a one-frame lean glitch does not fail the rep', () => {
   play(tracker, [175, 80], { lean: 30 })
   tracker.update(pose({ knee: 80, lean: 90 })) // landmark กระตุก 1 เฟรม
   const state = play(tracker, [80, 175], { lean: 30 })
-  assert.equal(state.correct, 1)
-  assert.equal(state.incorrect, 0)
+  assert.equal(state.correctReps, 1)
+  assert.equal(state.incorrectReps, 0)
 })
 
 test('summary reports totals, accuracy, faults and history', () => {
   const tracker = createSquatTracker()
-  assert.deepEqual(tracker.summary(), { total: 0, correct: 0, incorrect: 0, accuracy: 0, faultCounts: { depth: 0, back: 0 }, history: [] })
+  assert.deepEqual(tracker.summary(), { totalReps: 0, correctReps: 0, incorrectReps: 0, accuracy: 0, faultCounts: { TOO_SHALLOW: 0, BAD_POSTURE: 0 }, history: [] })
   play(tracker, [175, 80, 175, 80, 175, 80, 175, 120, 175]) // ถูก 3 ผิด 1
   play(tracker, [175, 80, 175], { lean: 70 }) // ผิด 1 (หลัง)
   const summary = tracker.summary()
-  assert.equal(summary.total, 5)
-  assert.equal(summary.correct, 3)
-  assert.equal(summary.incorrect, 2)
+  assert.equal(summary.totalReps, 5)
+  assert.equal(summary.correctReps, 3)
+  assert.equal(summary.incorrectReps, 2)
   assert.equal(summary.accuracy, 60)
-  assert.deepEqual(summary.faultCounts, { depth: 1, back: 1 })
+  assert.deepEqual(summary.faultCounts, { TOO_SHALLOW: 1, BAD_POSTURE: 1 })
   assert.deepEqual(summary.history.map((rep) => rep.correct), [true, true, true, false, false])
   // summary เป็นสำเนา แก้แล้วไม่กระทบ tracker
   summary.history[0].faults.push('x')
@@ -145,7 +145,7 @@ test('a lost body pauses without losing progress', () => {
   play(tracker, [175, 80])
   assert.equal(tracker.update(pose({ knee: 80, visibility: 0.1 })).tracking, false)
   assert.equal(tracker.update(null).tracking, false)
-  assert.equal(play(tracker, [80, 175]).reps, 1)
+  assert.equal(play(tracker, [80, 175]).totalReps, 1)
 })
 
 test('corrects for the frame aspect ratio', () => {
@@ -157,4 +157,36 @@ test('corrects for the frame aspect ratio', () => {
   const skewed = raw.map((point) => ({ ...point }))
   skewed[23] = { ...skewed[23], y: 0.8 }
   assert.notEqual(Math.round(createSquatTracker().update(skewed, 1).angle), Math.round(createSquatTracker().update(skewed, 16 / 9).angle))
+})
+
+test('a knee angle of exactly 90 degrees counts as deep enough', () => {
+  const state = play(createSquatTracker(), [175, 90, 175])
+  assert.equal(state.correctReps, 1)
+  assert.equal(state.incorrectReps, 0)
+})
+
+test('currentRepStatus follows the rep in progress, then the last result', () => {
+  const tracker = createSquatTracker()
+  assert.equal(play(tracker, [175]).currentRepStatus, REP_STATUS.PERFECT)
+  assert.equal(play(tracker, [175, 80]).currentRepStatus, REP_STATUS.PERFECT)
+  assert.equal(play(tracker, [80, 175]).currentRepStatus, REP_STATUS.PERFECT)
+  // ย่อไม่สุดแล้วดันขึ้น = TOO_SHALLOW ตั้งแต่ระหว่างทำ และค้างหลังยืนขึ้น
+  assert.equal(play(tracker, [175, 120, 150]).currentRepStatus, REP_STATUS.TOO_SHALLOW)
+  const shallow = play(tracker, [150, 175])
+  assert.equal(shallow.currentRepStatus, REP_STATUS.TOO_SHALLOW)
+  assert.equal(shallow.lastRep.status, REP_STATUS.TOO_SHALLOW)
+  // ก้มตัว = BAD_POSTURE
+  assert.equal(play(tracker, [175, 80], { lean: 70 }).currentRepStatus, REP_STATUS.BAD_POSTURE)
+  assert.equal(play(tracker, [80, 175], { lean: 70 }).lastRep.status, REP_STATUS.BAD_POSTURE)
+  // ครั้งใหม่ที่ดีกลับเป็น PERFECT
+  assert.equal(play(tracker, [175, 80, 175]).currentRepStatus, REP_STATUS.PERFECT)
+})
+
+test('the live back warning only appears once the rep is really failing', () => {
+  const tracker = createSquatTracker()
+  play(tracker, [175, 80], { lean: 30 })
+  tracker.update(pose({ knee: 80, lean: 90 }))
+  const glitch = tracker.update(pose({ knee: 80, lean: 30 }))
+  assert.equal(glitch.issue, null) // กระตุกสั้น ๆ ไม่เตือน
+  assert.equal(glitch.currentRepStatus, REP_STATUS.PERFECT)
 })
