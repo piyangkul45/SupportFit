@@ -170,8 +170,8 @@ function Header({ userName, tabs, activeTab, onTabChange, onOpenProfile }) {
         activeTab={activeTab}
         onChange={onTabChange}
         layoutId="nav-pill-mobile"
-        className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 gap-1 rounded-2xl border border-white/10 bg-obsidian-raised/85 p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.8)] glass-blur md:hidden"
-        itemClassName="flex-col gap-1 py-2 text-[11px]"
+        className="fixed inset-x-2 bottom-3 z-40 grid grid-cols-6 gap-0.5 rounded-2xl border border-white/10 bg-obsidian-raised/85 p-1 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.8)] glass-blur md:hidden"
+        itemClassName="min-w-0 flex-col gap-1 px-0 py-2 text-[10px] tracking-[-0.03em] [&>span]:max-w-full [&>span]:truncate"
       />
     </>
   )

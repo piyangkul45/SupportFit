@@ -1,16 +1,17 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
-import { Bot, ChartColumn, LayoutDashboard, Trophy, Users } from 'lucide-react'
+import { Bot, ChartColumn, LayoutDashboard, Salad, Trophy, Users } from 'lucide-react'
 import RestTimer from './components/RestTimer'
 import LogsList from './components/LogsList'
 import MacroDashboard from './components/MacroDashboard'
-import MealLogger from './components/MealLogger'
 import AuthPage from './components/AuthPage'
 import Header from './components/Header'
 import Programs from './pages/Programs'
+import NutritionPage from './pages/NutritionPage'
 import AICoachPage from './pages/AICoachPage'
 import CommunityPage from './pages/CommunityPage'
+import { pathForTab, tabFromPath } from './utils/routes'
 import TodayRoutineCard from './components/TodayRoutineCard'
 import AnalyticsSkeleton from './components/AnalyticsSkeleton'
 import EditLogModal from './components/EditLogModal'
@@ -46,10 +47,13 @@ const REST_DURATION = 90
 const TABS = [
   { id: 'home', labelKey: 'nav.dashboard', Icon: LayoutDashboard },
   { id: 'programs', labelKey: 'nav.programs', Icon: Trophy },
+  { id: 'nutrition', labelKey: 'nav.nutrition', Icon: Salad },
   { id: 'coach', labelKey: 'nav.coach', Icon: Bot },
   { id: 'community', labelKey: 'nav.community', Icon: Users },
   { id: 'analytics', labelKey: 'nav.analytics', Icon: ChartColumn },
 ]
+
+const WORKOUT_ONLY = ['workout']
 
 const nameOf = (kind, log) => (kind === 'workout' ? log.exercise_name : log.food_name)
 const sumOf = (rows, field) => rows.reduce((sum, row) => sum + (row[field] || 0), 0)
@@ -145,14 +149,6 @@ const DashboardPages = memo(function DashboardPages({
                     onClearHint={selectExercise}
                   />
                 </motion.div>
-                <motion.div variants={RISE}>
-                  <MealLogger
-                    foodLogs={foodLogs}
-                    loading={isLoadingLogs}
-                    onSave={handleSaveMeal}
-                    onDelete={handleDelete}
-                  />
-                </motion.div>
                 <AnimatePresence>
                   {isResting && (
                     <RestTimer
@@ -178,12 +174,13 @@ const DashboardPages = memo(function DashboardPages({
                   />
                 </motion.div>
                 <motion.div variants={RISE}>
+                  {/* รายการอาหารย้ายไปหน้าโภชนาการ (/nutrition) */}
                   <LogsList
                     workoutLogs={workoutLogs}
-                    foodLogs={foodLogs}
                     loading={isLoadingLogs}
                     onEdit={openEditor}
                     onDelete={handleDelete}
+                    kinds={WORKOUT_ONLY}
                   />
                 </motion.div>
               </div>
@@ -195,6 +192,20 @@ const DashboardPages = memo(function DashboardPages({
       {activeTab === 'programs' && (
         <motion.div key="programs" variants={PAGE} initial="initial" animate="animate" exit="exit">
           <Programs onActiveProgramChange={loadRoutine} notify={notify} />
+        </motion.div>
+      )}
+
+      {activeTab === 'nutrition' && (
+        <motion.div key="nutrition" variants={PAGE} initial="initial" animate="animate" exit="exit">
+          <NutritionPage
+            user={user}
+            totals={totalsToday}
+            foodLogs={foodLogs}
+            loading={isLoadingLogs}
+            onSaveMeal={handleSaveMeal}
+            onEdit={openEditor}
+            onDelete={handleDelete}
+          />
         </motion.div>
       )}
 
@@ -235,7 +246,8 @@ function Dashboard() {
   const [isLoadingLogs, setIsLoadingLogs] = useState(true)
   const [toast, setToast] = useState(null)
   const [isResting, setIsResting] = useState(false)
-  const [activeTab, setActiveTab] = useState('home')
+  // แท็บเริ่มต้นตาม URL (เช่น เปิด /nutrition ตรง ๆ หรือรีเฟรชหน้า) ดู utils/routes.js
+  const [activeTab, setActiveTab] = useState(() => tabFromPath(window.location.pathname))
   const [editing, setEditing] = useState(null) // { kind: 'workout' | 'food', log }
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [routine, setRoutine] = useState(null) // GET /api/users/me/active-program/today
@@ -321,10 +333,23 @@ function Dashboard() {
     ? selectedExercise
     : null
   const selectExercise = useCallback((name) => setSelectedExercise(name), [])
-  const goToPrograms = useCallback(() => {
-    setActiveTab('programs')
+
+  // ---- เปลี่ยนแท็บ = เปลี่ยน URL (History API) ; ปุ่มย้อนกลับ/ไปข้างหน้าของเบราว์เซอร์ = เปลี่ยนแท็บตาม ----
+  const navigate = useCallback((tab) => {
+    const path = pathForTab(tab)
+    if (window.location.pathname !== path) window.history.pushState({ tab }, '', path + window.location.search)
+    setActiveTab(tab)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
+  useEffect(() => {
+    // path ที่ไม่รู้จัก (เช่น /abc) แก้เป็น path ของแท็บจริงโดยไม่เพิ่มประวัติ
+    const canonical = pathForTab(tabFromPath(window.location.pathname))
+    if (window.location.pathname !== canonical) window.history.replaceState(null, '', canonical + window.location.search)
+    const onPopState = () => setActiveTab(tabFromPath(window.location.pathname))
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+  const goToPrograms = useCallback(() => navigate('programs'), [navigate])
 
   // บันทึกรายการที่ผู้ใช้ตรวจ/แก้ใน preview แล้ว (ผลจาก /api/parse) คืน boolean[] ว่ารายการไหนสำเร็จ
   // ท่าออกกำลังกายคำนวณแคลอรีที่เผาผลาญจาก MET ของท่า (utils/calories.js) แล้วใส่เข้า state ทันที
@@ -537,11 +562,6 @@ function Dashboard() {
     speak(t('dashboard.restOver'), i18n.resolvedLanguage)
   }, [t, i18n])
 
-  const handleTabChange = useCallback((tab) => {
-    setActiveTab(tab)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
-
   // ผลรวมสารอาหารวันนี้ (ปัดทศนิยมกันผลบวกแบบ 52.599999)
   const totalsToday = useMemo(() => {
     const today = foodLogs.filter((log) => isToday(log.created_at))
@@ -602,7 +622,7 @@ function Dashboard() {
         userName={user?.name}
         tabs={TABS}
         activeTab={activeTab}
-        onTabChange={handleTabChange}
+        onTabChange={navigate}
         onOpenProfile={openProfile}
       />
       <Toast toast={toast} onClose={closeToast} />

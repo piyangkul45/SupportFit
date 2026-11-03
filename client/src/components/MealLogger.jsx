@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { Camera, Sparkles, Trash2, UtensilsCrossed, X } from 'lucide-react'
+import { Camera, Pencil, Sparkles, Trash2, UtensilsCrossed, X } from 'lucide-react'
 import { analyzeMeal, analyzeMealImage } from '../utils/api'
 import { isToday } from '../utils/date'
 import { prepareMealImage } from '../utils/image'
@@ -64,9 +64,9 @@ function Macros({ protein, carbs, fat }) {
 
 // AI Meal Logger: พิมพ์/พูดว่ากินอะไรไป หรือถ่าย/อัปโหลดรูปอาหาร -> Gemini ประเมินสารอาหาร -> ตรวจแล้วกดบันทึก
 // รูป: ย่อเป็น JPEG ในเครื่องก่อนส่ง ข้อความในช่องพิมพ์ (ถ้ามี) ส่งไปเป็นรายละเอียดเสริมของรูป
-// แสดงรายการอาหารวันนี้ (จาก foodLogs) พร้อมแคลอรีรวม
+// แสดงรายการอาหารวันนี้ (จาก foodLogs) พร้อมแคลอรีรวม ; onEdit('food', log) = เปิดฟอร์มแก้ไข (ไม่ส่ง = ไม่มีปุ่มแก้ไข)
 // onSave(items) คืน boolean[] ว่ารายการไหนบันทึกสำเร็จ
-export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete }) {
+export default memo(function MealLogger({ foodLogs, loading, onSave, onEdit, onDelete }) {
   const { t, i18n } = useTranslation()
   const [text, setText] = useState('')
   const [interim, setInterim] = useState('')
@@ -356,6 +356,16 @@ export default memo(function MealLogger({ foodLogs, loading, onSave, onDelete })
                 <span className="text-sm font-semibold tabular-nums text-slate-200">
                   {t('meal.kcal', { value: formatNumber(log.calories) })}
                 </span>
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit('food', log)}
+                    aria-label={t('meal.editItem', { name: log.food_name })}
+                    className="rounded-md p-1 text-slate-500 hover:bg-white/10 hover:text-emerald-300"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onDelete('food', log)}

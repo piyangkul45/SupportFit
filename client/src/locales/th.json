@@ -24,10 +24,20 @@
   "nav": {
     "dashboard": "แดชบอร์ด",
     "programs": "โปรแกรม",
+    "nutrition": "โภชนาการ",
     "analytics": "สถิติ",
     "coach": "AI Coach",
     "community": "Community",
     "label": "เมนูหลัก"
+  },
+
+  "nutrition": {
+    "eyebrow": "บันทึกอาหาร",
+    "title": "โภชนาการวันนี้",
+    "summaryTitle": "แคลอรีและสารอาหารวันนี้",
+    "eaten": "กินไปแล้ว",
+    "remaining": "เหลืออีก {{value}} kcal ถึงเป้าหมาย",
+    "over": "เกินเป้าหมาย {{value}} kcal"
   },
 
   "community": {
@@ -634,6 +644,7 @@
     "macros": "P {{protein}}g · C {{carbs}}g · F {{fat}}g",
     "empty": "วันนี้ยังไม่ได้บันทึกอาหาร",
     "deleteItem": "ลบ {{name}}",
+    "editItem": "แก้ไข {{name}}",
     "photo": {
       "button": "ถ่ายภาพ/อัปโหลดรูปอาหาร",
       "hint": "แตะกล้องเพื่อถ่ายหรืออัปโหลดรูปอาหาร",

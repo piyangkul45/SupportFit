@@ -88,7 +88,7 @@ function CalorieStat({ Icon, label, value, note, tone, sign = '' }) {
 }
 
 // แถบความคืบหน้าของสารอาหาร target ไม่มี (ยังไม่ได้ทำ onboarding) = แสดงแค่ค่าที่กินไป ไม่มีแถบ
-function MacroBar({ Icon, label, value, target, tone, bar }) {
+export function MacroBar({ Icon, label, value, target, tone, bar }) {
   const { t } = useTranslation()
   const hasTarget = target > 0
   const isOver = hasTarget && value > target

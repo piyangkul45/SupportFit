@@ -161,7 +161,9 @@ function LogSection({ title, Icon, tone, count, loading, footer, children }) {
 }
 
 // onEdit(kind, log) / onDelete(kind, log) โดย kind = 'workout' | 'food'
-function LogsList({ workoutLogs, foodLogs, onEdit, onDelete, loading }) {
+// kinds: ส่วนที่แสดง (Dashboard แสดงเฉพาะ workout ; รายการอาหารอยู่ในหน้าโภชนาการ)
+const ALL_KINDS = ['workout', 'food']
+function LogsList({ workoutLogs, foodLogs = [], onEdit, onDelete, loading, kinds = ALL_KINDS }) {
   const { t } = useTranslation()
   const todayWorkouts = useMemo(() => workoutLogs.filter((log) => isToday(log.created_at)), [workoutLogs])
   const todayFoods = useMemo(() => foodLogs.filter((log) => isToday(log.created_at)), [foodLogs])
@@ -176,6 +178,7 @@ function LogsList({ workoutLogs, foodLogs, onEdit, onDelete, loading }) {
 
   return (
     <div className="space-y-4">
+      {kinds.includes('workout') && (
       <LogSection
         title={t('dashboard.logs.workoutsTitle')}
         Icon={Dumbbell}
@@ -193,7 +196,9 @@ function LogsList({ workoutLogs, foodLogs, onEdit, onDelete, loading }) {
           />
         ))}
       </LogSection>
+      )}
 
+      {kinds.includes('food') && (
       <LogSection
         title={t('dashboard.logs.mealsTitle')}
         Icon={UtensilsCrossed}
@@ -220,6 +225,7 @@ function LogsList({ workoutLogs, foodLogs, onEdit, onDelete, loading }) {
           />
         ))}
       </LogSection>
+      )}
     </div>
   )
 }

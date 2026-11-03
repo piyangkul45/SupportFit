@@ -24,10 +24,20 @@
   "nav": {
     "dashboard": "Dashboard",
     "programs": "Programs",
+    "nutrition": "Nutrition",
     "analytics": "Analytics",
     "coach": "AI Coach",
     "community": "Community",
     "label": "Main navigation"
+  },
+
+  "nutrition": {
+    "eyebrow": "Food log",
+    "title": "Today’s nutrition",
+    "summaryTitle": "Calories & macros today",
+    "eaten": "Eaten",
+    "remaining": "{{value}} kcal left to your goal",
+    "over": "{{value}} kcal over your goal"
   },
 
   "community": {
@@ -634,6 +644,7 @@
     "macros": "P {{protein}}g · C {{carbs}}g · F {{fat}}g",
     "empty": "Nothing logged yet today",
     "deleteItem": "Delete {{name}}",
+    "editItem": "Edit {{name}}",
     "photo": {
       "button": "Take or upload a meal photo",
       "hint": "Tap the camera to snap or upload a meal photo",
