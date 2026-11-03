@@ -1,14 +1,16 @@
 import { memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Activity, Check, Dumbbell, Flame, PersonStanding, Plus, Search, Sparkles, X } from 'lucide-react'
+import { Activity, Dumbbell, Flame, PersonStanding, Plus, Search, Sparkles, X } from 'lucide-react'
 import { calculateCaloriesBurned } from '../utils/calories'
 import { CATEGORIES, DEFAULT_MET, EXERCISES, searchExercises } from '../utils/exerciseCatalog'
 import { getAnatomy, matchesBodyPart } from '../utils/exerciseAnatomy'
+import { getExerciseMedia } from '../utils/exerciseMedia'
 import AICameraTracker from './AICameraTracker'
-import BodyPartFilter from './BodyPartFilter'
-import ExerciseBadges from './ExerciseBadges'
-import MuscleTargetCard, { MuscleIcon } from './MuscleTargetCard'
+import ExerciseCard from './ExerciseCard'
+import ExerciseDetailModal from './ExerciseDetailModal'
+import MuscleCategorySelector from './MuscleCategorySelector'
+import MuscleTargetCard from './MuscleTargetCard'
 import { ButtonLabel } from './Spinner'
 import VoiceRecorder from './VoiceRecorder'
 
@@ -63,8 +65,11 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const [detail, setDetail] = useState(null) // ท่าที่เปิดป๊อปอัปรายละเอียด
   const openCamera = useCallback(() => setIsCameraOpen(true), [])
   const closeCamera = useCallback(() => setIsCameraOpen(false), [])
+  const openDetail = useCallback((exercise) => setDetail(exercise), [])
+  const closeDetail = useCallback(() => setDetail(null), [])
 
   // เลือกส่วนร่างกาย = แสดงท่าที่เน้นส่วนนั้นจากทุกหมวด (ยังพิมพ์ค้นหาชื่อได้)
   const results = useMemo(() => {
@@ -185,6 +190,9 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
         <span className="h-px flex-1 bg-white/10" />
       </div>
 
+      {/* Exercise Library: หมวดกล้ามเนื้อเป็นวงกลม Anatomy (บนสุด) กดแล้วกรองรายการท่าทันที */}
+      <MuscleCategorySelector value={bodyPart} onChange={setBodyPart} className="relative mb-3" />
+
       {/* หมวดกิจกรรม */}
       <div role="tablist" aria-label={t('workout.categoryLabel')} className="relative grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
         {CATEGORIES.map((key) => {
@@ -215,9 +223,6 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
         })}
       </div>
 
-      {/* Quick Filter: จิ้มไอคอนส่วนร่างกาย */}
-      <BodyPartFilter value={bodyPart} onChange={setBodyPart} className="relative mt-3" />
-
       {/* ค้นหาท่า */}
       <div className="relative mt-3">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
@@ -231,51 +236,46 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
         />
       </div>
 
-      {/* การ์ดท่าฝึก: ไอคอนกล้ามเนื้อ + ป้ายระดับความยาก/อุปกรณ์ */}
-      <div className="relative mt-3 grid max-h-72 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
-        {results.map((exercise) => {
-          const active = selected?.name === exercise.name && !selected.custom
-          const anatomy = getAnatomy(exercise.name)
-          return (
-            <button
-              key={exercise.name}
-              type="button"
-              onClick={() => selectExercise(exercise)}
-              aria-pressed={active}
-              className={`flex items-center gap-2.5 rounded-xl border p-2 text-left transition-colors ${
-                active
-                  ? 'border-emerald-400/50 bg-emerald-400/15'
-                  : 'border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.08]'
-              }`}
-            >
-              <span className="flex h-11 w-8 shrink-0 items-center justify-center rounded-lg bg-black/25">
-                {anatomy && <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} className="h-10 w-5" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className={`flex items-center gap-1 text-xs font-semibold ${active ? 'text-emerald-200' : 'text-slate-100'}`}>
-                  {active && <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />}
-                  <span className="truncate">{exercise.name}</span>
-                  {exercise.category !== category && (
-                    <span className="shrink-0 text-[10px] font-normal text-slate-500">· {categoryLabel(exercise.category)}</span>
-                  )}
-                </span>
-                <ExerciseBadges anatomy={anatomy} className="mt-1" />
-              </span>
-            </button>
-          )
-        })}
+      {/* การ์ดท่าฝึก: ภาพพรีวิว (ชี้/แตะ = เล่นภาพเคลื่อนไหว) กด = ป๊อปอัปรายละเอียด */}
+      <div className="relative mt-3 grid max-h-[26rem] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+        {results.map((exercise) => (
+          <ExerciseCard
+            key={exercise.name}
+            exercise={exercise}
+            anatomy={getAnatomy(exercise.name)}
+            media={getExerciseMedia(exercise.name)}
+            active={selected?.name === exercise.name && !selected.custom}
+            categoryNote={exercise.category !== category ? categoryLabel(exercise.category) : null}
+            onOpen={openDetail}
+          />
+        ))}
         {trimmedQuery && !hasExactMatch && (
           <button
             type="button"
             onClick={selectCustom}
-            className="inline-flex items-center gap-1 rounded-lg border border-dashed border-emerald-400/30 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-400/10"
+            className="col-span-full inline-flex items-center gap-1 rounded-lg border border-dashed border-emerald-400/30 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-400/10"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
             {t('workout.useCustom', { name: trimmedQuery, category: categoryLabel(category) })}
           </button>
         )}
-        {!results.length && !trimmedQuery && <p className="text-sm text-slate-500">{t('workout.noResults')}</p>}
+        {!results.length && !trimmedQuery && <p className="col-span-full text-sm text-slate-500">{t('workout.noResults')}</p>}
       </div>
+
+      <AnimatePresence>
+        {detail && (
+          <ExerciseDetailModal
+            key={detail.name}
+            exercise={detail}
+            categoryLabel={categoryLabel(detail.category)}
+            onSelect={(exercise) => {
+              selectExercise(exercise)
+              closeDetail()
+            }}
+            onClose={closeDetail}
+          />
+        )}
+      </AnimatePresence>
 
       {/* รายละเอียดการเล่น */}
       <AnimatePresence initial={false}>

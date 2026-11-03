@@ -821,5 +821,129 @@
       "none": "No equipment",
       "required": "Equipment"
     }
+  },
+  "exerciseLibrary": {
+    "gif": "Preview",
+    "previewAlt": "{{name}} preview",
+    "demoAlt": "{{name}} demonstration",
+    "targetFigure": "Front and back body view with target muscles in red",
+    "noDemo": "No demo image for this exercise yet. See the muscles worked on the anatomy figure.",
+    "play": "Play animation",
+    "pause": "Pause animation",
+    "phaseStart": "Start",
+    "phaseEnd": "Finish",
+    "target": "Target",
+    "secondary": "Assisting",
+    "beginnerTips": "Beginner tips",
+    "tipLabels": {
+      "stance": "Foot placement",
+      "breathing": "Breathing",
+      "caution": "Watch out"
+    },
+    "credit": "Demo images from",
+    "select": "Choose this exercise",
+    "close": "Close",
+    "tips": {
+      "squat": {
+        "stance": "Feet shoulder-width, toes turned out slightly, weight through heels and mid-foot.",
+        "breathing": "Breathe in before you descend, breathe out as you drive up.",
+        "caution": "Keep your back straight and knees tracking over your toes, never caving in."
+      },
+      "hinge": {
+        "stance": "Feet hip-width, weight close over mid-foot, slight bend in the knees.",
+        "breathing": "Breathe in and brace your core before lifting, exhale at the top.",
+        "caution": "Hinge at the hips, not the spine. Keep a flat back and the weight close to you."
+      },
+      "bridge": {
+        "stance": "Feet flat and hip-width so shins are vertical at the top.",
+        "breathing": "Exhale as you drive the hips up, inhale as you lower.",
+        "caution": "Squeeze your glutes at the top and don’t over-arch the lower back."
+      },
+      "olympic": {
+        "stance": "Hip-width feet for the pull, then split front/back to catch the jerk.",
+        "breathing": "Breathe in and hold through the pull and catch, exhale once stable.",
+        "caution": "Highly technical: start with an empty bar and learn it with a coach."
+      },
+      "lunge": {
+        "stance": "Step long enough that both knees bend to about 90°, torso upright, weight in the front heel.",
+        "breathing": "Inhale on the way down, exhale as you push back up.",
+        "caution": "Don’t let the front knee cave in; lower the back knee gently, no slamming."
+      },
+      "push": {
+        "stance": "Feet planted (push-up: straight line head to heels), shoulder blades squeezed together.",
+        "breathing": "Inhale as you lower toward the chest, exhale as you press.",
+        "caution": "Keep elbows about 45° from the body, not flared, to protect the shoulders."
+      },
+      "dips": {
+        "stance": "Grip the bars firmly, arms locked, legs together or crossed behind you.",
+        "breathing": "Inhale as you lower, exhale as you press back up.",
+        "caution": "Go down only until upper arms are parallel; shorten the range if shoulders hurt."
+      },
+      "overhead": {
+        "stance": "Feet hip-width, glutes and abs braced so your torso stays rigid.",
+        "breathing": "Breathe in before pressing, exhale at lockout.",
+        "caution": "Don’t arch your back to help the press; start light, shoulders injure easily."
+      },
+      "pull": {
+        "stance": "Stable feet (standing or seated), chest open, shoulders away from ears.",
+        "breathing": "Exhale as you pull in, inhale as you return.",
+        "caution": "Pull with your back, leading with the elbows. No swinging or momentum."
+      },
+      "hang": {
+        "stance": "Grip slightly wider than shoulders, legs together or crossed to stop swinging.",
+        "breathing": "Exhale as you pull up, inhale as you lower slowly.",
+        "caution": "Lower to full extension under control. Beginners: use a band or do negatives."
+      },
+      "arms": {
+        "stance": "Stand hip-width with soft knees, elbows pinned to your sides.",
+        "breathing": "Exhale as you curl/press, inhale as you return.",
+        "caution": "Keep upper arms still, don’t swing your body; pick a weight you can control."
+      },
+      "machine": {
+        "stance": "Adjust the seat so your knee lines up with the machine’s pivot, back against the pad.",
+        "breathing": "Exhale on the effort, inhale on the return.",
+        "caution": "Move slowly with control; don’t let the stack slam or lock your knees."
+      },
+      "core": {
+        "stance": "Feet/elbows planted, body in one straight line, hips neither high nor sagging.",
+        "breathing": "Breathe steadily, never hold your breath; exhale at the hardest squeeze.",
+        "caution": "Don’t yank your neck. Stop and regress if your lower back hurts."
+      },
+      "plyo": {
+        "stance": "Land on the balls to mid-foot with soft knees to absorb impact.",
+        "breathing": "Breathe rhythmically with the jumps, never hold your breath.",
+        "caution": "Always warm up, use a non-slip floor, start with low reps and build up."
+      },
+      "cardio": {
+        "stance": "Land with feet under your body, short quick steps, upright torso, relaxed shoulders.",
+        "breathing": "Breathe rhythmically; if you can’t speak in sentences, slow down.",
+        "caution": "Warm up for 5 minutes, wear supportive shoes and stay hydrated."
+      },
+      "cycle": {
+        "stance": "Set the seat so the knee stays slightly bent at the bottom; mid-foot on the pedal.",
+        "breathing": "Breathe deep and steady with your pedal or stroke rhythm.",
+        "caution": "Keep your back straight, no hunching (rower: legs first, then pull with the arms)."
+      },
+      "swim": {
+        "stance": "Keep your body long and level; kick from the hips, not the knees.",
+        "breathing": "Exhale fully underwater, then turn your head to inhale rhythmically.",
+        "caution": "Warm up your shoulders, swim where there’s supervision, rest when tired."
+      },
+      "yoga": {
+        "stance": "Spread weight evenly through both feet, rooting the whole sole into the floor.",
+        "breathing": "Long breaths in and out through the nose; let the breath lead the movement.",
+        "caution": "Stretch only as far as feels OK, never into pain. Blocks or straps are fine."
+      },
+      "sport": {
+        "stance": "Soft knees, weight on the balls of your feet, ready to move any direction.",
+        "breathing": "Breathe steadily and use breaks between points to recover with deep breaths.",
+        "caution": "Warm up ankles and knees first and wear shoes suited to the court or field."
+      },
+      "general": {
+        "stance": "Feet firmly planted about hip-width, torso upright, core braced.",
+        "breathing": "Exhale on the effort, inhale as you release. Don’t hold your breath.",
+        "caution": "Start with low weight or speed and stop right away if anything hurts."
+      }
+    }
   }
 }

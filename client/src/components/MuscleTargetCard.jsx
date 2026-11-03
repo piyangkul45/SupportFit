@@ -47,21 +47,33 @@ const FIGURES = {
 const pickView = (muscles) => MUSCLES[muscles[0]]?.view || 'front'
 
 // ไอคอนรูปร่างกายที่ไฮไลต์กล้ามเนื้อ (ส้ม = หลัก, ฟ้า = รอง) ใช้ได้ทั้งการ์ดท่า ปุ่ม filter และคำตอบของ AI Coach
-export const MuscleIcon = memo(function MuscleIcon({ primary = [], secondary = [], view, className = 'h-10 w-5', title }) {
+// primaryFill: เปลี่ยนสีกล้ามเนื้อหลัก (เช่น แดงใน Exercise Library) ; pulse: กล้ามเนื้อหลักเต้นเป็นจังหวะ ; viewBox: ซูมเฉพาะส่วน
+export const MuscleIcon = memo(function MuscleIcon({
+  primary = [],
+  secondary = [],
+  view,
+  className = 'h-10 w-5',
+  title,
+  primaryFill = PRIMARY_FILL,
+  pulse = false,
+  viewBox = '0 0 60 120',
+}) {
   const side = view || pickView(primary.length ? primary : secondary)
   const fullbody = primary.includes('fullbody')
+  const isPrimary = (muscle) => Boolean(muscle) && (fullbody || primary.includes(muscle))
   const fillOf = (muscle) => {
     if (!muscle) return BODY_FILL
-    if (fullbody || primary.includes(muscle)) return PRIMARY_FILL
+    if (isPrimary(muscle)) return primaryFill
     if (secondary.includes(muscle) || secondary.includes('fullbody')) return SECONDARY_FILL
     return BASE_FILL
   }
   return (
-    <svg viewBox="0 0 60 120" className={className} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true}>
+    <svg viewBox={viewBox} className={className} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true}>
       {title && <title>{title}</title>}
-      {FIGURES[side].map(({ kind, muscle, ...shape }, index) =>
-        kind === 'ellipse' ? <ellipse key={index} {...shape} fill={fillOf(muscle)} /> : <path key={index} {...shape} fill={fillOf(muscle)} />
-      )}
+      {FIGURES[side].map(({ kind, muscle, ...shape }, index) => {
+        const props = { ...shape, fill: fillOf(muscle), className: pulse && isPrimary(muscle) ? 'animate-muscle-pulse' : undefined }
+        return kind === 'ellipse' ? <ellipse key={index} {...props} /> : <path key={index} {...props} />
+      })}
     </svg>
   )
 })
