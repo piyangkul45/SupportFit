@@ -681,6 +681,53 @@
       "almost": "A little lower!",
       "back": "Keep your back straight"
     },
+    "counters": {
+      "correct": "Correct",
+      "incorrect": "Bad form",
+      "unit_one": "rep",
+      "unit_other": "reps",
+      "total": "Total"
+    },
+    "feedback": {
+      "great": "✅ Great form!",
+      "deep": "💪 Deep enough, drive up!",
+      "back": "⚠️ Straighten your back",
+      "almost": "⚠️ Bend your knees a bit more",
+      "depth": "⚠️ Squat deeper",
+      "lastAlmost": "🔴 Rep {{n}}: not deep enough (lowest {{angle}}°)",
+      "lastDepth": "🔴 Rep {{n}}: not deep enough (lowest {{angle}}°)",
+      "lastBack": "🔴 Rep {{n}}: leaning too far forward"
+    },
+    "stop": "Stop & see summary",
+    "voice": {
+      "badRep": "Rep {{n}}, check your form"
+    },
+    "result": {
+      "title": "Workout summary",
+      "subtitle": "Bodyweight Squat · AI form check",
+      "total": "Total",
+      "accuracy": "Accuracy",
+      "correct": "Correct",
+      "incorrect": "Bad form",
+      "timeline": "Each rep",
+      "repLabel": "Rep {{n}}: {{result}}",
+      "resultCorrect": "correct",
+      "resultIncorrect": "bad form",
+      "tipsTitle": "How to improve your form",
+      "tips": {
+        "depth_one": "Not deep enough on 1 rep: lower until your thighs are parallel or below (knee under 90°), push your hips back like sitting on a chair and keep weight on your heels.",
+        "depth_other": "Not deep enough on {{count}} reps: lower until your thighs are parallel or below (knee under 90°), push your hips back like sitting on a chair and keep weight on your heels.",
+        "back_one": "Leaning too far forward on 1 rep: brace your core, open your chest, look straight ahead and don’t let your shoulders drift far past your toes.",
+        "back_other": "Leaning too far forward on {{count}} reps: brace your core, open your chest, look straight ahead and don’t let your shoulders drift far past your toes.",
+        "great": "Great form on every rep! Try more reps or another set for a challenge.",
+        "none": "No reps counted yet. Stand so the camera sees shoulders to ankles, then squat until your knee is below 90°."
+      },
+      "save": "Save {{reps}} reps",
+      "save_one": "Save 1 rep",
+      "resume": "Resume",
+      "restart": "New set",
+      "saveNote": "Saves the total rep count to your workout history"
+    },
     "errors": {
       "denied": "Camera permission was denied. Allow the camera in your browser and try again.",
       "noCamera": "No camera was found on this device.",

@@ -40,10 +40,15 @@ test('jointAngle and torsoLean measure degrees', () => {
   assert.equal(Math.round(torsoLean({ x: 1, y: 0 }, { x: 0, y: 1 })), 45)
 })
 
-test('stand -> below 90 -> stand counts one rep', () => {
+test('a deep, upright rep counts as correct', () => {
   const tracker = createSquatTracker()
-  assert.equal(play(tracker, [175, 80, 175]).reps, 1)
-  assert.equal(play(tracker, [175, 80, 175, 80, 175]).reps, 3)
+  const state = play(tracker, [175, 80, 175])
+  assert.equal(state.reps, 1)
+  assert.equal(state.correct, 1)
+  assert.equal(state.incorrect, 0)
+  assert.deepEqual(state.lastRep, { number: 1, correct: true, faults: [], lowest: state.lastRep.lowest })
+  assert.ok(state.lastRep.lowest < 90)
+  assert.equal(play(tracker, [175, 80, 175, 80, 175]).correct, 3)
 })
 
 test('the rep counts only after standing back up', () => {
@@ -58,41 +63,81 @@ test('needs a standing start', () => {
   assert.equal(play(tracker, [120, 80, 120]).reps, 0)
 })
 
-test('a shallow squat is not counted and warns depth', () => {
-  const state = play(createSquatTracker(), [175, 120, 175])
-  assert.equal(state.reps, 0)
-  assert.equal(state.issue, 'depth')
-})
-
-test('turning back between 90 and 100 warns almost', () => {
-  const state = play(createSquatTracker(), [175, 95, 175])
-  assert.equal(state.reps, 0)
-  assert.equal(state.issue, 'almost')
-})
-
-test('the depth warning clears on the next attempt', () => {
+test('a shallow squat counts as incorrect (depth)', () => {
   const tracker = createSquatTracker()
-  const state = play(tracker, [175, 120, 175, 80, 175])
+  // ระหว่างดันขึ้นก่อนถึง 90° = เตือนสด
+  assert.equal(play(tracker, [175, 120, 150]).issue, 'depth')
+  const state = play(tracker, [150, 175])
   assert.equal(state.reps, 1)
+  assert.equal(state.correct, 0)
+  assert.equal(state.incorrect, 1)
+  assert.deepEqual(state.lastRep.faults, ['depth'])
   assert.equal(state.issue, null)
 })
 
-test('small movements while standing do not warn', () => {
+test('turning back between 90 and 100 is incorrect (almost)', () => {
+  const state = play(createSquatTracker(), [175, 95, 175])
+  assert.equal(state.incorrect, 1)
+  assert.deepEqual(state.lastRep.faults, ['almost'])
+})
+
+test('a shallow dip that then goes deep is one correct rep', () => {
+  const state = play(createSquatTracker(), [175, 120, 140, 80, 175])
+  assert.equal(state.reps, 1)
+  assert.equal(state.correct, 1)
+})
+
+test('small movements while standing are not reps and do not warn', () => {
   const state = play(createSquatTracker(), [175, 150, 175, 152, 175])
   assert.equal(state.reps, 0)
   assert.equal(state.issue, null)
 })
 
-test('leaning too far warns back while squatting, and the rep still counts', () => {
+test('leaning too far warns back live and the rep is incorrect', () => {
   const tracker = createSquatTracker()
   assert.equal(play(tracker, [175, 80], { lean: 70 }).issue, 'back')
   const state = play(tracker, [80, 175], { lean: 70 })
   assert.equal(state.reps, 1)
+  assert.equal(state.incorrect, 1)
+  assert.deepEqual(state.lastRep.faults, ['back'])
   assert.equal(state.issue, null)
 })
 
-test('a normal forward lean does not warn', () => {
-  assert.equal(play(createSquatTracker(), [175, 80], { lean: 40 }).issue, null)
+test('a shallow, leaning rep records both faults', () => {
+  const state = play(createSquatTracker(), [175, 120, 175], { lean: 70 })
+  assert.deepEqual(state.lastRep.faults, ['depth', 'back'])
+})
+
+test('a normal forward lean is still correct', () => {
+  const tracker = createSquatTracker()
+  assert.equal(play(tracker, [175, 80], { lean: 40 }).issue, null)
+  assert.equal(play(tracker, [80, 175], { lean: 40 }).correct, 1)
+})
+
+test('a one-frame lean glitch does not fail the rep', () => {
+  const tracker = createSquatTracker()
+  play(tracker, [175, 80], { lean: 30 })
+  tracker.update(pose({ knee: 80, lean: 90 })) // landmark กระตุก 1 เฟรม
+  const state = play(tracker, [80, 175], { lean: 30 })
+  assert.equal(state.correct, 1)
+  assert.equal(state.incorrect, 0)
+})
+
+test('summary reports totals, accuracy, faults and history', () => {
+  const tracker = createSquatTracker()
+  assert.deepEqual(tracker.summary(), { total: 0, correct: 0, incorrect: 0, accuracy: 0, faultCounts: { depth: 0, back: 0 }, history: [] })
+  play(tracker, [175, 80, 175, 80, 175, 80, 175, 120, 175]) // ถูก 3 ผิด 1
+  play(tracker, [175, 80, 175], { lean: 70 }) // ผิด 1 (หลัง)
+  const summary = tracker.summary()
+  assert.equal(summary.total, 5)
+  assert.equal(summary.correct, 3)
+  assert.equal(summary.incorrect, 2)
+  assert.equal(summary.accuracy, 60)
+  assert.deepEqual(summary.faultCounts, { depth: 1, back: 1 })
+  assert.deepEqual(summary.history.map((rep) => rep.correct), [true, true, true, false, false])
+  // summary เป็นสำเนา แก้แล้วไม่กระทบ tracker
+  summary.history[0].faults.push('x')
+  assert.deepEqual(tracker.summary().history[0].faults, [])
 })
 
 test('a lost body pauses without losing progress', () => {
