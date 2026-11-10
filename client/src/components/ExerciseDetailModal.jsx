@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Check, Footprints, Pause, Play, TriangleAlert, Wind, X } from 'lucide-react'
 import { getAnatomy } from '../utils/exerciseAnatomy'
-import { GUIDE_KEYS, MEDIA_SOURCE, getExerciseMedia, getGuidePattern } from '../utils/exerciseMedia'
+import { GUIDE_KEYS, getExerciseMedia, getGuidePattern } from '../utils/exerciseMedia'
 import ExerciseBadges from './ExerciseBadges'
 import { prefersReducedMotion } from '../utils/motion'
 import ExerciseVideo from './ExerciseVideo'
@@ -33,7 +33,9 @@ function MuscleChips({ muscles, tone }) {
 export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect, onClose }) {
   const { t } = useTranslation()
   const anatomy = getAnatomy(exercise.name)
-  const media = getExerciseMedia(exercise.name)
+  const [unavailable, setUnavailable] = useState(false) // โหลดสื่อไม่ได้ทุกแบบ -> แสดง Anatomy แทน
+  const found = getExerciseMedia(exercise.name)
+  const media = unavailable ? null : found
   const pattern = getGuidePattern(exercise.name)
   const [autoPlay] = useState(() => !prefersReducedMotion())
   const [playing, setPlaying] = useState(false) // สถานะจริงจาก event play/pause ของวิดีโอ
@@ -143,6 +145,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
                     autoPlay={autoPlay}
                     label={t('exerciseLibrary.demoAlt', { name: exercise.name })}
                     onPlayingChange={setPlaying}
+                    onUnavailable={() => setUnavailable(true)}
                     className="absolute inset-0 h-full w-full object-contain p-1 pb-9"
                   />
                   <button
@@ -219,9 +222,9 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
           {media && (
             <p className="mt-3 text-[10px] text-slate-600">
               {t('exerciseLibrary.credit')}{' '}
-              <a href={MEDIA_SOURCE.url} target="_blank" rel="noreferrer" className="underline hover:text-slate-400">
-                {MEDIA_SOURCE.name}
-              </a>{' '}({MEDIA_SOURCE.license})
+              <a href={media.source.url} target="_blank" rel="noreferrer" className="underline hover:text-slate-400">
+                {media.source.name}
+              </a>{' '}({media.source.license})
             </p>
           )}
 
