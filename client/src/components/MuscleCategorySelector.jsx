@@ -5,19 +5,27 @@ import { BODY_PART_ICON, exercisesForBodyPart } from '../utils/exerciseAnatomy'
 import { EXERCISES } from '../utils/exerciseCatalog'
 import AnatomyFigure from './AnatomyFigure'
 
-// การ์ดภาพ Anatomy ซูมเฉพาะส่วน (แนวนอน 4:3) ; viewBox อยู่ในพิกัดของ AnatomyFigure (200×430)
-// view = ด้านที่เห็นกล้ามเนื้อนั้นชัด ; "ทั้งหมด" = ร่างเต็มตัวด้านหน้า + หลังคู่กัน
+// การ์ดภาพ Anatomy ซูมเฉพาะส่วน (แนวนอน 4:3)
+// img = ภาพเรนเดอร์ 3D (BodyParts3D, CC BY-SA 2.1 JP — public/muscles/LICENSE.md) พื้นหลังโปร่งใส 720×540
+// ไม่มี img (อก ท้อง: ไม่มีภาพเรนเดอร์ 3D แบบเปิดเสรี) = เวกเตอร์ AnatomyFigure ; viewBox อยู่ในพิกัด 200×430
+// "ทั้งหมด" = ร่างเต็มตัวด้านหน้า + หลังคู่กัน
 // มือถือ 3 คอลัมน์: "ทั้งหมด" กว้าง 2 ช่อง (สูงเท่าการ์ดอื่นในแถว) ให้ 8 การ์ดเต็ม 3 แถวพอดี
 const CARDS = [
   { key: 'all' },
   { key: 'chest', view: 'front', viewBox: '40 50 120 90' },
-  { key: 'back', view: 'back', viewBox: '16 46 168 126' },
-  { key: 'shoulders', view: 'front', viewBox: '24 44 152 114' },
-  { key: 'arms', view: 'front', viewBox: '0 92 200 150' },
+  { key: 'back', img: '/muscles/back.webp' },
+  { key: 'shoulders', img: '/muscles/shoulders.webp' },
+  { key: 'arms', img: '/muscles/arms.webp' },
   { key: 'core', view: 'front', viewBox: '40 112 120 90' },
-  { key: 'glutes', view: 'back', viewBox: '40 176 120 90' },
-  { key: 'legs', view: 'front', viewBox: '24 206 152 114' },
+  { key: 'glutes', img: '/muscles/glutes.webp' },
+  { key: 'legs', img: '/muscles/legs.webp' },
 ]
+
+// ขอบภาพจางหายแบบนุ่มนวลเข้ากับพื้นการ์ดเดิม (ไม่มีขอบตัดแข็ง)
+const SEAMLESS_MASK = {
+  WebkitMaskImage: 'radial-gradient(ellipse 72% 70% at 50% 45%, #000 62%, transparent 100%)',
+  maskImage: 'radial-gradient(ellipse 72% 70% at 50% 45%, #000 62%, transparent 100%)',
+}
 
 const CARD_BG = 'bg-[radial-gradient(circle_at_50%_30%,#2c313d,#12141b_78%)]'
 
@@ -33,7 +41,7 @@ export default memo(function MuscleCategorySelector({ value, onChange, className
 
   return (
     <div role="radiogroup" aria-label={t('anatomy.filterLabel')} className={`grid grid-cols-3 gap-2 sm:grid-cols-4 ${className}`}>
-      {CARDS.map(({ key, view, viewBox }) => {
+      {CARDS.map(({ key, view, viewBox, img }) => {
         const active = (value || 'all') === key
         return (
           <button
@@ -56,6 +64,20 @@ export default memo(function MuscleCategorySelector({ value, onChange, className
                     <AnatomyFigure key={side} view={side} primary={active ? ['fullbody'] : []} tone="anatomy" className="h-full w-auto" />
                   ))}
                 </span>
+              ) : img ? (
+                <img
+                  src={img}
+                  alt=""
+                  width={720}
+                  height={540}
+                  loading="lazy"
+                  decoding="async"
+                  draggable={false}
+                  style={SEAMLESS_MASK}
+                  className={`h-full w-full select-none object-cover transition-[filter] duration-300 ${
+                    active ? 'brightness-110 saturate-[1.15] drop-shadow-[0_0_10px_rgba(239,68,68,0.45)]' : 'brightness-95'
+                  }`}
+                />
               ) : (
                 <AnatomyFigure
                   view={view}
