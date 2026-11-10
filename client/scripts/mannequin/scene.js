@@ -6,7 +6,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
-import { MOTIONS, samplePose, contraction } from './motions.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { MOTIONS, samplePose, contraction, resolvePose } from './motions.js'
 
 const W = 480
 const H = 640
@@ -19,7 +20,7 @@ const norm = (a) => ((((a + 180) % 360) + 360) % 360) - 180
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 
 // ---------- renderer ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true })
 renderer.setPixelRatio(1)
 renderer.setSize(W, H)
 renderer.shadowMap.enabled = true
@@ -101,6 +102,14 @@ const waterTex = canvasTexture((g, w, h) => {
     g.stroke()
   }
 }, 128, 128)
+// เส้นใยละเอียด คอนทราสต์ต่ำ สำหรับภาพนิ่งซูมใกล้ (ไม่เป็นลอนแบบฟักทอง)
+const fineFiberTex = canvasTexture((g, w, h) => {
+  for (let x = 0; x < w; x++) {
+    const v = 222 + Math.floor(rand() * 33)
+    g.fillStyle = `rgb(${v},${v},${v})`
+    g.fillRect(x, 0, 1, h)
+  }
+}, 512, 64)
 const glowTex = canvasTexture((g, w, h) => {
   const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
   grad.addColorStop(0, "rgba(80,150,210,0.16)")
@@ -119,7 +128,12 @@ const MAT = {
   pad: new THREE.MeshStandardMaterial({ color: 0x3b5068, roughness: 0.7, metalness: 0.1 }),
   glove: new THREE.MeshStandardMaterial({ color: 0x2f6fb0, roughness: 0.4, metalness: 0.2 }),
 }
+let theme = 'slate'
 function muscleMat(kind, tex) {
+  if (theme === 'silver') {
+    if (kind === 'primary') return new THREE.MeshStandardMaterial({ color: 0xff4a24, map: tex, emissive: 0xd8260c, emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.34, metalness: 0.08 })
+    return new THREE.MeshStandardMaterial({ color: 0xd9dfe6, map: tex, roughness: 0.3, metalness: 0.42 })
+  }
   if (kind === 'primary') {
     return new THREE.MeshStandardMaterial({
       color: 0xff6a3a, map: tex, emissive: 0xff3a12, emissiveMap: tex, emissiveIntensity: 2.4, roughness: 0.32, metalness: 0.1,
@@ -132,7 +146,7 @@ function muscleMat(kind, tex) {
 }
 
 // ---------- rig ----------
-const SPHERE = new THREE.SphereGeometry(1, 28, 20)
+const SPHERE = new THREE.SphereGeometry(1, 44, 30)
 const J = {}
 const bodyMeshes = []
 const muscles = []
@@ -173,47 +187,114 @@ function muscle(parent, group, pos, scale, part, rot, tex = fiberTex) {
   return m
 }
 
+// DETAIL (scene.html?detail=1): กายวิภาคละเอียดสำหรับภาพนิ่งไอคอนหมวดกล้ามเนื้อ
+//   แยกมัดย่อย (อก 2 ส่วน, ไหล่ 3 หัว, ซิกแพ็ก 6 ก้อน, ปีกหลัง/ทราพีเซียส, ต้นขา 3 หัว ฯลฯ) และย่อโครงให้กล้ามเนื้อเป็นผิวนอก
+// ไม่มี detail = หุ่นแบบเดิมที่ใช้เรนเดอร์วิดีโอสาธิตท่า (คงรูปร่างให้ตรงกับคลิปที่เรนเดอร์ไว้)
+const DETAIL = new URLSearchParams(location.search).has('detail')
 const root = joint('root', body, [0, BASE_Y, 0])
-ellipsoid(root, [0, 0.0, 0], [0.165, 0.11, 0.115], MAT.skin, 'torso')
-for (const s of [1, -1]) muscle(root, 'glutes', [0.075 * s, -0.035, -0.072], [0.085, 0.095, 0.062], 'torso')
 const spine = joint('spine', root, [0, 0.08, 0])
-capsule(spine, 0.2, 0.105, MAT.skin, 'torso', true).scale.set(1, 1, 0.82)
-muscle(spine, 'abs', [0, 0.1, 0.076], [0.07, 0.11, 0.035], 'torso', [0, 0, 0], absTex)
-for (const s of [1, -1]) muscle(spine, 'abs', [0.085 * s, 0.09, 0.03], [0.035, 0.09, 0.05], 'torso')
 const chest = joint('chest', spine, [0, 0.2, 0])
-ellipsoid(chest, [0, 0.14, 0], [0.185, 0.2, 0.122], MAT.skin, 'torso')
-for (const s of [1, -1]) {
-  muscle(chest, 'chest', [0.075 * s, 0.19, 0.083], [0.08, 0.066, 0.042], 'torso', [0, 0, 0.25 * s])
-  muscle(chest, 'back', [0.09 * s, 0.11, -0.07], [0.085, 0.15, 0.045], 'torso', [0, 0, -0.32 * s])
-}
-muscle(chest, 'back', [0, 0.27, -0.055], [0.12, 0.06, 0.05], 'torso')
 const neck = joint('neck', chest, [0, 0.3, 0])
+if (!DETAIL) {
+  ellipsoid(root, [0, 0.0, 0], [0.165, 0.11, 0.115], MAT.skin, 'torso')
+  for (const s of [1, -1]) muscle(root, 'glutes', [0.075 * s, -0.035, -0.072], [0.085, 0.095, 0.062], 'torso')
+  capsule(spine, 0.2, 0.105, MAT.skin, 'torso', true).scale.set(1, 1, 0.82)
+  muscle(spine, 'abs', [0, 0.1, 0.076], [0.07, 0.11, 0.035], 'torso', [0, 0, 0], absTex)
+  for (const s of [1, -1]) muscle(spine, 'abs', [0.085 * s, 0.09, 0.03], [0.035, 0.09, 0.05], 'torso')
+  ellipsoid(chest, [0, 0.14, 0], [0.185, 0.2, 0.122], MAT.skin, 'torso')
+  for (const s of [1, -1]) {
+    muscle(chest, 'chest', [0.075 * s, 0.19, 0.083], [0.08, 0.066, 0.042], 'torso', [0, 0, 0.25 * s])
+    muscle(chest, 'back', [0.09 * s, 0.11, -0.07], [0.085, 0.15, 0.045], 'torso', [0, 0, -0.32 * s])
+  }
+  muscle(chest, 'back', [0, 0.27, -0.055], [0.12, 0.06, 0.05], 'torso')
+} else {
+  // เชิงกราน + ก้น (glute max ใหญ่ + glute med ด้านข้าง)
+  ellipsoid(root, [0, 0.01, 0], [0.15, 0.1, 0.1], MAT.skin, 'torso')
+  for (const s of [1, -1]) {
+    muscle(root, 'glutes', [0.072 * s, -0.045, -0.068], [0.088, 0.1, 0.07], 'torso', [0.15, 0, 0.12 * s])
+    muscle(root, 'glutes', [0.125 * s, 0.03, -0.03], [0.05, 0.065, 0.055], 'torso', [0, 0, 0.3 * s])
+  }
+  // ลำตัวช่วงท้อง: ซิกแพ็ก 3 แถว x 2 + ท้องน้อย + กล้ามเนื้อข้างลำตัว (oblique) + กล้ามเนื้อหลังส่วนล่าง (erector)
+  capsule(spine, 0.2, 0.098, MAT.skin, 'torso', true).scale.set(1, 1, 0.78)
+  for (const s of [1, -1]) {
+    for (const [i, y] of [0.035, 0.095, 0.155].entries()) muscle(spine, 'abs', [0.031 * s, y, 0.07 + 0.004 * i], [0.03, 0.027, 0.017], 'torso')
+    muscle(spine, 'abs', [0.022 * s, -0.025, 0.068], [0.026, 0.035, 0.016], 'torso')
+    muscle(spine, 'abs', [0.083 * s, 0.07, 0.035], [0.034, 0.1, 0.045], 'torso', [0, 0, -0.12 * s])
+    muscle(spine, 'back', [0.03 * s, 0.09, -0.068], [0.03, 0.12, 0.026], 'torso')
+  }
+  // ซี่โครง/อก: โครงเล็กลงให้มัดกล้ามเนื้อเป็นผิวนอก
+  ellipsoid(chest, [0, 0.14, -0.005], [0.165, 0.19, 0.11], MAT.skin, 'torso')
+  for (const s of [1, -1]) {
+    // อกส่วนล่าง (sternal) + ส่วนบน (clavicular)
+    muscle(chest, 'chest', [0.078 * s, 0.175, 0.088], [0.094, 0.066, 0.036], 'torso', [0.1, 0.22 * s, 0.3 * s])
+    muscle(chest, 'chest', [0.07 * s, 0.232, 0.08], [0.078, 0.042, 0.03], 'torso', [0.2, 0.22 * s, 0.12 * s])
+    // serratus (ซี่โครงข้าง) ไม่เป็นเป้าหมาย
+    for (const y of [0.05, 0.085, 0.12]) muscle(chest, 'serratus', [0.138 * s, y, 0.055], [0.026, 0.016, 0.022], 'torso', [0, 0, -0.5 * s])
+    // ปีกหลัง (lats) + rhomboid
+    muscle(chest, 'back', [0.105 * s, 0.1, -0.055], [0.098, 0.17, 0.042], 'torso', [0, 0.25 * s, -0.36 * s])
+    muscle(chest, 'back', [0.055 * s, 0.19, -0.088], [0.055, 0.06, 0.025], 'torso')
+    // ทราพีเซียสลาดจากคอ
+    muscle(chest, 'back', [0.075 * s, 0.3, -0.03], [0.07, 0.035, 0.045], 'torso', [0, 0, -0.42 * s])
+  }
+  muscle(chest, 'back', [0, 0.235, -0.085], [0.09, 0.11, 0.03], 'torso')
+}
 capsule(neck, 0.09, 0.048, MAT.skin, 'torso', true)
 ellipsoid(neck, [0, 0.15, 0.005], [0.092, 0.105, 0.1], MAT.skin, 'torso')
 
 for (const [n, s] of [['L', 1], ['R', -1]]) {
   const sh = joint(`shoulder${n}`, chest, [0.2 * s, 0.25, 0], 'YXZ')
   const ur = joint(`uroll${n}`, sh, [0, 0, 0])
-  muscle(ur, 'shoulders', [0.012 * s, -0.025, 0], [0.068, 0.078, 0.068], 'arm')
-  capsule(ur, 0.29, 0.048, MAT.skin, 'arm')
-  muscle(ur, 'biceps', [0, -0.15, 0.03], [0.042, 0.1, 0.038], 'arm')
-  muscle(ur, 'triceps', [0, -0.135, -0.032], [0.044, 0.11, 0.04], 'arm')
   const el = joint(`elbow${n}`, ur, [0, -0.29, 0])
-  ellipsoid(el, [0, 0, 0], [0.046, 0.046, 0.046], MAT.joint, 'arm')
-  capsule(el, 0.26, 0.04, MAT.skin, 'arm')
-  muscle(el, 'forearms', [0, -0.085, 0.004], [0.046, 0.095, 0.046], 'arm')
   const hand = joint(`hand${n}`, el, [0, -0.33, 0])
-  ellipsoid(hand, [0, 0.005, 0], [0.036, 0.062, 0.028], MAT.joint, 'arm')
-
   const hip = joint(`hip${n}`, root, [0.095 * s, -0.04, 0], 'YXZ')
-  capsule(hip, 0.43, 0.072, MAT.skin, 'leg')
-  muscle(hip, 'quads', [0, -0.2, 0.036], [0.068, 0.18, 0.052], 'leg')
-  muscle(hip, 'hamstrings', [0, -0.2, -0.034], [0.062, 0.17, 0.05], 'leg')
   const knee = joint(`knee${n}`, hip, [0, -0.43, 0])
-  ellipsoid(knee, [0, 0, 0.01], [0.058, 0.058, 0.058], MAT.joint, 'leg')
-  capsule(knee, 0.42, 0.052, MAT.skin, 'leg')
-  muscle(knee, 'calves', [0, -0.13, -0.032], [0.05, 0.11, 0.045], 'leg')
   const ankle = joint(`ankle${n}`, knee, [0, -0.42, 0])
+  if (!DETAIL) {
+    muscle(ur, 'shoulders', [0.012 * s, -0.025, 0], [0.068, 0.078, 0.068], 'arm')
+    capsule(ur, 0.29, 0.048, MAT.skin, 'arm')
+    muscle(ur, 'biceps', [0, -0.15, 0.03], [0.042, 0.1, 0.038], 'arm')
+    muscle(ur, 'triceps', [0, -0.135, -0.032], [0.044, 0.11, 0.04], 'arm')
+    capsule(el, 0.26, 0.04, MAT.skin, 'arm')
+    muscle(el, 'forearms', [0, -0.085, 0.004], [0.046, 0.095, 0.046], 'arm')
+    capsule(hip, 0.43, 0.072, MAT.skin, 'leg')
+    muscle(hip, 'quads', [0, -0.2, 0.036], [0.068, 0.18, 0.052], 'leg')
+    muscle(hip, 'hamstrings', [0, -0.2, -0.034], [0.062, 0.17, 0.05], 'leg')
+    capsule(knee, 0.42, 0.052, MAT.skin, 'leg')
+    muscle(knee, 'calves', [0, -0.13, -0.032], [0.05, 0.11, 0.045], 'leg')
+  } else {
+    // ไหล่ 3 หัว (หน้า / ข้าง / หลัง)
+    muscle(ur, 'shoulders', [0.004 * s, -0.035, 0.034], [0.046, 0.085, 0.04], 'arm', [-0.2, 0, 0])
+    muscle(ur, 'shoulders', [0.03 * s, -0.04, 0], [0.045, 0.09, 0.05], 'arm', [0, 0, 0.12 * s])
+    muscle(ur, 'shoulders', [0.004 * s, -0.035, -0.034], [0.044, 0.08, 0.04], 'arm', [0.2, 0, 0])
+    capsule(ur, 0.29, 0.042, MAT.skin, 'arm')
+    // ต้นแขน: biceps + brachialis / triceps 2 หัว
+    muscle(ur, 'biceps', [0, -0.155, 0.03], [0.039, 0.095, 0.038], 'arm')
+    muscle(ur, 'biceps', [0.022 * s, -0.215, 0.012], [0.025, 0.05, 0.028], 'arm')
+    muscle(ur, 'triceps', [-0.006 * s, -0.13, -0.034], [0.04, 0.11, 0.036], 'arm')
+    muscle(ur, 'triceps', [0.027 * s, -0.11, -0.016], [0.028, 0.075, 0.03], 'arm')
+    capsule(el, 0.26, 0.035, MAT.skin, 'arm')
+    // ปลายแขน: กลุ่มงอ / กลุ่มเหยียด เรียวลงที่ข้อมือ
+    muscle(el, 'forearms', [0.012 * s, -0.075, 0.012], [0.036, 0.1, 0.036], 'arm')
+    muscle(el, 'forearms', [-0.012 * s, -0.07, -0.01], [0.032, 0.095, 0.032], 'arm')
+    capsule(hip, 0.43, 0.066, MAT.skin, 'leg')
+    // ต้นขาหน้า 3 หัว (vastus lateralis / rectus femoris / vastus medialis รูปหยดน้ำ) + ต้นขาด้านใน
+    muscle(hip, 'quads', [0.034 * s, -0.2, 0.012], [0.05, 0.17, 0.052], 'leg', [0, 0, 0.05 * s])
+    muscle(hip, 'quads', [0, -0.19, 0.046], [0.042, 0.18, 0.036], 'leg')
+    muscle(hip, 'quads', [-0.03 * s, -0.33, 0.035], [0.04, 0.07, 0.038], 'leg')
+    muscle(hip, 'adductors', [-0.04 * s, -0.12, 0], [0.036, 0.12, 0.045], 'leg')
+    // ต้นขาหลัง 2 หัว
+    muscle(hip, 'hamstrings', [0.022 * s, -0.21, -0.038], [0.038, 0.16, 0.038], 'leg')
+    muscle(hip, 'hamstrings', [-0.022 * s, -0.21, -0.036], [0.036, 0.16, 0.038], 'leg')
+    capsule(knee, 0.42, 0.046, MAT.skin, 'leg')
+    // น่อง: gastrocnemius 2 หัว + soleus + หน้าแข้ง (tibialis)
+    muscle(knee, 'calves', [0.021 * s, -0.105, -0.036], [0.033, 0.09, 0.04], 'leg')
+    muscle(knee, 'calves', [-0.021 * s, -0.115, -0.034], [0.032, 0.095, 0.04], 'leg')
+    muscle(knee, 'calves', [0, -0.21, -0.024], [0.04, 0.075, 0.03], 'leg')
+    muscle(knee, 'tibialis', [0.018 * s, -0.15, 0.03], [0.022, 0.12, 0.022], 'leg')
+  }
+  ellipsoid(el, [0, 0, 0], [0.046, 0.046, 0.046], MAT.joint, 'arm')
+  ellipsoid(hand, [0, 0.005, 0], [0.036, 0.062, 0.028], MAT.joint, 'arm')
+  ellipsoid(knee, [0, 0, 0.01], [0.058, 0.058, 0.058], MAT.joint, 'leg')
   const foot = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.16, 6, 14), MAT.joint)
   foot.rotation.x = Math.PI / 2
   foot.position.set(0, -0.045, 0.055)
@@ -676,6 +757,43 @@ window.frame = (i, frames) => {
   const c = contraction(M, t)
   for (const m of muscles) if (m.kind === 'primary') m.mesh.material.emissiveIntensity = 1.35 + 1.1 * c
   composer.render()
+  return renderer.domElement.toDataURL('image/png')
+}
+
+// ---------- ภาพนิ่งไอคอนหมวดกล้ามเนื้อ: หุ่นกล้ามเนื้อสีเงิน พื้นโปร่งใส ซูมเฉพาะส่วน ----------
+// spec: { pose, primary, az, el, focus: [กลุ่มกล้ามเนื้อที่ใช้จัดเฟรม], pad, width, height }
+window.still = (spec) => {
+  theme = 'silver'
+  M = { anchor: 'feet' }
+  Object.assign(MAT.skin, { color: new THREE.Color(0xb8c1cb), roughness: 0.28, metalness: 0.5 })
+  Object.assign(MAT.joint, { color: new THREE.Color(0x8a96a3), roughness: 0.35, metalness: 0.55 })
+  const all = spec.primary.includes('fullbody')
+  for (const m of muscles) {
+    m.kind = all || spec.primary.includes(m.group) ? 'primary' : 'base'
+    m.mesh.material = muscleMat(m.kind, m.tex === absTex ? absTex : fineFiberTex)
+  }
+  ground.visible = false
+  halo.visible = false
+  scene.background = null
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture
+  scene.environmentIntensity = 0.55
+  rim.color.set(0xcfe6ff)
+  rim.intensity = 2.2
+  key.intensity = 2.3
+  renderer.setClearColor(0x000000, 0)
+  renderer.setSize(spec.width, spec.height)
+  camera.aspect = spec.width / spec.height
+  camera.updateProjectionMatrix()
+  const o = resolvePose(spec.pose || {})
+  setAngles(o)
+  anchor(o)
+  const focus = new THREE.Box3()
+  for (const m of muscles) if (spec.focus.includes(m.group)) focus.expandByObject(m.mesh)
+  if (spec.focus.includes('body')) for (const m of bodyMeshes) focus.expandByObject(m)
+  focus.expandByScalar(spec.pad ?? 0.04)
+  frameCamera([focus], spec.az, spec.el)
+  renderer.render(scene, camera)
+  window.lastFocus = focus.getSize(new THREE.Vector3()).toArray()
   return renderer.domElement.toDataURL('image/png')
 }
 
