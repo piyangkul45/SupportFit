@@ -902,7 +902,7 @@
     "previewAlt": "{{name}} illustration",
     "demoAlt": "{{name}} demonstration",
     "targetFigure": "Front and back body view with target muscles in red",
-    "noDemo": "No illustration for this exercise yet. See the muscles worked on the anatomy figure.",
+    "noDemo": "The demo clip could not be loaded. Check your connection and try again.",
     "play": "Play video",
     "pause": "Pause video",
     "playShort": "Play",
@@ -915,7 +915,7 @@
       "breathing": "Breathing",
       "caution": "Watch out"
     },
-    "credit": "Demo media from",
+    "credit": "3D mannequin animation by SupportFit — glowing muscles show the target and supporting muscles.",
     "select": "Choose this exercise",
     "close": "Close",
     "tips": {

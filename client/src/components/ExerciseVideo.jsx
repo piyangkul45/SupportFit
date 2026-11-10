@@ -1,28 +1,16 @@
 import { useState } from 'react'
 
-// วิดีโอสาธิตท่า (HTML5 <video> วนซ้ำ ไม่มีเสียง เล่นในหน้าได้บนมือถือ)
-// - poster = ภาพนิ่งของท่าเริ่ม แสดงทันทีระหว่างรอโหลด/ก่อนเล่น
-// - ลำดับสำรองเมื่อโหลดไม่ได้: วิดีโอ (MP4 -> WebM) -> poster ในเว็บเอง -> ภาพนิ่งบน CDN -> onUnavailable() (ให้ parent แสดง Anatomy)
-// - สื่อทุกชิ้นเป็นลายเส้นขาวบนพื้นดำ (Line Art) ใช้ screen blend ให้พื้นดำโปร่ง เข้ากับการ์ดพื้นเข้ม ไม่มีขอบขาว
+// วิดีโอสาธิตท่าแบบหุ่นจำลอง 3D (HTML5 <video> วนซ้ำ ไม่มีเสียง เล่นในหน้าได้บนมือถือ)
+// - พื้นวิดีโอ #0e1a24 เท่าพื้นกรอบ ; .mannequin-video จางขอบด้วย mask ให้กลืนกับการ์ด (ไม่เห็นกรอบสี่เหลี่ยม)
+// - poster = เฟรมหุ่น 3D ช่วงออกแรงสุด แสดงทันทีระหว่างรอโหลด/ก่อนเล่น
+// - ลำดับสำรองเมื่อโหลดไม่ได้: วิดีโอ (MP4 -> WebM) -> poster -> onUnavailable() (ให้ parent แสดงไอคอนแทน)
 // - preload="metadata": โหลดแค่ข้อมูลหัวไฟล์ จนกว่าจะสั่ง play() (หรือ autoPlay)
 // ref (React 19 ส่งเป็น prop ได้) ใช้สั่ง play()/pause() จากภายนอก ; onPlayingChange(boolean) แจ้งสถานะเล่น/หยุด
 export default function ExerciseVideo({ media, ref, autoPlay = false, label, className = '', onPlayingChange, onUnavailable }) {
-  const [stage, setStage] = useState(0) // 0 = วิดีโอ, 1 = poster, 2 = ภาพนิ่ง CDN
+  const [failed, setFailed] = useState(false)
 
-  if (stage > 0) {
-    const src = stage === 1 ? media.poster : media.still
-    // poster ของ lineart เป็นเส้นขาวบนดำอยู่แล้ว ; ภาพนิ่ง SVG บน CDN เป็นเส้นดำบนขาว ต้องกลับสี (anatomy-art)
-    const artClass = stage === 1 ? 'anatomy-video' : 'anatomy-art'
-    return (
-      <img
-        key={src}
-        src={src}
-        alt={label}
-        draggable={false}
-        onError={() => (stage === 1 ? setStage(2) : onUnavailable?.())}
-        className={`${artClass} ${className}`}
-      />
-    )
+  if (failed) {
+    return <img src={media.poster} alt={label} draggable={false} onError={() => onUnavailable?.()} className={`mannequin-video ${className}`} />
   }
   return (
     <video
@@ -38,7 +26,7 @@ export default function ExerciseVideo({ media, ref, autoPlay = false, label, cla
       aria-label={label}
       onPlay={() => onPlayingChange?.(true)}
       onPause={() => onPlayingChange?.(false)}
-      className={`anatomy-video ${className}`}
+      className={`mannequin-video ${className}`}
     >
       {media.sources.map((source, index) => (
         <source
@@ -46,7 +34,7 @@ export default function ExerciseVideo({ media, ref, autoPlay = false, label, cla
           src={source.src}
           type={source.type}
           // error ของ <video> ไม่ยิงเมื่อ <source> โหลดไม่ได้ ต้องฟังที่ source ตัวสุดท้าย (ลองครบทุกตัวแล้ว)
-          onError={index === media.sources.length - 1 ? () => setStage(1) : undefined}
+          onError={index === media.sources.length - 1 ? () => setFailed(true) : undefined}
         />
       ))}
     </video>

@@ -244,21 +244,18 @@ body {
   animation: shake 0.35s ease-in-out;
 }
 
-/* ภาพวาดท่าฝึก (เส้นเข้มบนพื้นขาว) -> เส้นขาว-เทาบนพื้นโปร่ง:
-   invert ทำให้พื้นขาวเป็นดำ แล้ว screen ทำให้สีดำกลืนหายไปกับพื้นหลังเข้มของการ์ด */
-/* มาตรฐานสื่อท่าฝึกทั้งเว็บ: ลายเส้นสีขาวชัดบนการ์ดพื้นเข้ม ไม่มีขอบ/พื้นขาว (ห้ามภาพถ่ายคนจริง)
-   ภาพนิ่ง SVG ต้นฉบับเป็นเส้นดำบนขาว: กลับสีเป็นเส้นขาวบนดำ แล้ว screen ทำพื้นดำให้โปร่ง */
-.anatomy-art {
-  filter: invert(1) grayscale(1) contrast(1.25) brightness(1.05);
-  mix-blend-mode: screen;
+/* มาตรฐานสื่อท่าฝึกทั้งเว็บ: แอนิเมชันหุ่นจำลอง 3D (public/mannequin) พื้นวิดีโอ #0e1a24 เท่าพื้นกรอบการ์ด/ป๊อปอัป
+   mask จางขอบภาพ 4 ด้าน -> ไม่เห็นรอยต่อกรอบวิดีโอ แม้สีที่ถอดรหัสต่างกันเล็กน้อยระหว่างเบราว์เซอร์
+   ความอิ่มสี/คอนทราสต์เพิ่มเล็กน้อยให้มัดกล้ามเนื้อที่เรืองแสงเด่นบนตัวหุ่น */
+.mannequin-video {
+  background: #0e1a24;
+  filter: saturate(1.12) contrast(1.05);
+  -webkit-mask-image: radial-gradient(ellipse 78% 74% at 50% 48%, #000 70%, transparent 100%);
+  mask-image: radial-gradient(ellipse 78% 74% at 50% 48%, #000 70%, transparent 100%);
 }
-
-/* วิดีโอ Anatomy (public/anatomy) เป็นเส้นขาว-เทาบนพื้นดำสนิทอยู่แล้ว: screen ทำพื้นดำให้โปร่ง (รวม poster)
-   เร่งความสว่างเส้นเล็กน้อยให้ขาวเด่นบนพื้นเข้ม (พื้นดำยังดำ จึงยังโปร่งเหมือนเดิม) */
-.anatomy-video {
-  mix-blend-mode: screen;
-  background: #000;
-  filter: grayscale(1) contrast(1.12) brightness(1.12);
+/* กำลังเล่น: เร่งแสงเรืองของกล้ามเนื้อเป้าหมาย */
+.mannequin-video.mannequin-active {
+  filter: saturate(1.22) contrast(1.08) drop-shadow(0 0 10px rgba(255, 90, 40, 0.28));
 }
 
 /* กล้ามเนื้อเป้าหมาย (Target) เต้นเป็นจังหวะสีแดงใน Exercise Library */

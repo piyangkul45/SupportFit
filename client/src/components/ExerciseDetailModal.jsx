@@ -2,13 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { Check, Footprints, Pause, Play, TriangleAlert, Wind, X } from 'lucide-react'
+import { Check, Dumbbell, Footprints, Pause, Play, TriangleAlert, Wind, X } from 'lucide-react'
 import { getAnatomy } from '../utils/exerciseAnatomy'
 import { GUIDE_KEYS, getExerciseMedia, getGuidePattern } from '../utils/exerciseMedia'
 import ExerciseBadges from './ExerciseBadges'
 import { prefersReducedMotion } from '../utils/motion'
 import ExerciseVideo from './ExerciseVideo'
-import { MuscleIcon } from './MuscleTargetCard'
 
 const TIP_STYLES = {
   stance: { Icon: Footprints, tone: 'border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-300' },
@@ -74,24 +73,6 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
     else video.pause()
   }
 
-  const anatomyFigure = anatomy && (
-    <figure className="flex items-end justify-center gap-2" aria-label={t('exerciseLibrary.targetFigure')}>
-      {['front', 'back'].map((view) => (
-        <div key={view} className="flex flex-col items-center gap-1">
-          <MuscleIcon
-            primary={anatomy.primary}
-            secondary={anatomy.secondary}
-            view={view}
-            tone="anatomy"
-            pulse={playing || !media}
-            className="h-32 w-16 sm:h-40 sm:w-20"
-          />
-          <figcaption className="text-[9px] uppercase tracking-wider text-slate-500">{t(`anatomy.views.${view}`)}</figcaption>
-        </div>
-      ))}
-    </figure>
-  )
-
   // portal ไปที่ body: การ์ดแม่มี transform/overflow-hidden ซึ่งทำให้ position: fixed ไม่เต็มจอ
   return createPortal(
     <motion.div
@@ -134,46 +115,33 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
         </div>
 
         <div className="overflow-y-auto px-5 pb-5 pt-4">
-          {/* ภาพสาธิตเคลื่อนไหว + Anatomy */}
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-            <div className="relative aspect-square overflow-hidden rounded-xl border border-white/[0.07] bg-[radial-gradient(circle_at_50%_45%,rgba(239,68,68,0.14),rgba(255,255,255,0.02)_65%)] sm:aspect-[5/4]">
-              {media ? (
-                <>
-                  <ExerciseVideo
-                    ref={videoRef}
-                    media={media}
-                    autoPlay={autoPlay}
-                    label={t('exerciseLibrary.demoAlt', { name: exercise.name })}
-                    onPlayingChange={setPlaying}
-                    onUnavailable={() => setUnavailable(true)}
-                    className="absolute inset-0 h-full w-full object-contain p-1 pb-9"
-                  />
-                  <button
-                    type="button"
-                    onClick={togglePlay}
-                    aria-label={t(playing ? 'exerciseLibrary.pause' : 'exerciseLibrary.play')}
-                    className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm hover:bg-black/85"
-                  >
-                    {playing ? <Pause className="h-3 w-3 fill-current" aria-hidden /> : <Play className="h-3 w-3 fill-current" aria-hidden />}
-                    {t(playing ? 'exerciseLibrary.pauseShort' : 'exerciseLibrary.playShort')}
-                  </button>
-                  {/* Anatomy ซ้อนมุมขวาบนบนมือถือ (จอใหญ่แสดงคอลัมน์ข้าง ๆ) */}
-                  {anatomy && (
-                    <span className="absolute right-2 top-2 flex rounded-lg bg-black/45 p-1 backdrop-blur-[2px] sm:hidden">
-                      <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} tone="anatomy" pulse={playing} className="h-20 w-10" />
-                    </span>
-                  )}
-                </>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  {anatomyFigure}
-                  <p className="px-4 text-center text-[11px] text-slate-500">{t('exerciseLibrary.noDemo')}</p>
-                </div>
-              )}
-            </div>
-            {media && anatomy && (
-              <div className="hidden flex-col items-center justify-center rounded-xl border border-white/[0.07] bg-[radial-gradient(circle_at_50%_45%,rgba(239,68,68,0.12),rgba(255,255,255,0.02)_70%)] px-4 py-3 sm:flex">
-                {anatomyFigure}
+          {/* แอนิเมชันหุ่นจำลอง 3D ขนาดใหญ่ (พื้น #0e1a24 เท่าพื้นวิดีโอ ขอบกลืนกันด้วย mask) */}
+          <div className="relative aspect-square overflow-hidden rounded-xl border border-white/[0.07] bg-[#0e1a24] sm:aspect-[5/4]">
+            {media ? (
+              <>
+                <ExerciseVideo
+                  ref={videoRef}
+                  media={media}
+                  autoPlay={autoPlay}
+                  label={t('exerciseLibrary.demoAlt', { name: exercise.name })}
+                  onPlayingChange={setPlaying}
+                  onUnavailable={() => setUnavailable(true)}
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={togglePlay}
+                  aria-label={t(playing ? 'exerciseLibrary.pause' : 'exerciseLibrary.play')}
+                  className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm hover:bg-black/85"
+                >
+                  {playing ? <Pause className="h-3 w-3 fill-current" aria-hidden /> : <Play className="h-3 w-3 fill-current" aria-hidden />}
+                  {t(playing ? 'exerciseLibrary.pauseShort' : 'exerciseLibrary.playShort')}
+                </button>
+              </>
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-500">
+                <Dumbbell className="h-10 w-10" aria-hidden />
+                <p className="px-4 text-center text-[11px]">{t('exerciseLibrary.noDemo')}</p>
               </div>
             )}
           </div>
@@ -219,14 +187,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
             })}
           </ol>
 
-          {media && (
-            <p className="mt-3 text-[10px] text-slate-600">
-              {t('exerciseLibrary.credit')}{' '}
-              <a href={media.source.url} target="_blank" rel="noreferrer" className="underline hover:text-slate-400">
-                {media.source.name}
-              </a>{' '}({media.source.license})
-            </p>
-          )}
+          {media && <p className="mt-3 text-[10px] text-slate-600">{t('exerciseLibrary.credit')}</p>}
 
           <div className="mt-4 flex gap-2">
             <button type="button" onClick={close} className="btn-ghost flex-1">

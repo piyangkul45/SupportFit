@@ -1,52 +1,81 @@
-// วิดีโอ Anatomy ของท่าฝึก + กลุ่มรูปแบบการเคลื่อนไหว (ใช้เลือกคำแนะนำสำหรับมือใหม่)
+// วิดีโอสาธิตท่าแบบหุ่นจำลอง 3D (3D Mannequin) + กลุ่มรูปแบบการเคลื่อนไหว (ใช้เลือกคำแนะนำสำหรับมือใหม่)
 //
-// วิดีโอวนซ้ำ (MP4 + WebM) และ poster (WebP) อยู่ใน client/public/anatomy สร้างด้วย scripts/build-exercise-videos.mjs
-// จากภาพวาด SVG ของ Everkinetic (https://github.com/everkinetic/data, CC BY-SA 4.0): ท่าเริ่ม <-> ท่าเกร็ง
-// เป็นเส้นขาว-เทาบนพื้นดำสนิท UI ใช้ mix-blend-mode: screen (.anatomy-art ใน index.css) ให้พื้นโปร่งบน Dark Mode
-// still = SVG ต้นฉบับบน CDN ใช้เมื่อโหลด poster ไม่ได้ (UI กลับสีด้วย filter เอง)
-// กล้ามเนื้อเป้าหมายสีแดงมาจากรูป Anatomy ของแอปเอง (MuscleIcon) เพราะภาพต้นฉบับไม่ได้แยกกล้ามเนื้อ
-// ท่าที่ไม่มีวิดีโอ -> null แล้ว UI ใช้ Silhouette Anatomy แบบโปร่ง (ขาว-เทา + แดง) แทน
-// มาตรฐานสื่อทั้งเว็บ: ใช้เฉพาะลายเส้น (Line Art) / Silhouette Anatomy เท่านั้น ห้ามภาพถ่ายคนจริง (มีเทสต์บังคับใน exerciseMedia.test.js)
+// วิดีโอวนซ้ำ (MP4 + WebM) และ poster (WebP) อยู่ใน client/public/mannequin สร้างด้วย scripts/build-mannequin-videos.mjs
+// เรนเดอร์จากหุ่น 3D ของแอปเอง (scripts/mannequin: three.js) พื้นหลัง #0e1a24 เท่าสีการ์ด กล้ามเนื้อเป้าหมายเรืองแสงส้ม-แดง
+// มาตรฐานสื่อทั้งเว็บ: ทุกท่าในรายการต้องมีแอนิเมชันหุ่น 3D ห้ามภาพถ่ายคนจริง และห้ามหุ่นอนาโตมีนิ่งยืนตรงแทนคลิป
+// (มีเทสต์บังคับใน exerciseMedia.test.js)
 import { findExercise } from './exerciseCatalog.js'
 
-export const MEDIA_SOURCE = { name: 'Everkinetic', license: 'CC BY-SA 4.0', url: 'https://github.com/everkinetic/data' }
-// ล็อก commit ไว้ ภาพจะไม่เปลี่ยนเองเมื่อ repo ต้นทางอัปเดต
-export const EVERKINETIC_SVG_BASE = 'https://cdn.jsdelivr.net/gh/everkinetic/data@446bb9a3d0c3beb6b84f7c9d77dfc8af707a2ab6/dist/svg'
-const VIDEO_BASE = '/anatomy'
+export const MEDIA_SOURCE = { name: 'SupportFit 3D Mannequin', license: 'Original animation', url: null }
+const VIDEO_BASE = '/mannequin'
 
 // ชื่อท่า -> ชื่อไฟล์ ("Bench Press" -> "bench-press")
 export const mediaSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-// ชื่อท่าใน exerciseCatalog -> id_num ของ Everkinetic (ไฟล์ <id>-relaxation.svg / <id>-tension.svg)
-// เพิ่มท่าใหม่: ใส่ id ที่นี่ แล้วรัน scripts/build-exercise-videos.mjs
-export const EVERKINETIC_IDS = {
+// ชื่อท่าใน exerciseCatalog -> แอนิเมชันหุ่น 3D (key ใน scripts/mannequin/motions.js)
+// ท่าหลักใช้แอนิเมชันตรงท่า ; ท่าเฉพาะทางใช้แอนิเมชันของรูปแบบการเคลื่อนไหวใกล้เคียงที่สุด (ระบุไว้ในคอมเมนต์)
+// เพิ่มท่าใหม่: ใส่ที่นี่ (หรือปล่อยว่างให้ใช้ PATTERN_MOTIONS ตามกลุ่ม) แล้วรัน scripts/build-mannequin-videos.mjs
+export const MANNEQUIN_MOTIONS = {
   // ---- เวทเทรนนิ่ง ----
-  'Squat': '0122', // barbell-squat
-  'Bench Press': '0042', // bench-press
-  'Deadlift': '0099', // barbell-dead-lifts
-  'Overhead Press': '0004', // seated-military-press
-  'Barbell Row': '0026', // reverse-grips-bent-over-barbell-rows
-  'Romanian Deadlift': '0118', // romanian-dead-lift
-  'Leg Press': '0127', // leg-press
-  'Lat Pulldown': '0096', // v-bar-pull-down
-  'Incline Bench Press': '0043', // incline-bench-press
-  'Dumbbell Bench Press': '0055', // bench-press-dumbbell
-  'Hip Thrust': '0109', // bridging
-  'Lunge': '0121', // walking-lunges
-  'Bicep Curl': '0224', // biceps-curl-with-dumbbell
-  'Tricep Pushdown': '0205', // triceps-pushdown-with-cable
-  'Lateral Raise': '0018', // lateral-dumbbell-raises
-  'Leg Extension': '0142', // leg-extensions
-  'Leg Curl': '0117', // lying-leg-curl-machine
-  'Cable Fly': '0048', // cable-crossover
+  'Squat': 'barbell-squat',
+  'Bench Press': 'bench-press',
+  'Deadlift': 'deadlift',
+  'Overhead Press': 'overhead-press',
+  'Barbell Row': 'barbell-row',
+  'Romanian Deadlift': 'rdl',
+  'Leg Press': 'leg-press',
+  'Lat Pulldown': 'lat-pulldown',
+  'Incline Bench Press': 'incline-bench',
+  'Dumbbell Bench Press': 'dumbbell-bench',
+  'Hip Thrust': 'hip-thrust',
+  'Lunge': 'lunge',
+  'Bicep Curl': 'bicep-curl',
+  'Tricep Pushdown': 'tricep-pushdown',
+  'Lateral Raise': 'lateral-raise',
+  'Leg Extension': 'leg-extension',
+  'Leg Curl': 'leg-curl',
+  'Cable Fly': 'cable-fly',
+  'Clean and Jerk': 'clean-jerk', // ดึงจากพื้น -> รับบาร์ที่ไหล่ -> ดันขึ้นแบบแยกขา (ย่อขั้นตอน)
+  'Kettlebell Swing': 'kettlebell-swing',
 
-  // ---- สตรีทเวิร์กเอาต์ ----
-  'Push Up': '0077', // push-ups
-  'Pull Up': '0087', // pull-ups
-  'Chin Up': '0090', // narrow-parallel-grip-chin-ups
-  'Dips': '0172', // tricep-dips-using-body-weight
-  'Inverted Row': '0086', // body-row
-  'Crunch': '0291', // crunches
+  // ---- คาร์ดิโอ ----
+  'Running': 'run',
+  'Treadmill Running': 'treadmill-run',
+  'Walking': 'walk',
+  'Hiking': 'hike',
+  'Cycling': 'cycling',
+  'Stationary Bike': 'stationary-bike',
+  'Swimming': 'swim',
+  'Rowing Machine': 'rowing',
+  'Elliptical': 'elliptical',
+  'Stair Climber': 'stair-climber',
+  'Jump Rope': 'jump-rope',
+  'HIIT': 'jumping-jack', // HIIT เป็นรูปแบบการฝึก ไม่ใช่ท่าเดียว -> ใช้ท่ากระโดดตบ (Jumping Jack) เป็นตัวแทน
+
+  // ---- กีฬา ----
+  'Boxing': 'boxing',
+  'Badminton': 'badminton',
+  'Football': 'football',
+  'Basketball': 'basketball',
+  'Dancing': 'dance',
+  'Yoga': 'yoga-flow', // ท่าไหว้พระอาทิตย์ช่วงแรก: ยืน -> ชูแขน -> ก้มพับตัว
+
+  // ---- สตรีทเวิร์กเอาต์ / บอดี้เวท ----
+  'Push Up': 'push-up',
+  'Pull Up': 'pull-up',
+  'Chin Up': 'chin-up',
+  'Dips': 'dips',
+  'Muscle Up': 'muscle-up',
+  'Inverted Row': 'inverted-row',
+  'Handstand Push Up': 'handstand-push-up',
+  'Pistol Squat': 'pistol-squat',
+  'Bodyweight Squat': 'bodyweight-squat',
+  'Jump Squat': 'jump-squat',
+  'Burpee': 'burpee',
+  'Mountain Climber': 'mountain-climber',
+  'Hanging Leg Raise': 'hanging-leg-raise',
+  'Plank': 'plank',
+  'Crunch': 'crunch',
 }
 
 // ท่า -> รูปแบบการเคลื่อนไหว (คำแนะนำ 3 ข้อ: การวางเท้า / การหายใจ / ข้อควรระวัง อยู่ใน locales: exerciseLibrary.tips.<pattern>)
@@ -72,10 +101,26 @@ export const GUIDE_PATTERNS = {
 }
 export const GUIDE_KEYS = ['stance', 'breathing', 'caution']
 
-const toMedia = (name, id) => {
+// Smart 3D Movement Fallback: ท่าที่ยังไม่มีแอนิเมชันเฉพาะ -> แอนิเมชันหลักของกลุ่มการเคลื่อนไหวเดียวกัน (GUIDE_PATTERNS)
+export const PATTERN_MOTIONS = {
+  squat: 'bodyweight-squat', hinge: 'deadlift', bridge: 'hip-thrust', olympic: 'clean-jerk', lunge: 'lunge',
+  push: 'push-up', dips: 'dips', overhead: 'overhead-press', pull: 'barbell-row', hang: 'pull-up',
+  arms: 'bicep-curl', machine: 'leg-extension', core: 'crunch', plyo: 'jump-squat', cardio: 'run',
+  cycle: 'stationary-bike', swim: 'swim', yoga: 'yoga-flow', sport: 'jumping-jack',
+}
+
+// ท่าในรายการ -> ชื่อแอนิเมชัน (ตรงท่า หรือแอนิเมชันของกลุ่ม) ; ท่าที่ไม่รู้จัก -> null
+export function motionFor(name) {
+  const exercise = findExercise(name)
+  if (!exercise) return null
+  return MANNEQUIN_MOTIONS[exercise.name] || PATTERN_MOTIONS[GUIDE_PATTERNS[exercise.name]] || null
+}
+
+const toMedia = (name, motion) => {
   const base = `${VIDEO_BASE}/${mediaSlug(name)}`
   return {
-    id,
+    id: motion,
+    motion,
     source: MEDIA_SOURCE,
     // MP4 (H.264) ก่อน: ไฟล์เล็กกว่าและเล่นได้ทุกเบราว์เซอร์รวม iOS ; WebM สำรองสำหรับเบราว์เซอร์ที่ไม่มี H.264
     sources: [
@@ -83,16 +128,18 @@ const toMedia = (name, id) => {
       { src: `${base}.webm`, type: 'video/webm' },
     ],
     poster: `${base}-poster.webp`,
-    still: `${EVERKINETIC_SVG_BASE}/${id}-relaxation.svg`,
   }
 }
 // object เดิมทุกครั้ง (การ์ดที่ memo ไว้จะไม่ render ซ้ำ)
-const MEDIA = new Map(Object.entries(EVERKINETIC_IDS).map(([name, id]) => [name, toMedia(name, id)]))
+const MEDIA = new Map()
 
-// ท่าในรายการ -> { id, sources: [{ src, type }], poster, still } ; ไม่มีวิดีโอ / ท่าพิมพ์เอง -> null
+// ท่าในรายการ -> { id, motion, sources: [{ src, type }], poster } ; ท่าพิมพ์เอง (ไม่อยู่ในรายการ) -> null
 export function getExerciseMedia(name) {
   const exercise = findExercise(name)
-  return (exercise && MEDIA.get(exercise.name)) || null
+  const motion = exercise && motionFor(exercise.name)
+  if (!motion) return null
+  if (!MEDIA.has(exercise.name)) MEDIA.set(exercise.name, toMedia(exercise.name, motion))
+  return MEDIA.get(exercise.name)
 }
 
 // ท่าในรายการ -> key ของชุดคำแนะนำ ; ไม่รู้จัก -> 'general'
