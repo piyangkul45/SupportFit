@@ -64,12 +64,7 @@ export default memo(function ExerciseCard({ exercise, anatomy, media, active, ca
             label={t('exerciseLibrary.previewAlt', { name: exercise.name })}
             onPlayingChange={setPlaying}
             onUnavailable={() => setUnavailable(true)}
-            className={
-              media.kind === 'photo'
-                ? // ภาพถ่าย 3:2 อยู่กลางการ์ด (เหนือป้าย "ดูท่า") ; รูป Anatomy อยู่ในที่ว่างด้านบน
-                  'absolute inset-x-1 bottom-7 h-[calc(100%-45%)] w-[calc(100%-0.5rem)] object-cover'
-                : 'absolute inset-x-1 bottom-6 h-[calc(100%-1.75rem)] w-[calc(100%-0.5rem)] object-contain object-bottom'
-            }
+            className="absolute inset-x-1 bottom-6 h-[calc(100%-1.75rem)] w-[calc(100%-0.5rem)] object-contain object-bottom"
           />
         ) : (
           // ไม่มีภาพสาธิต: Silhouette Anatomy แบบโปร่ง ด้านหน้า + หลัง
