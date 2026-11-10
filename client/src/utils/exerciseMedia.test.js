@@ -46,10 +46,10 @@ test('no real-person photos or static anatomy stand-ins are referenced', () => {
   }
 })
 
-test('generated video, webm and poster files exist for every exercise', () => {
+test('generated video, webm, poster and 3D target figure exist for every exercise', () => {
   for (const exercise of EXERCISES) {
     const media = getExerciseMedia(exercise.name)
-    for (const url of [...media.sources.map((source) => source.src), media.poster]) {
+    for (const url of [...media.sources.map((source) => source.src), media.poster, `/mannequin/${mediaSlug(exercise.name)}-target.webp`]) {
       const file = `${PUBLIC_DIR}${url}`
       assert.ok(existsSync(file), `missing ${url} (run scripts/build-mannequin-videos.mjs)`)
       assert.ok(statSync(file).size > 1000, `${url} looks empty`)
@@ -61,7 +61,7 @@ test('public/mannequin holds only clips for catalog exercises; old line-art fold
   const allowed = new Set(['LICENSE.md'])
   for (const exercise of EXERCISES) {
     const slug = mediaSlug(exercise.name)
-    for (const file of [`${slug}.mp4`, `${slug}.webm`, `${slug}-poster.webp`]) allowed.add(file)
+    for (const file of [`${slug}.mp4`, `${slug}.webm`, `${slug}-poster.webp`, `${slug}-target.webp`]) allowed.add(file)
   }
   for (const file of readdirSync(`${PUBLIC_DIR}/mannequin`)) assert.ok(allowed.has(file), `unexpected media file mannequin/${file}`)
   assert.ok(!existsSync(`${PUBLIC_DIR}/anatomy`), 'public/anatomy (old line-art media) should be removed')

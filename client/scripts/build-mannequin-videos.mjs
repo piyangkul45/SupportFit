@@ -1,28 +1,23 @@
-// เรนเดอร์วิดีโอสาธิตท่าแบบหุ่นจำลอง 3D (MP4 + WebM วนซ้ำ) + poster (WebP) ของทุกท่าใน exerciseCatalog
-// ฉาก/หุ่น/ท่าเคลื่อนไหวอยู่ใน scripts/mannequin (three.js) ; ผลลัพธ์ -> client/public/mannequin/<slug>.{mp4,webm} และ <slug>-poster.webp
+// เรนเดอร์วิดีโอสาธิตท่า 3D (MP4 + WebM วนซ้ำ) + poster (WebP) ของทุกท่าใน exerciseCatalog
+// โมเดลกายวิภาคจริง (BodyParts3D + Z-Anatomy) ผูก skinning กับ rig ท่าเคลื่อนไหวใน scripts/mannequin (three.js)
+// ร่างสีเทาเงิน มัดกล้ามเนื้อเป้าหมายเรืองแสงส้ม-แดง ; ผลลัพธ์ -> client/public/mannequin/<slug>.{mp4,webm} และ <slug>-poster.webp
 //
 // ใช้งาน (เครื่องมือไม่ได้อยู่ใน dependencies ของโปรเจกต์):
 //   npm i --prefix <tools-dir> three@0.170.0 puppeteer-core@23 ffmpeg-static@5
 //   TOOLS_DIR=<tools-dir> CHROME_PATH=<path to chrome> node scripts/build-mannequin-videos.mjs [ชื่อท่า ...]
 //   --preview <out.png>  เรนเดอร์แค่ 3 เฟรมต่อท่าแล้วรวมเป็นภาพตรวจทาน (ไม่เขียนวิดีโอ)
 import { execFileSync } from 'node:child_process'
-import { createReadStream, existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { createServer } from 'node:http'
-import { createRequire } from 'node:module'
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, extname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { ensureAnatomyData, launchBrowser, openScene, startServer, toolsRequire } from './mannequin/render-server.mjs'
 import { EXERCISES } from '../src/utils/exerciseCatalog.js'
 import { getAnatomy } from '../src/utils/exerciseAnatomy.js'
 import { mediaSlug, motionFor } from '../src/utils/exerciseMedia.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const TOOLS = resolve(process.env.TOOLS_DIR || '.')
-const toolsRequire = createRequire(pathToFileURL(TOOLS + '/'))
-const puppeteer = toolsRequire('puppeteer-core')
 const ffmpeg = toolsRequire('ffmpeg-static')
-const THREE_DIR = join(TOOLS, 'node_modules', 'three')
-const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const OUT_DIR = resolve(HERE, '../public/mannequin')
 const FPS = 24
 
@@ -32,17 +27,8 @@ const previewOut = previewAt >= 0 ? args.splice(previewAt, 2)[1] : null
 const only = new Set(args)
 const jobs = EXERCISES.filter((e) => !only.size || only.has(e.name)).map((e) => ({ name: e.name, motion: motionFor(e.name) }))
 
-// เสิร์ฟไฟล์ฉาก + three.js ผ่าน http (ES module โหลดจาก file:// ไม่ได้)
-const TYPES = { '.js': 'text/javascript', '.html': 'text/html', '.json': 'application/json' }
-const server = createServer((req, res) => {
-  const url = decodeURIComponent(req.url.split('?')[0])
-  const file = url.startsWith('/three/') ? join(THREE_DIR, url.slice(7)) : join(HERE, 'mannequin', url)
-  if (!existsSync(file)) return res.writeHead(404).end()
-  res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream' })
-  createReadStream(file).pipe(res)
-})
-await new Promise((r) => server.listen(0, '127.0.0.1', r))
-const BASE = `http://127.0.0.1:${server.address().port}`
+await ensureAnatomyData()
+const { server, base: BASE } = await startServer()
 
 const run = (a) => execFileSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', ...a])
 // แท็กสี bt709 ให้เบราว์เซอร์แปลงกลับเป็น #0e1a24 ตรงกับพื้นการ์ด
@@ -50,7 +36,7 @@ const COLOR = ['-vf', 'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p'
 
 mkdirSync(OUT_DIR, { recursive: true })
 const work = mkdtempSync(join(tmpdir(), 'mannequin-'))
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--ignore-gpu-blocklist'] })
+const browser = await launchBrowser()
 const page = await browser.newPage()
 page.on('pageerror', (e) => console.error('page error:', e.message))
 await page.setViewport({ width: 480, height: 640 })
@@ -60,14 +46,16 @@ try {
   for (const { name, motion } of jobs) {
     if (!motion) throw new Error(`${name}: no motion`)
     const anatomy = getAnatomy(name) || { primary: [], secondary: [] }
-    await page.goto(`${BASE}/scene.html`)
-    await page.waitForFunction('window.ready === true', { timeout: 30000 })
+    await openScene(page, BASE)
     const { frames } = await page.evaluate((spec) => window.setup(spec), { motion, primary: anatomy.primary, secondary: anatomy.secondary, fps: FPS })
     const slug = mediaSlug(name)
     const dir = join(work, slug)
     mkdirSync(dir)
     const grab = async (i, file) => {
-      const url = await page.evaluate((i, n) => window.frame(i, n), i, frames)
+      // GPU บางครั้งคืนเฟรมว่าง -> เรนเดอร์ซ้ำ (เฟรมจริงมีขนาดหลายสิบ KB)
+      let url = ''
+      for (let tries = 0; tries < 4 && url.length < 20000; tries++) url = await page.evaluate((i, n) => window.frame(i, n), i, frames)
+      if (url.length < 20000) throw new Error(`${name}: empty frame ${i}`)
       writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'))
     }
 

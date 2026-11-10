@@ -6,7 +6,7 @@
 // (มีเทสต์บังคับใน exerciseMedia.test.js)
 import { findExercise } from './exerciseCatalog.js'
 
-export const MEDIA_SOURCE = { name: 'SupportFit 3D Mannequin', license: 'Original animation', url: null }
+export const MEDIA_SOURCE = { name: 'BodyParts3D (DBCLS) + Z-Anatomy', license: 'CC BY-SA', url: null }
 const VIDEO_BASE = '/mannequin'
 
 // ชื่อท่า -> ชื่อไฟล์ ("Bench Press" -> "bench-press")

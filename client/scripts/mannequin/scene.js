@@ -6,6 +6,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { MOTIONS, samplePose, contraction, resolvePose } from './motions.js'
 
@@ -50,6 +51,12 @@ scene.add(fill)
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
+// พิกเซล NaN/Inf (normal เสื่อมของ mesh ที่ผ่าน skinning บางท่า) ทำให้ bloom เบลอ NaN ไปทั้งภาพ -> เปลี่ยนเป็นพื้นหลัง
+composer.addPass(new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, bg: { value: new THREE.Color(BG) } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: 'uniform sampler2D tDiffuse; uniform vec3 bg; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); bool bad = any(isnan(c)) || any(isinf(c)); gl_FragColor = bad ? vec4(bg, 1.0) : min(c, vec4(64.0)); }',
+}))
 const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.75, 0.45, 0.66)
 composer.addPass(bloom)
 composer.addPass(new OutputPass())
@@ -359,9 +366,7 @@ function anchor(o) {
     const mid = wp(J.handL).add(wp(J.handR)).multiplyScalar(0.5)
     shift.set(...M.handsAt).sub(mid)
   } else {
-    const box = new THREE.Box3()
-    const skipArms = handIK(o)
-    for (const mesh of bodyMeshes) if (!(skipArms && mesh.userData.part === 'arm')) box.expandByObject(mesh)
+    const box = bodyBox({ skipArms: !!handIK(o) })
     shift.y = -box.min.y + o.lift
     if (mode !== 'ground') {
       const a = mode === 'footL' ? wp(J.ankleL) : mode === 'footR' ? wp(J.ankleR) : wp(J.ankleL).add(wp(J.ankleR)).multiplyScalar(0.5)
@@ -681,6 +686,366 @@ function crank(bb) {
   })
 }
 
+// ---------- โมเดลกายวิภาคจริง (scene.html?model=anatomy) ----------
+// mesh กล้ามเนื้อ 467 ชิ้น + กระดูก 201 ชิ้นจาก BodyParts3D (CC BY-SA 2.1 JP) + Z-Anatomy (CC BY-SA 4.0)
+// ผ่าน anatomy.glb / skeleton.glb ของ BodyExplorer ; ผูก skinning กับ rig เดียวกับหุ่นเดิม (ท่าทั้ง 53 ใช้ได้ทันที)
+// ข้อต่อวัดจากกระดูกจริง (หัวกระดูกต้นแขน/ต้นขา, กระดูกสันหลัง L5/T12/C7 ฯลฯ) ; หุ่นทรงกลมเดิมซ่อนไว้
+const ANATOMY = new URLSearchParams(location.search).get('model') === 'anatomy'
+let anat = null
+
+const AMAT = {}
+function anatomyMaterials() {
+  // ลายเส้นใยกล้ามเนื้อ: bump map ริ้วละเอียดตามแนวยาวของมัด (uv ตามแกนหลักของแต่ละชิ้น)
+  const fiberBump = canvasTexture((g, w, h) => {
+    for (let x = 0; x < w; x++) {
+      const v = 70 + Math.floor(rand() * 150)
+      g.fillStyle = `rgb(${v},${v},${v})`
+      g.fillRect(x, 0, 1, h)
+    }
+  }, 256, 16)
+  fiberBump.colorSpace = THREE.NoColorSpace
+  fiberBump.wrapT = THREE.RepeatWrapping
+  const common = { bumpMap: fiberBump, bumpScale: 2.2 }
+  AMAT.base = new THREE.MeshPhysicalMaterial({ color: 0xbcc4ce, metalness: 0.62, roughness: 0.34, clearcoat: 0.35, clearcoatRoughness: 0.45, ...common })
+  AMAT.tendon = new THREE.MeshPhysicalMaterial({ color: 0xd6dce3, metalness: 0.5, roughness: 0.28, clearcoat: 0.5 })
+  AMAT.bone = new THREE.MeshPhysicalMaterial({ color: 0x9aa4af, metalness: 0.35, roughness: 0.5 })
+  AMAT.primary = new THREE.MeshPhysicalMaterial({ color: 0xff5a26, emissive: 0xff3a12, emissiveIntensity: 0.9, metalness: 0.12, roughness: 0.34, clearcoat: 0.45, ...common })
+  const absBump = canvasTexture((g, w, h) => {
+    for (let x = 0; x < w; x++) {
+      const v = 120 + Math.floor(rand() * 90)
+      g.fillStyle = `rgb(${v},${v},${v})`
+      g.fillRect(x, 0, 1, h)
+    }
+    // แนวยาว v: 0 = หัวหน่าว (ล่าง) .. 1 = ซี่โครง (บน) ; canvas y กลับด้าน (flipY)
+    for (const t of [0.56, 0.72, 0.87]) {
+      const y = Math.round((1 - t) * h)
+      const grad = g.createLinearGradient(0, y - 7, 0, y + 7)
+      grad.addColorStop(0, 'rgba(0,0,0,0)')
+      grad.addColorStop(0.5, 'rgba(0,0,0,0.95)')
+      grad.addColorStop(1, 'rgba(0,0,0,0)')
+      g.fillStyle = grad
+      g.fillRect(0, y - 7, w, 14)
+    }
+  }, 256, 256)
+  absBump.colorSpace = THREE.NoColorSpace
+  // ร่องซิกแพ็กในสีด้วย (แสงเรืองไม่กลบร่อง)
+  const absMap = canvasTexture((g, w, h) => {
+    g.fillStyle = '#ffffff'
+    g.fillRect(0, 0, w, h)
+    for (const t of [0.56, 0.72, 0.87]) {
+      const y = Math.round((1 - t) * h)
+      const grad = g.createLinearGradient(0, y - 6, 0, y + 6)
+      grad.addColorStop(0, 'rgba(60,30,25,0)')
+      grad.addColorStop(0.5, 'rgba(60,30,25,0.75)')
+      grad.addColorStop(1, 'rgba(60,30,25,0)')
+      g.fillStyle = grad
+      g.fillRect(0, y - 6, w, 12)
+    }
+  }, 16, 256)
+  AMAT.secondary = new THREE.MeshPhysicalMaterial({ color: 0xffb393, emissive: 0xff6a3a, emissiveIntensity: 0.28, metalness: 0.35, roughness: 0.34, ...common })
+  for (const k of ['base', 'primary', 'secondary']) {
+    AMAT[`${k}Abs`] = AMAT[k].clone()
+    Object.assign(AMAT[`${k}Abs`], { bumpMap: absBump, bumpScale: 9, map: absMap, emissiveMap: absMap })
+  }
+}
+
+// uv ตามแกนหลักของชิ้น (PCA): v = ตามแนวยาว (ทิศเส้นใย), u = รอบแกน (ระยะโค้ง) -> ริ้วใน bump map วิ่งตามมัดกล้ามเนื้อ
+function fiberUV(geo, lengthwise01 = false) {
+  const p = geo.attributes.position
+  const n = p.count
+  const c = new THREE.Vector3()
+  for (let i = 0; i < n; i++) c.add(v.fromBufferAttribute(p, i))
+  c.divideScalar(n)
+  const cov = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  for (let i = 0; i < n; i++) {
+    v.fromBufferAttribute(p, i).sub(c)
+    const a = [v.x, v.y, v.z]
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) cov[r * 3 + k] += a[r] * a[k]
+  }
+  let axis = new THREE.Vector3(0.3, 1, 0.2).normalize()
+  for (let it = 0; it < 24; it++) {
+    axis = new THREE.Vector3(
+      cov[0] * axis.x + cov[1] * axis.y + cov[2] * axis.z,
+      cov[3] * axis.x + cov[4] * axis.y + cov[5] * axis.z,
+      cov[6] * axis.x + cov[7] * axis.y + cov[8] * axis.z,
+    ).normalize()
+  }
+  const b1 = new THREE.Vector3().crossVectors(axis, Math.abs(axis.y) < 0.9 ? Y : X).normalize()
+  const b2 = new THREE.Vector3().crossVectors(axis, b1)
+  let rSum = 0
+  for (let i = 0; i < n; i++) {
+    v.fromBufferAttribute(p, i).sub(c)
+    rSum += v.clone().addScaledVector(axis, -v.dot(axis)).length()
+  }
+  const R = rSum / n || 0.01
+  if (lengthwise01 && axis.y < 0) axis.negate()
+  let tMin = Infinity
+  let tMax = -Infinity
+  for (let i = 0; i < n; i++) {
+    const t = v.fromBufferAttribute(p, i).sub(c).dot(axis)
+    tMin = Math.min(tMin, t)
+    tMax = Math.max(tMax, t)
+  }
+  const uv = new Float32Array(n * 2)
+  for (let i = 0; i < n; i++) {
+    v.fromBufferAttribute(p, i).sub(c)
+    const t = v.dot(axis)
+    const ang = Math.atan2(v.dot(b2), v.dot(b1))
+    uv[i * 2] = (ang * R) / 0.012 / 256 // ริ้วละ ~1.2 มม. x 256 คอลัมน์
+    uv[i * 2 + 1] = lengthwise01 ? (t - tMin) / (tMax - tMin) : t / 0.05
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+}
+
+async function loadAnatomy() {
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js')
+  const { muscleGroup, bodyRegion, HIDDEN } = await import('/anatomy/groups.js')
+  anatomyMaterials()
+  const loader = new GLTFLoader()
+  const [mus, bone] = await Promise.all(['/data/anatomy.glb', '/data/skeleton.glb'].map((u) => loader.loadAsync(u)))
+  // mm, Z ขึ้น, หน้า = -Y  ->  เมตร, Y ขึ้น, หน้า = +Z
+  const toWorld = new THREE.Matrix4().makeRotationX(-Math.PI / 2).premultiply(new THREE.Matrix4().makeScale(0.001, 0.001, 0.001))
+  const parts = []
+  for (const [gltf, isBone] of [[mus, false], [bone, true]]) {
+    gltf.scene.updateMatrixWorld(true)
+    gltf.scene.traverse((o) => {
+      if (!o.isMesh) return
+      const geo = o.geometry.clone().applyMatrix4(o.matrixWorld).applyMatrix4(toWorld)
+      parts.push({ name: o.name.replace(/_/g, ' '), geo, isBone }) // GLTFLoader แทนช่องว่างในชื่อด้วย _
+    })
+  }
+  // ยกให้ฝ่าเท้าอยู่ที่ y = 0 และสะโพกอยู่กลาง x/z
+  const all = new THREE.Box3()
+  for (const p of parts) {
+    p.geo.computeBoundingBox()
+    all.union(p.geo.boundingBox)
+  }
+  const byName = new Map(parts.map((p) => [p.name, p]))
+  // external oblique ของ BodyParts3D รวมเยื่อพังผืดด้านหน้า (aponeurosis) ที่คลุม rectus abdominis ทั้งแผ่น
+  // -> ตัดสามเหลี่ยมช่วงหน้าท้องตรงกลางออก ให้เห็นซิกแพ็กเหมือนร่างจริงที่ไขมันน้อย
+  for (const side of ['left', 'right']) {
+    const ob = byName.get(`${side} external oblique`)
+    const ra = byName.get(`${side} rectus abdominis`)
+    if (!ob || !ra) continue
+    ra.geo.computeBoundingBox()
+    const half = Math.max(Math.abs(ra.geo.boundingBox.min.x), Math.abs(ra.geo.boundingBox.max.x)) - 0.006
+    const zFront = ra.geo.boundingBox.min.z
+    const g = ob.geo.index ? ob.geo.toNonIndexed() : ob.geo
+    const pos = g.attributes.position
+    const nor = g.attributes.normal
+    const keepP = []
+    const keepN = []
+    for (let t = 0; t < pos.count; t += 3) {
+      let cx = 0
+      let cz = 0
+      for (let k = 0; k < 3; k++) {
+        cx += pos.getX(t + k) / 3
+        cz += pos.getZ(t + k) / 3
+      }
+      if (Math.abs(cx) < half && cz > zFront) continue
+      for (let k = 0; k < 3; k++) {
+        keepP.push(pos.getX(t + k), pos.getY(t + k), pos.getZ(t + k))
+        keepN.push(nor.getX(t + k), nor.getY(t + k), nor.getZ(t + k))
+      }
+    }
+    const cut = new THREE.BufferGeometry()
+    cut.setAttribute('position', new THREE.Float32BufferAttribute(keepP, 3))
+    cut.setAttribute('normal', new THREE.Float32BufferAttribute(keepN, 3))
+    ob.geo = cut
+  }
+  const verts = (name) => {
+    const g = byName.get(name)?.geo
+    if (!g) throw new Error(`missing bone ${name}`)
+    const out = []
+    for (let i = 0; i < g.attributes.position.count; i++) out.push(new THREE.Vector3().fromBufferAttribute(g.attributes.position, i))
+    return out
+  }
+  const centroid = (pts) => pts.reduce((a, b) => a.add(b), new THREE.Vector3()).divideScalar(pts.length)
+  const cap = (name, end, depth, filter = () => true) => {
+    const pts = verts(name)
+    const ys = pts.map((q) => q.y)
+    const lim = end === 'top' ? Math.max(...ys) - depth : Math.min(...ys) + depth
+    return centroid(pts.filter((q) => (end === 'top' ? q.y >= lim : q.y <= lim) && filter(q)))
+  }
+  const S = {}
+  for (const [n, side] of [['L', 'left'], ['R', 'right']]) {
+    const femurTop = verts(`${side} femur`).filter((q, _, arr) => q.y > Math.max(...arr.map((r) => r.y)) - 0.07)
+    const medX = femurTop.map((q) => Math.abs(q.x)).sort((a, b) => a - b)[Math.floor(femurTop.length / 2)]
+    S[`hip${n}`] = centroid(femurTop.filter((q) => Math.abs(q.x) < medX))
+    S[`knee${n}`] = cap(`${side} femur`, 'bottom', 0.03).add(cap(`${side} tibia`, 'top', 0.02)).multiplyScalar(0.5)
+    S[`ankle${n}`] = centroid(verts(`${side} talus`))
+    S[`toe${n}`] = centroid(verts(`distal phalanx of ${side} big toe`))
+    S[`shoulder${n}`] = cap(`${side} humerus`, 'top', 0.035)
+    S[`elbow${n}`] = cap(`${side} humerus`, 'bottom', 0.025)
+    S[`wrist${n}`] = cap(`${side} radius`, 'bottom', 0.015)
+    S[`hand${n}`] = centroid(verts(`${side} third metacarpal bone`))
+  }
+  S.hip = S.hipL.clone().add(S.hipR).multiplyScalar(0.5)
+  S.l5 = centroid(verts('fifth lumbar vertebra'))
+  S.t12 = centroid(verts('twelfth thoracic vertebra'))
+  S.c7 = centroid(verts('seventh cervical vertebra'))
+  const shift = new THREE.Vector3(-S.hip.x, -all.min.y, -S.hip.z)
+  for (const p of parts) p.geo.translate(shift.x, shift.y, shift.z)
+  for (const k of Object.keys(S)) S[k].add(shift)
+
+  // ตั้งตำแหน่งข้อต่อของ rig ตามกระดูกจริง (ท่ายืนตรง = bind pose)
+  const rel = (a, b) => new THREE.Vector3().subVectors(a, b)
+  J.root.rotation.set(0, 0, 0)
+  J.root.position.copy(S.hip)
+  J.spine.position.copy(rel(S.l5, S.hip))
+  J.chest.position.copy(rel(S.t12, S.l5))
+  J.neck.position.copy(rel(S.c7, S.t12))
+  for (const n of ['L', 'R']) {
+    J[`shoulder${n}`].position.copy(rel(S[`shoulder${n}`], S.t12))
+    J[`elbow${n}`].position.copy(rel(S[`elbow${n}`], S[`shoulder${n}`]))
+    J[`hand${n}`].position.copy(rel(S[`hand${n}`], S[`elbow${n}`]))
+    J[`hip${n}`].position.copy(rel(S[`hip${n}`], S.hip))
+    J[`knee${n}`].position.copy(rel(S[`knee${n}`], S[`hip${n}`]))
+    J[`ankle${n}`].position.copy(rel(S[`ankle${n}`], S[`knee${n}`]))
+  }
+  for (const k of Object.keys(J)) J[k].rotation.set(0, 0, 0)
+  body.updateMatrixWorld(true)
+  L.uarm = S.shoulderL.distanceTo(S.elbowL)
+  L.farm = S.elbowL.distanceTo(S.handL)
+  L.thigh = S.hipL.distanceTo(S.kneeL)
+  L.shin = S.kneeL.distanceTo(S.ankleL)
+  for (const m of bodyMeshes) m.visible = false // ซ่อนหุ่นทรงกลมเดิม
+
+  // กระดูกของ skeleton + ช่วงของแต่ละกระดูกไว้คำนวณน้ำหนัก
+  const up = (p, d) => p.clone().add(new THREE.Vector3(0, d, 0))
+  const BONES = {
+    root: [J.root, S.hip, S.l5], spine: [J.spine, S.l5, S.t12], chest: [J.chest, S.t12, S.c7], neck: [J.neck, S.c7, up(S.c7, 0.25)],
+  }
+  for (const n of ['L', 'R']) {
+    BONES[`arm${n}`] = [J[`uroll${n}`], S[`shoulder${n}`], S[`elbow${n}`]]
+    BONES[`fore${n}`] = [J[`elbow${n}`], S[`elbow${n}`], S[`wrist${n}`]]
+    BONES[`hand${n}`] = [J[`hand${n}`], S[`wrist${n}`], up(S[`wrist${n}`], -0.1)]
+    BONES[`thigh${n}`] = [J[`hip${n}`], S[`hip${n}`], S[`knee${n}`]]
+    BONES[`shin${n}`] = [J[`knee${n}`], S[`knee${n}`], S[`ankle${n}`]]
+    BONES[`foot${n}`] = [J[`ankle${n}`], S[`ankle${n}`], S[`toe${n}`]]
+  }
+  const names = Object.keys(BONES)
+  // รัศมีโดยประมาณของแต่ละท่อน: วัดระยะถึง "ผิว" ของท่อนแทนแกนกลาง -> เนื้อเยื่อลำตัว (อก ปีกหลัง) ยึดกับลำตัว ไม่ถูกแขนดึงเป็นแผ่น
+  const RADIUS = { root: 0.1, spine: 0.11, chest: 0.13, neck: 0.04 }
+  for (const n of ['L', 'R']) Object.assign(RADIUS, { [`arm${n}`]: 0.03, [`fore${n}`]: 0.03, [`hand${n}`]: 0.02, [`thigh${n}`]: 0.05, [`shin${n}`]: 0.04, [`foot${n}`]: 0.03 })
+  const skeleton = new THREE.Skeleton(names.map((k) => BONES[k][0]))
+  skeleton.calculateInverses()
+  const ALLOW = {
+    head: ['neck'], neck: ['neck', 'chest'], chest: ['chest', 'spine', 'neck'], abdomen: ['spine', 'root', 'chest'], pelvis: ['root', 'spine', 'thighL', 'thighR'],
+  }
+  for (const n of ['L', 'R']) {
+    Object.assign(ALLOW, {
+      [`${n}shoulder`]: ['chest', `arm${n}`, 'neck'], [`${n}upperarm`]: [`arm${n}`, `fore${n}`, 'chest'], [`${n}forearm`]: [`fore${n}`, `arm${n}`, `hand${n}`],
+      [`${n}hand`]: [`hand${n}`, `fore${n}`], [`${n}thigh`]: [`thigh${n}`, 'root', `shin${n}`], [`${n}shin`]: [`shin${n}`, `thigh${n}`, `foot${n}`], [`${n}foot`]: [`foot${n}`, `shin${n}`],
+    })
+  }
+  const segDist = (q, a, b) => {
+    const ab = new THREE.Vector3().subVectors(b, a)
+    const t = clamp(new THREE.Vector3().subVectors(q, a).dot(ab) / ab.lengthSq(), 0, 1)
+    return q.distanceTo(a.clone().addScaledVector(ab, t))
+  }
+
+  anat = { meshes: [], samples: [] }
+  const q = new THREE.Vector3()
+  for (const part of parts) {
+    if (part.name === 'Skeleton' || HIDDEN.test(part.name.toLowerCase())) continue
+    let region = bodyRegion(part.name)
+    // ข้อมูลบางชิ้นติดป้ายซ้าย/ขวาสลับ (เช่น flexor pollicis brevis) -> เชื่อตำแหน่งจริง (ซ้ายของหุ่น = x บวก)
+    if (region && (region[0] === 'L' || region[0] === 'R')) {
+      part.geo.computeBoundingBox()
+      const cx = part.geo.boundingBox.getCenter(new THREE.Vector3()).x
+      if (Math.abs(cx) > 0.05 && (cx > 0) !== (region[0] === 'L')) region = (cx > 0 ? 'L' : 'R') + region.slice(1)
+    }
+    if (!region) {
+      part.geo.computeBoundingBox()
+      const c = part.geo.boundingBox.getCenter(new THREE.Vector3())
+      let best = 'chest'
+      let bd = Infinity
+      for (const k of names) {
+        const d = segDist(c, BONES[k][1], BONES[k][2])
+        if (d < bd) [bd, best] = [d, k]
+      }
+      const side = best.endsWith('L') ? 'L' : best.endsWith('R') ? 'R' : ''
+      region = { root: 'pelvis', spine: 'abdomen', chest: 'chest', neck: 'neck' }[best] ||
+        side + { arm: 'upperarm', fore: 'forearm', hand: 'hand', thigh: 'thigh', shin: 'shin', foot: 'foot' }[best.slice(0, -1)]
+    }
+    const allow = (ALLOW[region] || ALLOW.chest).map((k) => names.indexOf(k))
+    const geo = part.geo
+    const pos = geo.attributes.position
+    const n = pos.count
+    const si = new Uint16Array(n * 4)
+    const sw = new Float32Array(n * 4)
+    for (let i = 0; i < n; i++) {
+      q.fromBufferAttribute(pos, i)
+      if (part.isBone) {
+        si[i * 4] = allow[0]
+        sw[i * 4] = 1
+        continue
+      }
+      const ws = allow.map((b) => {
+        const [, a, e] = BONES[names[b]]
+        return 1 / (Math.max(0, segDist(q, a, e) - RADIUS[names[b]]) + 0.012) ** 6
+      })
+      const tot = ws.reduce((x, y) => x + y, 0)
+      allow.forEach((b, k) => {
+        si[i * 4 + k] = b
+        sw[i * 4 + k] = ws[k] / tot
+      })
+    }
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4))
+    geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4))
+    const lower = part.name.toLowerCase()
+    const tendon = /tendon|aponeuros|fascia|retinacul|ligament|membrane|sheath|linea|arch/.test(lower)
+    const group = part.isBone || tendon ? null : muscleGroup(part.name)
+    const rectus = /rectus abdominis/.test(lower)
+    if (!part.isBone && !tendon) fiberUV(geo, rectus)
+    const mesh = new THREE.SkinnedMesh(geo, part.isBone ? AMAT.bone : tendon ? AMAT.tendon : AMAT.base)
+    mesh.bind(skeleton, new THREE.Matrix4())
+    mesh.castShadow = true
+    mesh.frustumCulled = false
+    scene.add(mesh)
+    const arm = /hand|forearm|upperarm/.test(region)
+    anat.meshes.push({ mesh, group, isBone: part.isBone, rectus, name: part.name, region })
+    // จุดตัวอย่างของผิว (คำนวณกล่องครอบหลัง skinning แบบเร็ว: ใช้ยึดพื้น / จัดเฟรมกล้อง)
+    const step = Math.max(1, Math.floor(n / 40))
+    const side = region[0] === 'L' || region[0] === 'R' ? region[0] : /left/.test(lower) ? 'L' : /right/.test(lower) ? 'R' : ''
+    for (let i = 0; i < n; i += step) anat.samples.push({ mesh, i, group, arm, side })
+  }
+}
+
+// กล่องครอบร่างกายหลังจัดท่า: โหมด anatomy ใช้จุดตัวอย่างที่ผ่าน skinning ; หุ่นเดิมใช้ mesh
+function bodyBox({ skipArms = false, groups = null, side = null } = {}) {
+  const box = new THREE.Box3()
+  if (anat) {
+    const p = new THREE.Vector3()
+    for (const s of anat.samples) {
+      if (skipArms && s.arm) continue
+      if (groups && !groups.includes(s.group)) continue
+      if (side && s.side !== side) continue
+      p.fromBufferAttribute(s.mesh.geometry.attributes.position, s.i)
+      s.mesh.applyBoneTransform(s.i, p)
+      box.expandByPoint(p)
+    }
+    return box
+  }
+  for (const mesh of bodyMeshes) {
+    if (skipArms && mesh.userData.part === 'arm') continue
+    if (groups && !muscles.some((m) => m.mesh === mesh && groups.includes(m.group))) continue
+    box.expandByObject(mesh)
+  }
+  return box
+}
+
+function paintAnatomy(primary, secondary) {
+  const all = primary.includes('fullbody')
+  for (const m of anat.meshes) {
+    if (!m.group) continue
+    // fullbody = มัดหลักทุกกลุ่ม (กล้ามเนื้อย่อยอื่นยังเป็นสีเงิน ให้เห็นรูปร่าง)
+    m.kind = (all && m.group !== 'base') || primary.includes(m.group) ? 'primary' : secondary.includes(m.group) ? 'secondary' : 'base'
+    m.mesh.material = AMAT[m.rectus ? `${m.kind}Abs` : m.kind]
+  }
+}
+
 // ---------- กล้อง: จัดเฟรมจากกล่องครอบของท่าทั้งลูป (ภาพนิ่งไม่สั่น) ----------
 function frameCamera(boxes, az, el) {
   const center = new THREE.Box3()
@@ -719,6 +1084,7 @@ window.setup = (spec) => {
     m.mesh.material = muscleMat(kind, m.tex)
     m.kind = kind
   }
+  if (anat) paintAnatomy(spec.primary, spec.secondary)
   // จุดยึดมือ (พื้นใต้ไหล่ / บาร์เหนือไหล่) คำนวณจากท่าแรก
   fixPoint = null
   if (M.fix) {
@@ -740,8 +1106,7 @@ window.setup = (spec) => {
     const t = i / 16
     pose(t)
     props.forEach((u) => u(t))
-    const b = new THREE.Box3()
-    for (const m of bodyMeshes) b.expandByObject(m)
+    const b = bodyBox()
     propRoot.traverse((o) => o.isMesh && !o.userData.noFrame && b.expandByObject(o))
     boxes.push(b)
   }
@@ -756,6 +1121,7 @@ window.frame = (i, frames) => {
   props.forEach((u) => u(t))
   const c = contraction(M, t)
   for (const m of muscles) if (m.kind === 'primary') m.mesh.material.emissiveIntensity = 1.35 + 1.1 * c
+  if (anat) AMAT.primary.emissiveIntensity = AMAT.primaryAbs.emissiveIntensity = 0.65 + 0.75 * c
   composer.render()
   return renderer.domElement.toDataURL('image/png')
 }
@@ -772,6 +1138,10 @@ window.still = (spec) => {
     m.kind = all || spec.primary.includes(m.group) ? 'primary' : 'base'
     m.mesh.material = muscleMat(m.kind, m.tex === absTex ? absTex : fineFiberTex)
   }
+  if (anat) {
+    paintAnatomy(spec.primary, spec.secondary || [])
+    AMAT.primary.emissiveIntensity = 0.55
+  }
   ground.visible = false
   halo.visible = false
   scene.background = null
@@ -787,9 +1157,7 @@ window.still = (spec) => {
   const o = resolvePose(spec.pose || {})
   setAngles(o)
   anchor(o)
-  const focus = new THREE.Box3()
-  for (const m of muscles) if (spec.focus.includes(m.group)) focus.expandByObject(m.mesh)
-  if (spec.focus.includes('body')) for (const m of bodyMeshes) focus.expandByObject(m)
+  const focus = spec.focus.includes('body') ? bodyBox() : bodyBox({ groups: spec.focus, side: spec.side || null })
   focus.expandByScalar(spec.pad ?? 0.04)
   frameCamera([focus], spec.az, spec.el)
   renderer.render(scene, camera)
@@ -797,4 +1165,18 @@ window.still = (spec) => {
   return renderer.domElement.toDataURL('image/png')
 }
 
-window.ready = true
+if (ANATOMY) {
+  loadAnatomy()
+    .then(() => {
+      scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture
+      scene.environmentIntensity = 0.32
+      // ร่างเงินสะท้อนแสงสูง: bloom เฉพาะจุดที่สว่างจัด (กล้ามเนื้อเรืองแสง) ไม่ให้ทั้งร่างฟุ้ง
+      Object.assign(bloom, { threshold: 0.92, strength: 0.6, radius: 0.35 })
+      key.intensity = 1.55
+      rim.intensity = 1.8
+      window.ready = true
+    })
+    .catch((e) => {
+      window.loadError = String(e && e.stack ? e.stack : e)
+    })
+} else window.ready = true

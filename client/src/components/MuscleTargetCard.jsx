@@ -1,24 +1,23 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MUSCLES } from '../utils/exerciseAnatomy'
-import AnatomyFigure from './AnatomyFigure'
+import { mediaSlug } from '../utils/exerciseMedia'
 
-// front ถ้ากล้ามเนื้อหลักตัวแรกมองเห็นจากด้านหน้า ไม่งั้น back
-const pickView = (muscles) => MUSCLES[muscles[0]]?.view || 'front'
+// ภาพกายวิภาค 3D สมจริง (BodyParts3D + Z-Anatomy) สร้างด้วย scripts/build-muscle-icons.mjs:
+// - public/mannequin/<slug>-target.webp = ร่างด้านหน้า + หลังของท่านั้น (หลักส้ม-แดง / รองส้มอ่อน) พื้นโปร่งใส 1:1
+// - public/muscles/m-<muscle>.webp = ร่างเต็มตัวที่ไฮไลต์กล้ามเนื้อมัดเดียว (ชิปรายชื่อกล้ามเนื้อ) 1:2
 
-// ไอคอนรูปร่างกายที่ไฮไลต์กล้ามเนื้อ ใช้ได้ทั้งการ์ดท่า ปุ่ม filter และคำตอบของ AI Coach
-// วาดด้วย AnatomyFigure (เวกเตอร์ลงเงาแบบ 3D): กล้ามเนื้ออื่นเทา-ขาว ; tone ค่าเริ่มต้น = หลักส้ม / รองฟ้า
-// tone='anatomy' = หลักส้ม-แดงสด / รองแดงอ่อน (Exercise Library) ; pulse: กล้ามเนื้อหลักเต้นเป็นจังหวะ
-export const MuscleIcon = memo(function MuscleIcon({ primary = [], secondary = [], view, className = 'h-10 w-5', title, tone, pulse = false }) {
+// รูปกล้ามเนื้อเป้าหมายของท่า (ใช้ในการ์ดนี้และคำตอบของ AI Coach) ; exercise = ชื่อท่าในรายการ
+export const TargetFigure = memo(function TargetFigure({ exercise, className = 'h-24 w-24', title }) {
   return (
-    <AnatomyFigure
-      primary={primary}
-      secondary={secondary}
-      view={view || pickView(primary.length ? primary : secondary)}
-      tone={tone === 'anatomy' ? 'anatomy' : 'default'}
-      pulse={pulse}
-      className={className}
-      title={title}
+    <img
+      src={`/mannequin/${mediaSlug(exercise)}-target.webp`}
+      alt={title || ''}
+      width={400}
+      height={400}
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+      className={`select-none object-contain ${className}`}
     />
   )
 })
@@ -30,9 +29,9 @@ const TONES = {
     dot: 'bg-orange-400',
   },
   secondary: {
-    label: 'border-sky-400/30 bg-sky-400/15 text-sky-200',
-    chip: 'border-sky-400/20 bg-sky-400/[0.07] text-sky-100',
-    dot: 'bg-sky-400',
+    label: 'border-amber-300/30 bg-amber-300/10 text-amber-100',
+    chip: 'border-amber-300/20 bg-amber-300/[0.06] text-amber-50',
+    dot: 'bg-amber-300',
   },
 }
 
@@ -49,12 +48,10 @@ function MuscleGroup({ tone, muscles }) {
       <ul className="mt-1.5 flex flex-wrap gap-1.5">
         {muscles.map((muscle) => (
           <li key={muscle} className={`flex items-center gap-1.5 rounded-lg border py-1 pl-1 pr-2 text-xs font-medium ${styles.chip}`}>
-            <span className="flex h-8 w-6 items-center justify-center rounded-md bg-black/25">
-              <MuscleIcon
-                primary={tone === 'primary' ? [muscle] : []}
-                secondary={tone === 'secondary' ? [muscle] : []}
-                className="h-7 w-3.5"
-              />
+            <span className="flex h-8 w-6 items-center justify-center overflow-hidden rounded-md bg-[#0e1a24]">
+              {muscle !== 'fullbody' && (
+                <img src={`/muscles/m-${muscle}.webp`} alt="" width={160} height={320} loading="lazy" draggable={false} className="h-8 w-4 object-contain" />
+              )}
             </span>
             {t(`anatomy.muscles.${muscle}`)}
           </li>
@@ -64,26 +61,25 @@ function MuscleGroup({ tone, muscles }) {
   )
 }
 
-// การ์ดกล้ามเนื้อเป้าหมายของท่า: รูปร่างกายด้านหน้า/หลัง + ป้ายกล้ามเนื้อหลัก (ส้ม) และกล้ามเนื้อรอง (ฟ้า) พร้อมไอคอน
-// anatomy: ผลของ getAnatomy() ไม่มี = ไม่แสดง
-export default memo(function MuscleTargetCard({ anatomy, className = '' }) {
+// การ์ดกล้ามเนื้อเป้าหมายของท่า: ภาพกายวิภาค 3D ด้านหน้า/หลัง + ป้ายกล้ามเนื้อหลัก (ส้ม) และกล้ามเนื้อรอง (ส้มอ่อน)
+// anatomy: ผลของ getAnatomy() ; exercise: ชื่อท่าในรายการ ; ไม่มีอย่างใดอย่างหนึ่ง = ไม่แสดง
+export default memo(function MuscleTargetCard({ anatomy, exercise, className = '' }) {
   const { t } = useTranslation()
-  if (!anatomy) return null
+  if (!anatomy || !exercise) return null
   const { primary, secondary } = anatomy
   const describe = (muscles) => muscles.map((muscle) => t(`anatomy.muscles.${muscle}`)).join(', ')
 
   return (
     <div className={`flex gap-3 rounded-xl border border-white/[0.07] bg-black/20 p-3 ${className}`}>
       <figure
-        className="flex shrink-0 items-end gap-1 rounded-lg bg-white/[0.03] px-2 py-1.5"
+        className="flex shrink-0 flex-col items-center gap-0.5 rounded-lg bg-[#0e1a24] px-1 py-1"
         aria-label={t('anatomy.figureLabel', { primary: describe(primary), secondary: describe(secondary) || '-' })}
       >
-        {['front', 'back'].map((view) => (
-          <div key={view} className="flex flex-col items-center gap-0.5">
-            <MuscleIcon primary={primary} secondary={secondary} view={view} className="h-24 w-12" />
-            <figcaption className="text-[9px] uppercase tracking-wider text-slate-500">{t(`anatomy.views.${view}`)}</figcaption>
-          </div>
-        ))}
+        <TargetFigure exercise={exercise} className="h-28 w-28" />
+        <figcaption className="flex w-full justify-around text-[9px] uppercase tracking-wider text-slate-500">
+          <span>{t('anatomy.views.front')}</span>
+          <span>{t('anatomy.views.back')}</span>
+        </figcaption>
       </figure>
       <div className="min-w-0 flex-1 space-y-2.5">
         <MuscleGroup tone="primary" muscles={primary} />

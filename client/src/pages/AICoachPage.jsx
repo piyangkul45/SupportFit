@@ -5,7 +5,7 @@ import { Bot, Mic, RotateCcw, SendHorizontal, Sparkles, Square, Trash2, X } from
 import useSpeechInput from '../hooks/useSpeechInput'
 import BodyPartFilter from '../components/BodyPartFilter'
 import ExerciseBadges from '../components/ExerciseBadges'
-import { MuscleIcon } from '../components/MuscleTargetCard'
+import { TargetFigure } from '../components/MuscleTargetCard'
 import { exercisesForBodyPart, findExerciseInText, getAnatomy } from '../utils/exerciseAnatomy'
 
 const MAX_TEXT_LENGTH = 1000
@@ -51,7 +51,7 @@ function toBlocks(text) {
   return blocks
 }
 
-// ข้อในรายการที่เป็นท่าฝึกที่แอปรู้จัก = แสดงรูปกล้ามเนื้อ (ส้ม = หลัก, ฟ้า = รอง) + ป้ายระดับ/อุปกรณ์ประกอบ
+// ข้อในรายการที่เป็นท่าฝึกที่แอปรู้จัก = ภาพกายวิภาค 3D ของท่า (ส้มแดง = หลัก, ส้มอ่อน = รอง) + ป้ายระดับ/อุปกรณ์ประกอบ
 function ListItem({ text }) {
   const exercise = findExerciseInText(text)
   const anatomy = exercise && getAnatomy(exercise.name)
@@ -59,8 +59,8 @@ function ListItem({ text }) {
   return (
     <li>
       <div className="mt-1 flex gap-2.5 rounded-xl border border-white/[0.07] bg-black/20 p-2">
-        <span className="flex h-14 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
-          <MuscleIcon primary={anatomy.primary} secondary={anatomy.secondary} className="h-12 w-6" title={exercise.name} />
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[#0e1a24]">
+          <TargetFigure exercise={exercise.name} className="h-14 w-14" title={exercise.name} />
         </span>
         <div className="min-w-0 flex-1">
           <p><Inline text={text} /></p>

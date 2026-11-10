@@ -304,7 +304,7 @@ export default memo(function WorkoutTracker({ bodyWeightKg, onSave, onSaveVoice,
                 </button>
               </div>
 
-              <MuscleTargetCard anatomy={selectedAnatomy} className="mb-3" />
+              <MuscleTargetCard anatomy={selectedAnatomy} exercise={selected.name} className="mb-3" />
 
               {isCardio ? (
                 <div className="grid grid-cols-2 gap-2">

@@ -3,7 +3,7 @@
 // level: 'beginner' | 'intermediate' | 'advanced' ; equipment: true = ต้องใช้อุปกรณ์ (ดัมเบล, บาร์, เครื่อง, ลูกบอล ...)
 import { EXERCISES, findExercise } from './exerciseCatalog.js'
 
-// กล้ามเนื้อที่วาดได้ใน MuscleIcon (view = ด้านที่มองเห็นกล้ามเนื้อนั้นชัดที่สุด)
+// กล้ามเนื้อของแอป (view = ด้านที่มองเห็นกล้ามเนื้อนั้นชัดที่สุด ใช้เลือกมุมกล้องภาพ m-<muscle>.webp)
 export const MUSCLES = {
   chest: { view: 'front' },
   shoulders: { view: 'front' },
