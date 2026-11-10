@@ -250,8 +250,11 @@ body {
 .mannequin-video {
   background: #0e1a24;
   filter: saturate(1.12) contrast(1.05);
-  -webkit-mask-image: radial-gradient(ellipse 78% 74% at 50% 48%, #000 70%, transparent 100%);
-  mask-image: radial-gradient(ellipse 78% 74% at 50% 48%, #000 70%, transparent 100%);
+  /* จางเฉพาะขอบบาง ๆ 4 ด้าน (หุ่นสูง ~88% ของกรอบ ไม่ถูกตัดหัว/เท้า) */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent), linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent), linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent);
+  mask-composite: intersect;
 }
 /* กำลังเล่น: เร่งแสงเรืองของกล้ามเนื้อเป้าหมาย */
 .mannequin-video.mannequin-active {

@@ -706,10 +706,11 @@ function anatomyMaterials() {
   fiberBump.colorSpace = THREE.NoColorSpace
   fiberBump.wrapT = THREE.RepeatWrapping
   const common = { bumpMap: fiberBump, bumpScale: 2.2 }
-  AMAT.base = new THREE.MeshPhysicalMaterial({ color: 0xbcc4ce, metalness: 0.62, roughness: 0.34, clearcoat: 0.35, clearcoatRoughness: 0.45, ...common })
-  AMAT.tendon = new THREE.MeshPhysicalMaterial({ color: 0xd6dce3, metalness: 0.5, roughness: 0.28, clearcoat: 0.5 })
-  AMAT.bone = new THREE.MeshPhysicalMaterial({ color: 0x9aa4af, metalness: 0.35, roughness: 0.5 })
-  AMAT.primary = new THREE.MeshPhysicalMaterial({ color: 0xff5a26, emissive: 0xff3a12, emissiveIntensity: 0.9, metalness: 0.12, roughness: 0.34, clearcoat: 0.45, ...common })
+  // vertexColors = กางเกงขาสั้นสีดำ (สีต่อ vertex) ; มัดเป้าหมาย (primary/secondary) ไม่ใช้ จึงเรืองแสงทับกางเกงได้
+  AMAT.base = new THREE.MeshPhysicalMaterial({ color: 0xaab2bc, metalness: 0.6, roughness: 0.36, clearcoat: 0.35, clearcoatRoughness: 0.45, vertexColors: true, ...common })
+  AMAT.tendon = new THREE.MeshPhysicalMaterial({ color: 0xc9d0d8, metalness: 0.5, roughness: 0.3, clearcoat: 0.5, vertexColors: true })
+  AMAT.bone = new THREE.MeshPhysicalMaterial({ color: 0x8e98a3, metalness: 0.35, roughness: 0.5, vertexColors: true })
+  AMAT.primary = new THREE.MeshPhysicalMaterial({ color: 0xf97316, emissive: 0xff4a10, emissiveIntensity: 0.9, metalness: 0.12, roughness: 0.34, clearcoat: 0.45, ...common })
   const absBump = canvasTexture((g, w, h) => {
     for (let x = 0; x < w; x++) {
       const v = 120 + Math.floor(rand() * 90)
@@ -945,6 +946,10 @@ async function loadAnatomy() {
     return q.distanceTo(a.clone().addScaledVector(ab, t))
   }
 
+  // กางเกงขาสั้นสีดำ: เอวต่ำกว่า L5 เล็กน้อย ถึงกลางต้นขา (สีคูณกับสีเงิน -> ดำด้าน)
+  const shortsTop = S.l5.y - 0.005
+  const shortsHem = S.hip.y - 0.5 * L.thigh
+  const SHORTS = [0.13, 0.135, 0.15]
   anat = { meshes: [], samples: [] }
   const q = new THREE.Vector3()
   for (const part of parts) {
@@ -994,6 +999,14 @@ async function loadAnatomy() {
     }
     geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4))
     geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4))
+    const col = new Float32Array(n * 3).fill(1)
+    if (/pelvis|thigh|abdomen/.test(region)) {
+      for (let i = 0; i < n; i++) {
+        const y = pos.getY(i)
+        if (y < shortsTop && y > shortsHem) col.set(SHORTS, i * 3)
+      }
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
     const lower = part.name.toLowerCase()
     const tendon = /tendon|aponeuros|fascia|retinacul|ligament|membrane|sheath|linea|arch/.test(lower)
     const group = part.isBone || tendon ? null : muscleGroup(part.name)
@@ -1066,7 +1079,7 @@ function frameCamera(boxes, az, el) {
         my = Math.max(my, Math.abs(v.y))
       }
     }
-    dist *= Math.max(mx / 0.78, my / 0.8)
+    dist *= Math.max(mx / 0.9, my / 0.88) // หุ่นสูง ~88% ของกรอบ อยู่กลางภาพ
   }
   camera.position.copy(target).addScaledVector(dir, dist)
   camera.lookAt(target)
@@ -1172,6 +1185,9 @@ if (ANATOMY) {
       scene.environmentIntensity = 0.32
       // ร่างเงินสะท้อนแสงสูง: bloom เฉพาะจุดที่สว่างจัด (กล้ามเนื้อเรืองแสง) ไม่ให้ทั้งร่างฟุ้ง
       Object.assign(bloom, { threshold: 0.92, strength: 0.6, radius: 0.35 })
+      // พื้นหลังเรียบ #0e1a24 ผืนเดียว: ไม่มีเงาพื้น / วงแสงใต้เท้า
+      ground.visible = false
+      halo.visible = false
       key.intensity = 1.55
       rim.intensity = 1.8
       window.ready = true

@@ -10,8 +10,8 @@ import { EXERCISES } from '../utils/exerciseCatalog'
 // มือถือ 3 คอลัมน์: "ทั้งหมด" กว้าง 2 ช่อง (สูงเท่าการ์ดอื่นในแถว) ให้ 8 การ์ดเต็ม 3 แถวพอดี ; ภาพ object-contain ทุกใบ = สัดส่วนเท่ากัน
 const CARDS = ['all', 'chest', 'back', 'shoulders', 'arms', 'core', 'glutes', 'legs'].map((key) => ({ key, img: `/muscles/${key}.webp` }))
 
-// พื้นการ์ด #0e1a24 (slate blue dark) + แสงฟ้าจาง ๆ ด้านหลังหุ่นให้ภาพมีมิติ
-const CARD_BG = 'bg-[#0e1a24] bg-[radial-gradient(circle_at_50%_38%,rgba(80,140,200,0.14),transparent_70%)]'
+// พื้นการ์ดสีเรียบ #0e1a24 (slate blue dark) ผืนเดียวกับพื้นภาพ ไม่มีแสงหรือวงแสงประกอบ
+const CARD_BG = 'bg-[#0e1a24]'
 
 // Muscle Picker แบบการ์ดรูปภาพ Anatomy (ขอบมน พื้นเข้ม) อยู่บนสุดของ Exercise Library
 // การ์ดที่เลือก = ขอบเรืองแสงสีส้ม 2px (#f97316) ; ป้ายจำนวนท่าโทนเข้มมุมขวาล่าง ; ชื่อหมวดตัวหนาสีขาว ; hover/แตะ = ซูมภาพ 1.03
