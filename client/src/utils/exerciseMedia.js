@@ -116,12 +116,12 @@ export function motionFor(name) {
   return MANNEQUIN_MOTIONS[exercise.name] || PATTERN_MOTIONS[GUIDE_PATTERNS[exercise.name]] || null
 }
 
+// มุมมองของคลิป: oblique = 3/4 เฉียง 40° (ไฟล์หลัก ใช้ในการ์ด) ; side = ด้านข้าง (เฉพาะป๊อปอัปรายละเอียด)
+export const MEDIA_VIEWS = ['oblique', 'side']
+
 const toMedia = (name, motion) => {
   const base = `${VIDEO_BASE}/${mediaSlug(name)}`
-  return {
-    id: motion,
-    motion,
-    source: MEDIA_SOURCE,
+  const oblique = {
     // MP4 (H.264) ก่อน: ไฟล์เล็กกว่าและเล่นได้ทุกเบราว์เซอร์รวม iOS ; WebM สำรองสำหรับเบราว์เซอร์ที่ไม่มี H.264
     sources: [
       { src: `${base}.mp4`, type: 'video/mp4' },
@@ -129,6 +129,8 @@ const toMedia = (name, motion) => {
     ],
     poster: `${base}-poster.webp`,
   }
+  const side = { sources: [{ src: `${base}-side.mp4`, type: 'video/mp4' }], poster: `${base}-side-poster.webp` }
+  return { id: motion, motion, source: MEDIA_SOURCE, ...oblique, views: { oblique, side } }
 }
 // object เดิมทุกครั้ง (การ์ดที่ memo ไว้จะไม่ render ซ้ำ)
 const MEDIA = new Map()

@@ -24,6 +24,8 @@ const FPS = 24
 const args = process.argv.slice(2)
 const previewAt = args.indexOf('--preview')
 const previewOut = previewAt >= 0 ? args.splice(previewAt, 2)[1] : null
+const viewAt = args.indexOf('--views')
+const VIEWS = viewAt >= 0 ? args.splice(viewAt, 2)[1].split(',') : ['oblique', 'side']
 const only = new Set(args)
 const jobs = EXERCISES.filter((e) => !only.size || only.has(e.name)).map((e) => ({ name: e.name, motion: motionFor(e.name) }))
 
@@ -39,16 +41,17 @@ const work = mkdtempSync(join(tmpdir(), 'mannequin-'))
 const browser = await launchBrowser()
 const page = await browser.newPage()
 page.on('pageerror', (e) => console.error('page error:', e.message))
-await page.setViewport({ width: 480, height: 640 })
+await page.setViewport({ width: 600, height: 800 })
 const preview = []
 
 try {
-  for (const { name, motion } of jobs) {
+  for (const { name, motion } of jobs) for (const view of VIEWS) {
     if (!motion) throw new Error(`${name}: no motion`)
     const anatomy = getAnatomy(name) || { primary: [], secondary: [] }
     await openScene(page, BASE)
-    const { frames } = await page.evaluate((spec) => window.setup(spec), { motion, primary: anatomy.primary, secondary: anatomy.secondary, fps: FPS })
-    const slug = mediaSlug(name)
+    const { frames } = await page.evaluate((spec) => window.setup(spec), { motion, view, primary: anatomy.primary, secondary: anatomy.secondary, fps: FPS })
+    // มุมเฉียง 3/4 = ไฟล์หลัก <slug>.* ; มุมด้านข้าง = <slug>-side.mp4 + <slug>-side-poster.webp (MP4 อย่างเดียว ประหยัดขนาด repo)
+    const slug = mediaSlug(name) + (view === 'side' ? '-side' : '')
     const dir = join(work, slug)
     mkdirSync(dir)
     const grab = async (i, file) => {
@@ -73,11 +76,11 @@ try {
     const seq = ['-framerate', `${FPS}`, '-i', join(dir, '%04d.png')]
     const base = join(OUT_DIR, slug)
     run([...seq, ...COLOR, '-c:v', 'libx264', '-preset', 'slow', '-crf', '24', '-movflags', '+faststart', '-an', `${base}.mp4`])
-    run([...seq, '-pix_fmt', 'yuv420p', '-c:v', 'libvpx-vp9', '-crf', '36', '-b:v', '0', '-row-mt', '1', '-an', `${base}.webm`])
+    if (view !== 'side') run([...seq, '-pix_fmt', 'yuv420p', '-c:v', 'libvpx-vp9', '-crf', '36', '-b:v', '0', '-row-mt', '1', '-an', `${base}.webm`])
     // poster = ท่าช่วงออกแรงสุด (กลางลูป)
     run(['-i', join(dir, `${String(Math.floor(frames / 2)).padStart(4, '0')}.png`), '-c:v', 'libwebp', '-quality', '82', `${base}-poster.webp`])
     const kb = (ext) => Math.round(statSync(`${base}${ext}`).size / 1024)
-    console.log(`${name.padEnd(22)} ${motion.padEnd(18)} mp4 ${kb('.mp4')}KB  webm ${kb('.webm')}KB  poster ${kb('-poster.webp')}KB`)
+    console.log(`${name.padEnd(22)} ${view.padEnd(8)} ${motion.padEnd(18)} mp4 ${kb('.mp4')}KB  poster ${kb('-poster.webp')}KB`)
   }
 
   if (previewOut) {

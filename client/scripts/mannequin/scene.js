@@ -10,8 +10,9 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { MOTIONS, samplePose, contraction, resolvePose } from './motions.js'
 
-const W = 480
-const H = 640
+// 600×800 (3:4): การ์ด object-cover / ป๊อปอัปขนาดใหญ่ยังคมชัด
+const W = 600
+const H = 800
 const BG = '#0e1a24'
 const BASE_Y = 0.975 // ความสูงสะโพกตอนยืน (พื้นรองเท้าอยู่ y = 0)
 const L = { uarm: 0.29, farm: 0.33, thigh: 0.43, shin: 0.42 } // farm = ข้อศอก -> กลางฝ่ามือ
@@ -25,7 +26,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserv
 renderer.setPixelRatio(1)
 renderer.setSize(W, H)
 renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFSoftShadowMap
+renderer.shadowMap.type = THREE.VSMShadowMap // เงาเบลอนุ่ม (soft contact shadow) ไม่ใช่ขอบแข็ง
 renderer.toneMapping = THREE.NoToneMapping // พื้นหลังต้องออกมาเป็น #0e1a24 ตรงเป๊ะ
 document.body.appendChild(renderer.domElement)
 
@@ -33,21 +34,62 @@ const scene = new THREE.Scene()
 scene.background = new THREE.Color(BG)
 const camera = new THREE.PerspectiveCamera(28, W / H, 0.05, 60)
 
-scene.add(new THREE.HemisphereLight(0xbcd6ff, 0x0e1a24, 0.85))
-const key = new THREE.DirectionalLight(0xffffff, 1.9)
-key.position.set(2.2, 4.2, 3.2)
-key.castShadow = true
-key.shadow.mapSize.set(1024, 1024)
-Object.assign(key.shadow.camera, { left: -2.6, right: 2.6, top: 2.6, bottom: -2.6, near: 0.5, far: 12 })
-key.shadow.bias = -0.0008
-key.shadow.radius = 4
+// Studio lighting: key ด้านหน้าเฉียงบน (ฝั่งกล้อง) + rim ฟ้า #38bdf8 สองข้างจากด้านหลัง ตัดขอบลำตัว/อุปกรณ์ให้แยกจากพื้นหลัง
+// + fill อุ่นอ่อน ๆ ฝั่งตรงข้าม ; ไฟทั้งชุดหมุนตามมุมกล้อง (aimLights) ทุกมุมมองจึงได้แสงแบบเดียวกัน
+const hemi = new THREE.HemisphereLight(0xd6e6ff, 0x0e1a24, 0.42)
+scene.add(hemi)
+const key = new THREE.DirectionalLight(0xffffff, 1.55)
 scene.add(key)
-const rim = new THREE.DirectionalLight(0x5cb6ff, 2.4)
-rim.position.set(-2.6, 2.4, -3.2)
+const rim = new THREE.DirectionalLight(0x38bdf8, 3.2)
 scene.add(rim)
-const fill = new THREE.DirectionalLight(0xffd7b8, 0.35)
-fill.position.set(-3, 1.2, 2.5)
+const rim2 = new THREE.DirectionalLight(0x38bdf8, 2.0)
+scene.add(rim2)
+const fill = new THREE.DirectionalLight(0xffe2c8, 0.45)
 scene.add(fill)
+// ไฟเงาพื้น: ส่องจากด้านบนตรง ๆ ความสว่าง 0 (ไม่เพิ่มแสงบนตัว) ใช้สร้างเงาตกกระทบนุ่ม ๆ ใต้ตัวหุ่นเท่านั้น
+const shadowLight = new THREE.DirectionalLight(0xffffff, 0)
+shadowLight.position.set(0.15, 6, 0.25)
+shadowLight.castShadow = true
+shadowLight.shadow.mapSize.set(1024, 1024)
+Object.assign(shadowLight.shadow.camera, { left: -2.2, right: 2.2, top: 2.2, bottom: -2.2, near: 0.5, far: 9 })
+shadowLight.shadow.radius = 14
+shadowLight.shadow.blurSamples = 24
+shadowLight.shadow.bias = -0.0005
+scene.add(shadowLight)
+scene.add(shadowLight.target)
+function aimLights(az) {
+  const at = (light, a, y, r) => light.position.set(Math.sin(rad(a)) * r, y, Math.cos(rad(a)) * r)
+  at(key, az + 32, 4.2, 4)
+  at(fill, az - 70, 1.4, 4)
+  at(rim, az + 150, 2.6, 4)
+  at(rim2, az - 150, 2.2, 4)
+}
+aimLights(40)
+
+// Studio backdrop: แสงฟุ้งรัศมีนุ่ม ๆ ด้านหลังตัวหุ่น ไล่เป็น #0e1a24 ตรงเป๊ะที่ขอบ (กลืนกับพื้นการ์ด)
+function backdropTexture(w, h) {
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const g = c.getContext('2d')
+  g.fillStyle = BG
+  g.fillRect(0, 0, w, h)
+  g.save()
+  g.translate(w / 2, h * 0.47)
+  g.scale(1, 1.18)
+  const r = w * 0.62
+  const grad = g.createRadialGradient(0, 0, 0, 0, 0, r)
+  grad.addColorStop(0, 'rgba(46,92,122,0.55)')
+  grad.addColorStop(0.45, 'rgba(30,64,90,0.3)')
+  grad.addColorStop(1, 'rgba(14,26,36,0)')
+  g.fillStyle = grad
+  g.fillRect(-r, -r, 2 * r, 2 * r)
+  g.restore()
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+const backdrop = backdropTexture(W, H)
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
@@ -117,13 +159,6 @@ const fineFiberTex = canvasTexture((g, w, h) => {
     g.fillRect(x, 0, 1, h)
   }
 }, 512, 64)
-const glowTex = canvasTexture((g, w, h) => {
-  const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
-  grad.addColorStop(0, "rgba(80,150,210,0.16)")
-  grad.addColorStop(1, 'rgba(80,150,210,0)')
-  g.fillStyle = grad
-  g.fillRect(0, 0, w, h)
-}, 128, 128)
 
 // ---------- materials ----------
 const MAT = {
@@ -309,11 +344,22 @@ for (const [n, s] of [['L', 1], ['R', -1]]) {
 }
 
 // ---------- พื้น ----------
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({ opacity: 0.42 }))
+// พื้นล่องหน: รับแค่เงานุ่มจาก shadowLight + วงเงาจาง ๆ (contact shadow) ใต้ตัวหุ่น ไม่มีแท่นสี่เหลี่ยม
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({ opacity: 0.5 }))
 ground.rotation.x = -Math.PI / 2
 ground.receiveShadow = true
 scene.add(ground)
-const halo = new THREE.Mesh(new THREE.CircleGeometry(1.2, 48), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false }))
+const contactTex = canvasTexture((g, w, h) => {
+  const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
+  grad.addColorStop(0, 'rgba(2,6,10,0.55)')
+  grad.addColorStop(0.5, 'rgba(2,6,10,0.22)')
+  grad.addColorStop(1, 'rgba(2,6,10,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, w, h)
+}, 128, 128)
+const halo = new THREE.Mesh(new THREE.CircleGeometry(0.75, 48), new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false }))
+halo.scale.set(1, 1.35, 1)
+halo.renderOrder = -1
 halo.rotation.x = -Math.PI / 2
 halo.position.y = 0.002
 scene.add(halo)
@@ -705,12 +751,15 @@ function anatomyMaterials() {
   }, 256, 16)
   fiberBump.colorSpace = THREE.NoColorSpace
   fiberBump.wrapT = THREE.RepeatWrapping
-  const common = { bumpMap: fiberBump, bumpScale: 2.2 }
-  // vertexColors = กางเกงขาสั้นสีดำ (สีต่อ vertex) ; มัดเป้าหมาย (primary/secondary) ไม่ใช้ จึงเรืองแสงทับกางเกงได้
-  AMAT.base = new THREE.MeshPhysicalMaterial({ color: 0xaab2bc, metalness: 0.6, roughness: 0.36, clearcoat: 0.35, clearcoatRoughness: 0.45, vertexColors: true, ...common })
-  AMAT.tendon = new THREE.MeshPhysicalMaterial({ color: 0xc9d0d8, metalness: 0.5, roughness: 0.3, clearcoat: 0.5, vertexColors: true })
-  AMAT.bone = new THREE.MeshPhysicalMaterial({ color: 0x8e98a3, metalness: 0.35, roughness: 0.5, vertexColors: true })
-  AMAT.primary = new THREE.MeshPhysicalMaterial({ color: 0xf97316, emissive: 0xff4a10, emissiveIntensity: 0.9, metalness: 0.12, roughness: 0.34, clearcoat: 0.45, ...common })
+  // Solid matte: ทึบ 100% (ไม่มี transparent), เรนเดอร์สองหน้า (DoubleSide) ปิดรูรอยต่อของ mesh ที่ normal กลับด้าน
+  // โทนเงินด้าน #94a3b8 – #cbd5e1 (สะท้อนแสงต่ำ ไม่เป็นกระจกสะท้อนพื้นหลังมืดจนดูโปร่ง) + ริ้วเส้นใยชัด
+  const common = { bumpMap: fiberBump, bumpScale: 4.5, side: THREE.DoubleSide, transparent: false, opacity: 1 }
+  // vertexColors = กางเกงออกกำลังกายสีเข้ม (สีต่อ vertex) ; มัดเป้าหมาย (primary/secondary) ไม่ใช้ จึงเรืองแสงทับกางเกงได้
+  AMAT.base = new THREE.MeshPhysicalMaterial({ color: 0xa7b4c4, metalness: 0.28, roughness: 0.5, clearcoat: 0.18, clearcoatRoughness: 0.6, sheen: 0.25, sheenColor: 0xcbd5e1, vertexColors: true, ...common })
+  AMAT.tendon = new THREE.MeshPhysicalMaterial({ color: 0xcbd5e1, metalness: 0.2, roughness: 0.45, clearcoat: 0.25, vertexColors: true, side: THREE.DoubleSide })
+  AMAT.bone = new THREE.MeshPhysicalMaterial({ color: 0x94a3b8, metalness: 0.15, roughness: 0.6, vertexColors: true, side: THREE.DoubleSide })
+  // เป้าหมาย #f97316 เรืองแสงพอดี ๆ (ไม่ฟุ้งจนดูลอยเป็นแผ่น) ยังเห็นริ้วเส้นใยของมัด
+  AMAT.primary = new THREE.MeshPhysicalMaterial({ color: 0xf97316, emissive: 0xf25a12, emissiveIntensity: 0.55, metalness: 0.08, roughness: 0.46, clearcoat: 0.3, ...common })
   const absBump = canvasTexture((g, w, h) => {
     for (let x = 0; x < w; x++) {
       const v = 120 + Math.floor(rand() * 90)
@@ -743,7 +792,7 @@ function anatomyMaterials() {
       g.fillRect(0, y - 6, w, 12)
     }
   }, 16, 256)
-  AMAT.secondary = new THREE.MeshPhysicalMaterial({ color: 0xffb393, emissive: 0xff6a3a, emissiveIntensity: 0.28, metalness: 0.35, roughness: 0.34, ...common })
+  AMAT.secondary = new THREE.MeshPhysicalMaterial({ color: 0xfdba8c, emissive: 0xf97316, emissiveIntensity: 0.16, metalness: 0.15, roughness: 0.48, ...common })
   for (const k of ['base', 'primary', 'secondary']) {
     AMAT[`${k}Abs`] = AMAT[k].clone()
     Object.assign(AMAT[`${k}Abs`], { bumpMap: absBump, bumpScale: 9, map: absMap, emissiveMap: absMap })
@@ -989,7 +1038,8 @@ async function loadAnatomy() {
       }
       const ws = allow.map((b) => {
         const [, a, e] = BONES[names[b]]
-        return 1 / (Math.max(0, segDist(q, a, e) - RADIUS[names[b]]) + 0.012) ** 6
+        // ยกกำลัง 4 + ระยะเผื่อ 2 ซม.: น้ำหนักไล่นุ่มขึ้นรอบข้อต่อ -> มัดกล้ามเนื้อไม่ฉีกเป็นแผ่น/ลอยแยกเวลางอสะโพก-ไหล่ลึก
+        return 1 / (Math.max(0, segDist(q, a, e) - RADIUS[names[b]]) + 0.02) ** 4
       })
       const tot = ws.reduce((x, y) => x + y, 0)
       allow.forEach((b, k) => {
@@ -1059,7 +1109,71 @@ function paintAnatomy(primary, secondary) {
   }
 }
 
-// ---------- กล้อง: จัดเฟรมจากกล่องครอบของท่าทั้งลูป (ภาพนิ่งไม่สั่น) ----------
+// ---------- กล้องวิดีโอ: Tight hero framing จากจุดผิวจริงของท่าทั้งลูป (กล้องนิ่งทั้งคลิป) ----------
+// เดิมใช้มุม 8 จุดของกล่องครอบ 3 มิติ -> มุมเฉียงทำให้กล่อง (บาร์ยาว 1.9 ม. ฯลฯ) ใหญ่เกินตัวจริง หุ่นเหลือเล็กกลางการ์ด
+// ตอนนี้ฉายจุดผิวหุ่น + จุดยอดของอุปกรณ์ลงจอ แล้ว: หุ่นสูง ~83% ของกรอบ อยู่กึ่งกลาง ; อุปกรณ์ยาว ๆ ล้นขอบซ้าย-ขวาได้เล็กน้อย
+function propPoints(out) {
+  propRoot.updateMatrixWorld(true)
+  propRoot.traverse((o) => {
+    if (!o.isMesh || o.userData.noFrame) return
+    const p = o.geometry.attributes.position
+    const step = Math.max(1, Math.floor(p.count / 60))
+    for (let i = 0; i < p.count; i += step) out.push(new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld))
+  })
+}
+function bodyPoints(out, stride = 3) {
+  const p = new THREE.Vector3()
+  for (let k = 0; k < anat.samples.length; k += stride) {
+    const s = anat.samples[k]
+    p.fromBufferAttribute(s.mesh.geometry.attributes.position, s.i)
+    s.mesh.applyBoneTransform(s.i, p)
+    out.push(p.clone())
+  }
+}
+function fitCamera(body, props, az, el) {
+  const dir = new THREE.Vector3(Math.sin(rad(az)) * Math.cos(rad(el)), Math.sin(rad(el)), Math.cos(rad(az)) * Math.cos(rad(el)))
+  const target = new THREE.Box3().setFromPoints(body).getCenter(new THREE.Vector3())
+  const right = new THREE.Vector3()
+  const up = new THREE.Vector3()
+  const bounds = (pts) => {
+    let [x0, x1, y0, y1] = [Infinity, -Infinity, Infinity, -Infinity]
+    for (const q of pts) {
+      v.copy(q).project(camera)
+      x0 = Math.min(x0, v.x)
+      x1 = Math.max(x1, v.x)
+      y0 = Math.min(y0, v.y)
+      y1 = Math.max(y1, v.y)
+    }
+    return { x0, x1, y0, y1 }
+  }
+  let dist = 6
+  for (let it = 0; it < 10; it++) {
+    camera.position.copy(target).addScaledVector(dir, dist)
+    camera.lookAt(target)
+    camera.updateMatrixWorld()
+    const b = bounds(body)
+    // เลื่อนจุดเล็งให้กึ่งกลางของหุ่นบนจอ = กึ่งกลางกรอบ
+    const halfH = Math.tan(rad(camera.fov / 2)) * dist
+    right.setFromMatrixColumn(camera.matrixWorld, 0)
+    up.setFromMatrixColumn(camera.matrixWorld, 1)
+    target.addScaledVector(right, ((b.x0 + b.x1) / 2) * halfH * camera.aspect).addScaledVector(up, ((b.y0 + b.y1) / 2) * halfH)
+    const a = props.length ? bounds(props) : b
+    const cx = (b.x0 + b.x1) / 2
+    const cy = (b.y0 + b.y1) / 2
+    const need = Math.max(
+      (b.y1 - b.y0) / 2 / 0.83, // หุ่นสูง 83% ของกรอบ
+      (b.x1 - b.x0) / 2 / 0.9,
+      Math.max(a.y1 - cy, cy - a.y0) / 0.97, // อุปกรณ์ไม่ล้นบน-ล่าง
+      Math.max(a.x1 - cx, cx - a.x0) / 1.03, // ปลายบาร์ล้นขอบข้างได้เล็กน้อย
+    )
+    dist *= need
+  }
+  camera.position.copy(target).addScaledVector(dir, dist)
+  camera.lookAt(target)
+  camera.updateMatrixWorld()
+}
+
+// ---------- กล้องภาพนิ่ง: จัดเฟรมจากกล่องครอบ ----------
 function frameCamera(boxes, az, el) {
   const center = new THREE.Box3()
   for (const b of boxes) center.union(b)
@@ -1114,17 +1228,29 @@ window.setup = (spec) => {
   }
   const fps = spec.fps || 24
   const frames = Math.max(12, Math.round(M.dur * fps))
-  const boxes = []
+  // มุมกล้อง: oblique = 3/4 perspective เฉียง 40° ทุกท่า (เห็นแนวหลัง มุมเข่า และแนวบาร์พร้อมกัน) ; side = ด้านข้าง 68° (ตรง 90° แผ่นน้ำหนักบังตัวทั้งหมด)
+  // ท่านอน/นั่งบนเครื่องที่ยกกล้องสูงไว้ (M.cam.el) ใช้มุมเงยเดิม
+  const view = spec.view || 'oblique'
+  const az = view === 'side' ? 68 : 40
+  const el = view === 'side' ? 8 : clamp(M.cam?.el ?? 12, 8, 22)
+  aimLights(az)
+  const bodyPts = []
+  const propPts = []
+  const feet = new THREE.Vector3()
   for (let i = 0; i < 16; i++) {
     const t = i / 16
     pose(t)
     props.forEach((u) => u(t))
-    const b = bodyBox()
-    propRoot.traverse((o) => o.isMesh && !o.userData.noFrame && b.expandByObject(o))
-    boxes.push(b)
+    if (anat) bodyPoints(bodyPts)
+    else for (const m of bodyMeshes) bodyPts.push(...[0, 1].map((k) => new THREE.Box3().setFromObject(m)[k ? 'max' : 'min']))
+    propPoints(propPts)
+    feet.add(wp(J.root))
   }
-  const cam = { az: 52, el: 12, ...(M.cam || {}) }
-  frameCamera(boxes, cam.az, cam.el)
+  fitCamera(bodyPts, propPts, az, el)
+  feet.divideScalar(16)
+  halo.position.set(feet.x, 0.003, feet.z)
+  shadowLight.position.set(feet.x + 0.15, 6, feet.z + 0.25)
+  shadowLight.target.position.set(feet.x, 0, feet.z)
   return { frames }
 }
 
@@ -1134,7 +1260,7 @@ window.frame = (i, frames) => {
   props.forEach((u) => u(t))
   const c = contraction(M, t)
   for (const m of muscles) if (m.kind === 'primary') m.mesh.material.emissiveIntensity = 1.35 + 1.1 * c
-  if (anat) AMAT.primary.emissiveIntensity = AMAT.primaryAbs.emissiveIntensity = 0.65 + 0.75 * c
+  if (anat) AMAT.primary.emissiveIntensity = AMAT.primaryAbs.emissiveIntensity = 0.32 + 0.3 * c
   composer.render()
   return renderer.domElement.toDataURL('image/png')
 }
@@ -1182,14 +1308,13 @@ if (ANATOMY) {
   loadAnatomy()
     .then(() => {
       scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture
-      scene.environmentIntensity = 0.32
-      // ร่างเงินสะท้อนแสงสูง: bloom เฉพาะจุดที่สว่างจัด (กล้ามเนื้อเรืองแสง) ไม่ให้ทั้งร่างฟุ้ง
-      Object.assign(bloom, { threshold: 0.92, strength: 0.6, radius: 0.35 })
-      // พื้นหลังเรียบ #0e1a24 ผืนเดียว: ไม่มีเงาพื้น / วงแสงใต้เท้า
-      ground.visible = false
-      halo.visible = false
-      key.intensity = 1.55
-      rim.intensity = 1.8
+      scene.environmentIntensity = 0.3
+      // bloom เฉพาะจุดที่สว่างจัด (กล้ามเนื้อเรืองแสง/ขอบ rim) ไม่ให้ทั้งร่างฟุ้ง
+      Object.assign(bloom, { threshold: 0.95, strength: 0.32, radius: 0.28 })
+      // พื้นหลังแสงฟุ้งรัศมีด้านหลังตัวหุ่น + เงาตกกระทบนุ่มบนพื้น (ไม่มีแท่น)
+      scene.background = backdrop
+      ground.visible = true
+      halo.visible = true
       window.ready = true
     })
     .catch((e) => {

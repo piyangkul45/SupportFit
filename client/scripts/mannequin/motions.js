@@ -537,7 +537,8 @@ const lerpV = (a, b, w) => {
   if (Array.isArray(a)) return a.map((v, i) => lerpV(v, b[i], w))
   return a + (b - a) * w
 }
-const ease = (t) => t * t * (3 - 2 * t)
+// smootherstep (quintic ease-in-out): ความเร็วและความเร่งเป็นศูนย์ที่จุดกลับทิศ -> หยุดค้างนุ่ม ๆ ที่ล่างสุด/บนสุดเหมือนคนจริง
+const ease = (t) => t * t * t * (t * (6 * t - 15) + 10)
 
 // t ∈ [0, 1) -> ท่า (resolved) ; keyframe วนกลับไปท่าแรก
 export function samplePose(motion, t) {

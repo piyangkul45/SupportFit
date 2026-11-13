@@ -250,7 +250,7 @@ body {
 .mannequin-video {
   background: #0e1a24;
   filter: saturate(1.12) contrast(1.05);
-  /* จางเฉพาะขอบบาง ๆ 4 ด้าน (หุ่นสูง ~88% ของกรอบ ไม่ถูกตัดหัว/เท้า) */
+  /* จางเฉพาะขอบบาง ๆ 4 ด้าน (หุ่นสูง ~83% ของกรอบ อยู่กึ่งกลาง ; แสงฟุ้งด้านหลังไล่เป็น #0e1a24 ที่ขอบพอดี) */
   -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent), linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent);
   -webkit-mask-composite: source-in;
   mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent), linear-gradient(to bottom, transparent, #000 4%, #000 96%, transparent);

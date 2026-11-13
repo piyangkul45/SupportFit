@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Check, Dumbbell, Footprints, Pause, Play, TriangleAlert, Wind, X } from 'lucide-react'
 import { getAnatomy } from '../utils/exerciseAnatomy'
-import { GUIDE_KEYS, getExerciseMedia, getGuidePattern } from '../utils/exerciseMedia'
+import { GUIDE_KEYS, MEDIA_VIEWS, getExerciseMedia, getGuidePattern } from '../utils/exerciseMedia'
 import ExerciseBadges from './ExerciseBadges'
 import { prefersReducedMotion } from '../utils/motion'
 import ExerciseVideo from './ExerciseVideo'
@@ -27,6 +27,31 @@ function MuscleChips({ muscles, tone }) {
   ))
 }
 
+// ปุ่มสลับแบบกลุ่ม (radiogroup) บนวิดีโอ
+function Segmented({ label, value, options, onChange }) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex rounded-full bg-black/70 p-0.5 ring-1 ring-white/15 backdrop-blur-sm">
+      {options.map((option) => {
+        const active = option.value === value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option.value)}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums transition-colors ${
+              active ? 'bg-orange-500 text-white shadow-[0_0_10px_-2px_rgba(249,115,22,0.9)]' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // ป๊อปอัปรายละเอียดท่า: วิดีโอ Anatomy ขนาดใหญ่ (เล่นทันทีเมื่อเปิด หยุดเมื่อปิด) + รูป Anatomy ที่กล้ามเนื้อเป้าหมายเต้นเป็นสีแดง
 // + คำแนะนำมือใหม่ 3 ข้อ (การวางเท้า / การหายใจ / ข้อควรระวัง) ; onSelect(exercise) = เลือกท่านี้ไปกรอกเซต/ครั้ง
 export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect, onClose }) {
@@ -38,8 +63,19 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
   const pattern = getGuidePattern(exercise.name)
   const [autoPlay] = useState(() => !prefersReducedMotion())
   const [playing, setPlaying] = useState(false) // สถานะจริงจาก event play/pause ของวิดีโอ
+  const [view, setView] = useState('oblique') // มุมเฉียง 3/4 | ด้านข้าง
+  const [speed, setSpeed] = useState(1) // 0.5x = ดูจังหวะท่าช้า ๆ
   const videoRef = useRef(null)
   const closeRef = useRef(null)
+  const clip = media && (media.views?.[view] || media)
+
+  // ความเร็ว: ตั้งทั้ง defaultPlaybackRate (คงค่าหลัง <video> โหลดแหล่งใหม่ตอนสลับมุม) และ playbackRate
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.defaultPlaybackRate = speed
+    video.playbackRate = speed
+  }, [speed, view])
 
   // ปิด Modal = หยุดวิดีโอทันที (ไม่รอให้อนิเมชันปิดจบ)
   const close = useCallback(() => {
@@ -116,12 +152,14 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
 
         <div className="overflow-y-auto px-5 pb-5 pt-4">
           {/* แอนิเมชันหุ่นจำลอง 3D ขนาดใหญ่ (พื้น #0e1a24 เท่าพื้นวิดีโอ ขอบกลืนกันด้วย mask) */}
-          <div className="relative aspect-square overflow-hidden rounded-xl border border-white/[0.07] bg-[#0e1a24] sm:aspect-[5/4]">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-xl border border-white/[0.07] bg-[#0e1a24] sm:aspect-[5/4]">
             {media ? (
               <>
+                {/* key = มุมมอง: สลับมุมแล้วโหลดคลิปใหม่ทั้งชุด (sources + poster) */}
                 <ExerciseVideo
+                  key={view}
                   ref={videoRef}
-                  media={media}
+                  media={clip}
                   autoPlay={autoPlay}
                   label={t('exerciseLibrary.demoAlt', { name: exercise.name })}
                   onPlayingChange={setPlaying}
@@ -137,6 +175,37 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
                   {playing ? <Pause className="h-3 w-3 fill-current" aria-hidden /> : <Play className="h-3 w-3 fill-current" aria-hidden />}
                   {t(playing ? 'exerciseLibrary.pauseShort' : 'exerciseLibrary.playShort')}
                 </button>
+
+                {/* ป้ายกล้ามเนื้อหลักที่ทำงาน (สีเดียวกับมัดที่เรืองแสงบนหุ่น) */}
+                {anatomy?.primary.length > 0 && (
+                  <div className="pointer-events-none absolute left-2 top-2 max-w-[70%] rounded-lg bg-black/60 px-2 py-1 ring-1 ring-orange-500/30 backdrop-blur-sm">
+                    <p className="text-[9px] font-semibold uppercase tracking-wider text-orange-300/90">{t('exerciseLibrary.primaryWorking')}</p>
+                    <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold text-white">
+                      {anatomy.primary.map((muscle) => (
+                        <span key={muscle} className="inline-flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#f97316] shadow-[0_0_6px_#f97316]" aria-hidden />
+                          {t(`anatomy.muscles.${muscle}`)}
+                        </span>
+                      ))}
+                    </p>
+                  </div>
+                )}
+
+                {/* มุมมอง (เฉียง / ข้าง) + ความเร็ว (0.5x / 1x) */}
+                <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1.5">
+                  <Segmented
+                    label={t('exerciseLibrary.views.label')}
+                    value={view}
+                    onChange={setView}
+                    options={MEDIA_VIEWS.map((key) => ({ value: key, label: t(`exerciseLibrary.views.${key}`) }))}
+                  />
+                  <Segmented
+                    label={t('exerciseLibrary.speed')}
+                    value={speed}
+                    onChange={setSpeed}
+                    options={[0.5, 1].map((rate) => ({ value: rate, label: `${rate}x` }))}
+                  />
+                </div>
               </>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-500">

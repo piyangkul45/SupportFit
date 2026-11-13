@@ -11,7 +11,8 @@ The meshes come from [BodyExplorer](https://github.com/JohanBellander/BodyExplor
 
 Changes: the meshes are skinned to SupportFit's own rig. The joints are measured from the skeleton
 (femoral and humeral heads, L5/T12/C7). The motions, props and camera are original
-(`client/scripts/mannequin/`, three.js, MIT). The rendering uses a silver body with orange-red glowing
-target muscles on `#0e1a24`. These adapted animations are shared under **CC BY-SA 4.0**.
+(`client/scripts/mannequin/`, three.js, MIT). The rendering uses a matte silver body with `#f97316` glowing
+target muscles, studio key + `#38bdf8` rim lighting and a soft radial glow on `#0e1a24`, in a 3/4 view
+(`<slug>.*`) and a side view (`<slug>-side.*`). These adapted animations are shared under **CC BY-SA 4.0**.
 
 Regenerate with `client/scripts/build-mannequin-videos.mjs`.

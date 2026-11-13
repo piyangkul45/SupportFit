@@ -34,6 +34,11 @@ test('global media standard: all 53 catalog exercises have a 3D mannequin animat
       [...media.sources.map((source) => source.src), media.poster],
       [`/mannequin/${slug}.mp4`, `/mannequin/${slug}.webm`, `/mannequin/${slug}-poster.webp`]
     )
+    // ป๊อปอัปสลับมุมได้: มุมเฉียง 3/4 (= ไฟล์หลัก) + ด้านข้าง
+    assert.deepEqual(Object.keys(media.views), ['oblique', 'side'])
+    assert.equal(media.views.oblique.poster, media.poster)
+    assert.deepEqual(media.views.side.sources, [{ src: `/mannequin/${slug}-side.mp4`, type: 'video/mp4' }])
+    assert.equal(media.views.side.poster, `/mannequin/${slug}-side-poster.webp`)
   }
 })
 
@@ -49,7 +54,8 @@ test('no real-person photos or static anatomy stand-ins are referenced', () => {
 test('generated video, webm, poster and 3D target figure exist for every exercise', () => {
   for (const exercise of EXERCISES) {
     const media = getExerciseMedia(exercise.name)
-    for (const url of [...media.sources.map((source) => source.src), media.poster, `/mannequin/${mediaSlug(exercise.name)}-target.webp`]) {
+    const side = media.views.side
+    for (const url of [...media.sources.map((source) => source.src), media.poster, ...side.sources.map((source) => source.src), side.poster, `/mannequin/${mediaSlug(exercise.name)}-target.webp`]) {
       const file = `${PUBLIC_DIR}${url}`
       assert.ok(existsSync(file), `missing ${url} (run scripts/build-mannequin-videos.mjs)`)
       assert.ok(statSync(file).size > 1000, `${url} looks empty`)
@@ -61,7 +67,7 @@ test('public/mannequin holds only clips for catalog exercises; old line-art fold
   const allowed = new Set(['LICENSE.md'])
   for (const exercise of EXERCISES) {
     const slug = mediaSlug(exercise.name)
-    for (const file of [`${slug}.mp4`, `${slug}.webm`, `${slug}-poster.webp`, `${slug}-target.webp`]) allowed.add(file)
+    for (const file of [`${slug}.mp4`, `${slug}.webm`, `${slug}-poster.webp`, `${slug}-side.mp4`, `${slug}-side-poster.webp`, `${slug}-target.webp`]) allowed.add(file)
   }
   for (const file of readdirSync(`${PUBLIC_DIR}/mannequin`)) assert.ok(allowed.has(file), `unexpected media file mannequin/${file}`)
   assert.ok(!existsSync(`${PUBLIC_DIR}/anatomy`), 'public/anatomy (old line-art media) should be removed')
