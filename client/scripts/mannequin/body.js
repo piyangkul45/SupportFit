@@ -291,8 +291,47 @@ function fiberFrame(p) {
   e1.normalize()
   const e2 = V().crossVectors(f, e1)
   const R = p.shape.r ? (p.shape.r[0] + p.shape.r[1] + p.shape.r[2]) / 3 : p.shape.R
-  p._f = { c, e1, e2, R }
+  p._f = { c, e1, e2, R, f }
   return p._f
+}
+// พิกัดตามแนวเส้นใย (เมตร) — ใช้สุ่มความหนา/ความสว่างของมัดเส้นใยย่อยตามความยาว
+function fiberAlong(p, q) {
+  const { c, f } = fiberFrame(p)
+  return q.clone().sub(c).dot(f)
+}
+// พังผืด/เส้นเอ็นขาวเพิ่มเติมตามตำแหน่ง (ท่า bind): กลางอก (sternum), แนวกระดูกสันหลัง + พังผืดเอว (thoracolumbar),
+// ปลายไหล่ (acromion), ข้อศอก (olecranon/epicondyle), รอบเข่า — คืนค่า 0..1
+function fasciaAt(x, y, z, layer) {
+  let w = 0
+  const ax = Math.abs(x)
+  if (layer === 'body') {
+    if (z > 0.04 && y > 1.2 && y < 1.4) w = Math.max(w, 1 - smooth(0.006, 0.014, ax)) // sternum
+    if (z < -0.05 && y > 0.98 && y < 1.47) w = Math.max(w, (1 - smooth(0.005, 0.012, ax)) * 0.95) // spinous line
+    if (z < -0.04 && y > 0.94 && y < 1.08) {
+      const half = 0.085 * smooth(0.94, 0.99, y) * (1 - smooth(1.0, 1.08, y))
+      w = Math.max(w, (1 - smooth(half * 0.7, half + 1e-4, ax)) * 0.9) // thoracolumbar fascia (diamond)
+    }
+  }
+  for (const n of ['L', 'R']) {
+    const [sx, sy, sz] = JOINTS[`shoulder${n}`]
+    const [ex, ey, ez] = JOINTS[`elbow${n}`]
+    const [kx, ky, kz] = JOINTS[`knee${n}`]
+    if (layer === `arm${n}` || layer === 'body') {
+      const d = Math.hypot(x - sx * 1.12, y - sy - 0.02, z - sz)
+      w = Math.max(w, 1 - smooth(0.018, 0.03, d)) // acromion
+    }
+    if (layer === `arm${n}`) {
+      const d = Math.hypot(x - ex, y - ey, z - ez + 0.02)
+      if (z < ez + 0.005) w = Math.max(w, 1 - smooth(0.022, 0.034, d)) // olecranon
+      const de = Math.hypot(x - ex * 1.13, y - ey, z - ez)
+      w = Math.max(w, (1 - smooth(0.012, 0.022, de)) * 0.85) // lateral epicondyle
+    }
+    if (layer === `leg${n}`) {
+      const d = Math.hypot((x - kx) * 1.1, (y - ky) * 0.8, z - kz - 0.01)
+      if (z > kz - 0.03) w = Math.max(w, (1 - smooth(0.05, 0.068, d)) * 0.9) // knee capsule / retinaculum
+    }
+  }
+  return w
 }
 function fiberCoord(p, q) {
   const { c, e1, e2, R } = fiberFrame(p)
@@ -319,10 +358,10 @@ export function buildBodyMeshes({ h = 0.004 } = {}) {
     box.expandByScalar(0.03)
     const min = box.min.max(V(-0.34, -0.006, -0.2))
     const max = box.max.min(V(0.34, 1.76, 0.24))
-    return { layer, ...buildLayer(P, min, max, h) }
+    return { layer, ...buildLayer(P, min, max, h, layer) }
   })
 }
-function buildLayer(P, min, max, h) {
+function buildLayer(P, min, max, h, layer) {
   const nx = Math.ceil((max.x - min.x) / h) + 1
   const ny = Math.ceil((max.y - min.y) / h) + 1
   const nz = Math.ceil((max.z - min.z) / h) + 1
@@ -459,6 +498,7 @@ function buildLayer(P, min, max, h) {
 
   // 4) ลายผิวต่อ vertex: มัดที่ใกล้สุด -> กลุ่ม / ช่วงร่างกาย / เส้นใย / ปลายเอ็น / ร่องระหว่างมัด / กางเกง
   const aU = new Float32Array(nv)
+  const aV = new Float32Array(nv)
   const aFib = new Float32Array(nv)
   const aTendon = new Float32Array(nv)
   const aGroove = new Float32Array(nv)
@@ -504,22 +544,27 @@ function buildLayer(P, min, max, h) {
       for (const e of best.ends) aTendon[n] = Math.max(aTendon[n], smooth(0.62, 0.95, t * e))
       // ลายเส้นใย: พิกัดตั้งฉากกับทิศเส้นใยบนผิว (ริ้ววิ่งตามแนวมัด)
       aU[n] = fiberCoord(best, q)
+      aV[n] = fiberAlong(best, q)
     } else if (best.kind === 'tendon') {
       aTendon[n] = 1
       aFib[n] = 0.35
       aU[n] = fiberCoord(best, q)
+      aV[n] = fiberAlong(best, q)
     } else if (best.kind === 'core') {
       // แกนลำตัว/แขนขาที่โผล่ระหว่างมัด = พังผืดเทาเข้มเล็กน้อย (มีริ้วจาง ๆ)
       aFib[n] = 0.4
       aGroove[n] = 0.35
       aU[n] = x * 0.7 + z * 0.7
+      aV[n] = y
     }
+    if (best.kind !== 'smooth') aTendon[n] = Math.max(aTendon[n], fasciaAt(x, y, z, layer))
   }
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
   geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3))
   geo.setIndex(index)
   geo.setAttribute('aU', new THREE.BufferAttribute(aU, 1))
+  geo.setAttribute('aV', new THREE.BufferAttribute(aV, 1))
   geo.setAttribute('aFib', new THREE.BufferAttribute(aFib, 1))
   geo.setAttribute('aTendon', new THREE.BufferAttribute(aTendon, 1))
   geo.setAttribute('aGroove', new THREE.BufferAttribute(aGroove, 1))

@@ -111,10 +111,10 @@ export const MOTIONS = {
   deadlift: {
     dur: 3.2, props: ['barbell'], times: [0.9, 0.8, 0.9, 0.8],
     keys: [
-      { hip: [0.545, -0.33], ft: [0.13, A, 0], toe: 6, pelvis: 55, spine: 54, chest: 52, head: 32, bar: [0.226, 0.05], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
-      { hip: [0.7, -0.25], ft: [0.13, A, 0], toe: 6, pelvis: 40, spine: 39, chest: 38, head: 22, bar: [0.5, 0.065], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
+      { hip: [0.51, -0.31], ft: [0.13, A, 0], toe: 6, pelvis: 55, spine: 51, chest: 46, head: 30, bar: [0.226, 0.05], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
+      { hip: [0.69, -0.245], ft: [0.13, A, 0], toe: 6, pelvis: 40, spine: 37, chest: 33, head: 20, bar: [0.5, 0.065], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
       { hip: [0.872, -0.01], ft: [0.13, A, 0], toe: 6, pelvis: 0, spine: 0, chest: -1, head: 0, bar: [0.79, 0.1], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
-      { hip: [0.7, -0.25], ft: [0.13, A, 0], toe: 6, pelvis: 40, spine: 39, chest: 38, head: 22, bar: [0.5, 0.065], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
+      { hip: [0.69, -0.245], ft: [0.13, A, 0], toe: 6, pelvis: 40, spine: 37, chest: 33, head: 20, bar: [0.5, 0.065], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
     ],
   },
   // Romanian deadlift: เข่างอเล็กน้อยคงที่ พับสะโพกไปหลัง หลังตรง บาร์ไถลชิดต้นขา-หน้าแข้ง
@@ -122,7 +122,9 @@ export const MOTIONS = {
     dur: 3.0, props: ['barbell'],
     keys: [
       { hip: [0.868, 0], ft: [0.12, A, 0], toe: 4, pelvis: 0, spine: 0, chest: -1, head: 0, bar: [0.79, 0.1], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
-      { hip: [0.8, -0.27], ft: [0.12, A, 0], toe: 4, pelvis: 71, spine: 70, chest: 68, head: 50, bar: [0.48, 0.13], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
+      { hip: [0.84, -0.15], ft: [0.12, A, 0], toe: 4, pelvis: 37, spine: 35, chest: 31, head: 22, bar: [0.65, 0.12], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
+      { hip: [0.8, -0.27], ft: [0.12, A, 0], toe: 4, pelvis: 72, spine: 68, chest: 63, head: 46, bar: [0.48, 0.13], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
+      { hip: [0.84, -0.15], ft: [0.12, A, 0], toe: 4, pelvis: 37, spine: 35, chest: 31, head: 22, bar: [0.65, 0.12], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
     ],
   },
   // Hip thrust: สะบักพาดขอบม้านั่ง เท้าราบ ดันสะโพกจนลำตัว-ต้นขาเป็นแนวราบ (คางชิด) บาร์วางบนข้อพับสะโพก
@@ -235,7 +237,7 @@ export const MOTIONS = {
     keys: [
       { ...STAND, toe: 6, ft: [0.13, A, 0], pelvis: 0, spine: -1, chest: -2, head: 0, bar: [0.235, 0.25], gw: 0.235, pron: 175, wrist: 55, palmHint: [0, 0.6, 1], curl: 0.85, pole: [0.3, -1, 0.75] },
       { ...STAND, toe: 6, ft: [0.13, A, 0], pelvis: -1, spine: -2, chest: -4, head: -14, bar: [0.52, 0.19], gw: 0.235, pron: 175, wrist: 25, palmHint: [0, 0.6, 1], curl: 1, pole: [0.7, -1, 0.4] },
-      { ...STAND, toe: 6, ft: [0.13, A, 0], pelvis: 0, spine: -1, chest: -2, head: 3, bar: [0.8, 0.03], gw: 0.235, pron: 175, palmHint: [0, 0.2, 1], curl: 1, pole: [1, 0, 0] },
+      { ...STAND, toe: 6, ft: [0.13, A, 0], pelvis: 0, spine: -1, chest: -2, head: 2, bar: [0.8, 0.075], gw: 0.235, pron: 175, palmHint: [0, 0.2, 1], curl: 1, pole: [1, 0, 0] },
       { ...STAND, toe: 6, ft: [0.13, A, 0], pelvis: -1, spine: -2, chest: -4, head: -14, bar: [0.52, 0.19], gw: 0.235, pron: 175, wrist: 25, palmHint: [0, 0.6, 1], curl: 1, pole: [0.7, -1, 0.4] },
     ],
   },
@@ -299,8 +301,8 @@ export const MOTIONS = {
   'barbell-row': {
     dur: 2.6, props: ['barbell'], barSpace: 'chest',
     keys: [
-      { hip: [0.79, -0.22], ft: [0.14, A, 0], toe: 6, pelvis: 55, spine: 54, chest: 52, head: 34, bar: [-0.12, 0.47], gw: 0.26, pron: 175, curl: 1, pole: [0.45, -0.7, -1] },
-      { hip: [0.79, -0.22], ft: [0.14, A, 0], toe: 6, pelvis: 55, spine: 54, chest: 52, head: 34, bar: [0.02, 0.205], gw: 0.26, pron: 175, curl: 1, pole: [0.45, -0.7, -1] },
+      { hip: [0.79, -0.22], ft: [0.14, A, 0], toe: 6, pelvis: 55, spine: 52, chest: 47, head: 32, bar: [-0.12, 0.47], gw: 0.26, pron: 175, curl: 1, pole: [0.45, -0.7, -1] },
+      { hip: [0.79, -0.22], ft: [0.14, A, 0], toe: 6, pelvis: 55, spine: 52, chest: 47, head: 32, bar: [0.02, 0.205], gw: 0.26, pron: 175, curl: 1, pole: [0.45, -0.7, -1] },
     ],
   },
   // Lat pulldown: นั่งต้นขาล็อกใต้เบาะ เอนหลังเล็กน้อย จับกว้างคว่ำมือ ดึงบาร์ลงอกบน ศอกลงข้างลำตัว
@@ -413,7 +415,7 @@ export const MOTIONS = {
   'clean-jerk': {
     dur: 4.4, props: ['barbell'], times: [1, 0.8, 0.9, 1.1, 0.9],
     keys: [
-      { hip: [0.545, -0.33], ft: [0.13, A, 0], toe: 6, pelvis: 55, spine: 54, chest: 52, head: 32, bar: [0.226, 0.05], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
+      { hip: [0.51, -0.31], ft: [0.13, A, 0], toe: 6, pelvis: 55, spine: 51, chest: 46, head: 30, bar: [0.226, 0.05], gw: 0.25, pron: 175, curl: 1, pole: [0.25, 0, -1] },
       { hip: [0.86, -0.06], ft: [0.13, A + 0.04, -0.01], footPitch: 20, toe: 6, pelvis: -3, spine: -4, chest: -6, head: 0, bar: [0.92, 0.1], gw: 0.25, pron: 175, curl: 1, pole: [0.6, 1, -0.3] },
       { hip: [0.66, -0.12], ft: [0.16, A, 0], toe: 10, pelvis: 12, spine: 10, chest: 8, head: 2, bar: [1.19, 0.24], gw: 0.25, pron: 175, wrist: 80, palmHint: [0, 1, 0.3], curl: 0.6, pole: [0.25, 0.4, 1] },
       { hip: [0.872, -0.02], ft: [0.14, A, 0], toe: 6, pelvis: 0, spine: -1, chest: -2, head: 0, bar: [1.36, 0.22], gw: 0.25, pron: 175, wrist: 80, palmHint: [0, 1, 0.3], curl: 0.6, pole: [0.25, 0.4, 1] },

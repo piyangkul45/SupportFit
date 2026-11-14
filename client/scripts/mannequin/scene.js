@@ -1,10 +1,10 @@
 // ฉาก 3D (three.js) สำหรับเรนเดอร์วิดีโอสาธิตท่า — รันใน Chrome headless ผ่าน build-mannequin-videos.mjs
 //
 // ตัวละคร: ร่างนักกีฬาชายชิ้นเดียวทึบแสง (body.js) — โมเดลต้นฉบับ ไม่ใช้ไฟล์โมเดลภายนอก
-//   ผิวทั้งตัวเป็นลายเส้นใยกล้ามเนื้อเทาเงิน #94a3b8 + เส้นเอ็นขาวนวล #e2e8f0 ; มัดเป้าหมายส้ม-แดง #ea580c ; กางเกงขาสั้นดำ
+//   ผิวทั้งตัว = Procedural Canvas Texture (color + bump) ลายเส้นใยกล้ามเนื้อเทาเงิน #94a3b8 + เส้นเอ็น/พังผืดขาวนวล #e2e8f0 ; มัดเป้าหมายส้มอิฐ #e04f26 (ริ้วยังเห็น) ; กางเกงขาสั้นดำ
 //   มือมีนิ้ว 3 ข้อ + นิ้วโป้ง กำอุปกรณ์ได้จริง ; ปลายแขนบิดคว่ำ-หงายผ่าน twist bone 3 ท่อน
 // การเคลื่อนไหว: FK + IK สองท่อน 3 มิติ (ทิศศอก/เข่าด้วย pole) ล็อกจุดกำของมือกับอุปกรณ์ ; เท้าวางราบด้วย leg IK ; หลัง/ก้นแนบเบาะ
-// พื้นหลัง #0e1a24 + Studio Lighting (key ด้านหน้า + rim อ่อน)
+// พื้นหลัง #0e1a24 เรียบสนิท + High-contrast lighting (ambient ต่ำ + key บนเฉียง + rim #bae6fd) ; กล้อง bounding-box framing 83% ทุกท่า
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
@@ -42,17 +42,18 @@ const scene = new THREE.Scene()
 scene.background = new THREE.Color(BG)
 const camera = new THREE.PerspectiveCamera(28, W / H, 0.05, 60)
 
-// Studio lighting: key อุ่นด้านหน้าเฉียงบน (ฝั่งกล้อง) + rim ฟ้า #38bdf8 สองข้างจากด้านหลังตัดขอบร่าง/อุปกรณ์ + fill อ่อน
+// High-contrast studio lighting: ambient ต่ำ (ร่องกล้ามเนื้อมืดลึก = cavity) + key light ขาวอุ่นจากมุมบนเฉียงหน้า
+// + rim light ขาวอมฟ้า #bae6fd สองข้างจากด้านหลังตัดขอบกล้ามเนื้อให้นูนมีมิติ + fill อ่อนมาก
 // ไฟทั้งชุดหมุนตามมุมกล้อง (aimLights) ทุกมุมมองจึงได้แสงแบบเดียวกัน
-const hemi = new THREE.HemisphereLight(0xdfe9f5, 0x0e1a24, 0.5)
+const hemi = new THREE.HemisphereLight(0xdfe9f5, 0x0e1a24, 0.1)
 scene.add(hemi)
-const key = new THREE.DirectionalLight(0xfff1e4, 1.9)
+const key = new THREE.DirectionalLight(0xfff4ea, 3.1)
 scene.add(key)
-const rim = new THREE.DirectionalLight(0x38bdf8, 2.6)
+const rim = new THREE.DirectionalLight(0xbae6fd, 5.5)
 scene.add(rim)
-const rim2 = new THREE.DirectionalLight(0x7dd3fc, 1.5)
+const rim2 = new THREE.DirectionalLight(0xbae6fd, 4.0)
 scene.add(rim2)
-const fill = new THREE.DirectionalLight(0xffe2c8, 0.4)
+const fill = new THREE.DirectionalLight(0xdbe7f3, 0.22)
 scene.add(fill)
 // ไฟเงาพื้น: ส่องจากด้านบนตรง ๆ ความสว่าง 0 ใช้สร้างเงาตกกระทบนุ่ม ๆ ใต้ตัว/อุปกรณ์เท่านั้น
 const shadowLight = new THREE.DirectionalLight(0xffffff, 0)
@@ -67,37 +68,13 @@ scene.add(shadowLight)
 scene.add(shadowLight.target)
 function aimLights(az) {
   const at = (light, a, y, r) => light.position.set(Math.sin(rad(a)) * r, y, Math.cos(rad(a)) * r)
-  at(key, az + 34, 4.0, 4)
-  at(fill, az - 75, 1.4, 4)
-  at(rim, az + 150, 2.6, 4)
-  at(rim2, az - 150, 2.2, 4)
+  at(key, az + 38, 5.2, 3.6)
+  at(fill, az - 80, 1.2, 4)
+  at(rim, az + 145, 2.8, 4)
+  at(rim2, az - 145, 2.4, 4)
 }
 aimLights(40)
 
-// Studio backdrop: แสงฟุ้งรัศมีนุ่ม ๆ ด้านหลังตัว ไล่เป็น #0e1a24 ตรงเป๊ะที่ขอบ (กลืนกับพื้นการ์ด)
-function backdropTexture(w, h) {
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const g = c.getContext('2d')
-  g.fillStyle = BG
-  g.fillRect(0, 0, w, h)
-  g.save()
-  g.translate(w / 2, h * 0.47)
-  g.scale(1, 1.18)
-  const r = w * 0.62
-  const grad = g.createRadialGradient(0, 0, 0, 0, 0, r)
-  grad.addColorStop(0, 'rgba(46,92,122,0.5)')
-  grad.addColorStop(0.45, 'rgba(30,64,90,0.26)')
-  grad.addColorStop(1, 'rgba(14,26,36,0)')
-  g.fillStyle = grad
-  g.fillRect(-r, -r, 2 * r, 2 * r)
-  g.restore()
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  return tex
-}
-const backdrop = backdropTexture(W, H)
 
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
@@ -123,14 +100,6 @@ function canvasTexture(draw, w = 64, h = 128, color = true) {
   tex.wrapT = THREE.RepeatWrapping
   return tex
 }
-const contactTex = canvasTexture((g, w, h) => {
-  const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
-  grad.addColorStop(0, 'rgba(2,6,10,0.55)')
-  grad.addColorStop(0.5, 'rgba(2,6,10,0.22)')
-  grad.addColorStop(1, 'rgba(2,6,10,0)')
-  g.fillStyle = grad
-  g.fillRect(0, 0, w, h)
-}, 128, 128)
 const waterTex = canvasTexture((g, w, h) => {
   const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
   grad.addColorStop(0, 'rgba(40,140,210,0.42)')
@@ -182,79 +151,146 @@ const MAT = {
   string: new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.5, transparent: true, opacity: 0.55 }),
 }
 
-// ผิวร่างกาย (ทึบ 100%): ลายเส้นใยกล้ามเนื้อเทาเงิน #94a3b8 + เส้นเอ็นขาวนวล #e2e8f0 + ร่องแบ่งมัด
-// มัดเป้าหมาย = ส้ม-แดง #ea580c (ลายเส้นใยยังเห็นชัด) ; กางเกงขาสั้นดำด้าน
-// ลายวาดใน shader จาก attribute ต่อ vertex (body.js) ไม่ใช้ texture ภายนอก
+// ---------- ลายเส้นใยกล้ามเนื้อ (Procedural Canvas Texture) ----------
+// texture เดียว 2 ช่อง (ข้อมูล ไม่ใช่สี): R = color map (ความสว่างของมัดเส้นใยย่อย + ร่องพังผืดระหว่างมัด + ใยละเอียด)
+//                                       G = bump/height map (มัดเส้นใยโค้งนูน ร่องระหว่างมัดลึก)
+// แกน u = รอบแกนเส้นใย (ตั้งฉากเส้นใย) / แกน v = ตามความยาวเส้นใย ; ต่อกันไร้รอยทั้งสองแกน (repeat)
+// 1 tile = 15 ซม. (ขวาง) x 36 ซม. (ตามยาว) -> มัดย่อยกว้าง ~1–1.6 ซม. (ร่องพังผืดเข้ม) เห็นเป็นริ้วชัดแม้ในการ์ดเต็มตัว
+// + ใยละเอียดในมัด (เห็นเมื่อขยายในป๊อปอัป)
+const FIBER_TILE = [0.15, 0.36]
+const fiberTex = (() => {
+  const w = 512
+  const h = 512
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const g = c.getContext('2d')
+  const img = g.createImageData(w, h)
+  let seed = 7
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  // ขอบเขตมัดเส้นใยย่อย (fascicle) ตามแกน u: กว้างสุ่ม ผลรวม = w พอดี (ต่อกันไร้รอย)
+  const widths = []
+  let sum = 0
+  while (sum < w - 30) {
+    const bw = 34 + rnd() * 22
+    widths.push(bw)
+    sum += bw
+  }
+  const k = w / sum
+  const edges = [0]
+  for (const bw of widths) edges.push(edges[edges.length - 1] + bw * k)
+  const nb = widths.length
+  const bright = widths.map(() => 0.82 + rnd() * 0.36)
+  const phase = widths.map(() => rnd() * Math.PI * 2)
+  const fineN = widths.map(() => 5 + Math.floor(rnd() * 4))
+  // ความคดเล็กน้อยของมัดตามยาว (คาบเต็มรอบใน tile -> ต่อกันไร้รอย)
+  const wob = (y, b) => Math.sin((y / h) * Math.PI * 2 * 2 + phase[b]) * 2.2 + Math.sin((y / h) * Math.PI * 2 * 5 + phase[b] * 1.7) * 0.9
+  const TAU = Math.PI * 2
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // หา fascicle ที่พิกเซลนี้อยู่ (ขอบเลื่อนตามความคด)
+      let b = 0
+      while (b < nb - 1 && x >= edges[b + 1] + wob(y, b + 1)) b++
+      const x0 = edges[b] + wob(y, b)
+      const x1 = edges[b + 1] + wob(y, (b + 1) % nb)
+      const t = Math.min(1, Math.max(0, (x - x0) / Math.max(1, x1 - x0)))
+      const prof = Math.sqrt(Math.max(0, 1 - (2 * t - 1) ** 2)) // หน้าตัดโค้งนูนของมัด
+      const fine = Math.sin(t * TAU * fineN[b] + phase[b]) * 0.5 + 0.5 // ใยละเอียดในมัด
+      const along = 0.92 + 0.08 * Math.sin((y / h) * TAU * 3 + phase[b] * 2.3) // ความสว่างแปรตามยาว
+      const edge = Math.pow(prof, 0.55) // ร่องพังผืดระหว่างมัด (เข้มชัด)
+      const lum = Math.min(1, Math.max(0, (0.1 + 0.72 * edge * bright[b] * along) * (0.88 + 0.12 * fine)))
+      const hgt = Math.min(1, Math.max(0, 0.05 + 0.82 * Math.pow(prof, 0.7) + 0.1 * fine * prof))
+      const i = (y * w + x) * 4
+      img.data[i] = lum * 255
+      img.data[i + 1] = hgt * 255
+      img.data[i + 2] = 0
+      img.data[i + 3] = 255
+    }
+  }
+  g.putImageData(img, 0, 0)
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.NoColorSpace
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
+  tex.anisotropy = 8
+  tex.generateMipmaps = true
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  return tex
+})()
+
+// ผิวร่างกาย (ทึบ 100%): ลายเส้นใยกล้ามเนื้อเทาเงิน #94a3b8 (color + bump จาก fiberTex) + เส้นเอ็น/พังผืดขาวนวล #e2e8f0
+// มัดเป้าหมาย = ส้มอิฐ #e04f26 ผสมลายเส้นใย (ริ้วเข้มยังเห็นใต้สีส้ม ไม่ทึบแบน) ; กางเกงขาสั้นดำด้าน
 const BODY_U = {
   uSilver: { value: new THREE.Color(0x94a3b8) },
   uTendon: { value: new THREE.Color(0xe2e8f0) },
-  uTarget: { value: new THREE.Color(0xea580c) },
+  uTarget: { value: new THREE.Color(0xe04f26) },
   uShorts: { value: new THREE.Color(0x111317) },
   uGlow: { value: 0.1 },
+  uFiber: { value: fiberTex },
+  uFiberScale: { value: new THREE.Vector2(1 / FIBER_TILE[0], 1 / FIBER_TILE[1]) },
+  uBump: { value: 0.0032 },
 }
 function bodyMaterial() {
-  const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.22, clearcoat: 0.18, clearcoatRoughness: 0.55, side: THREE.FrontSide })
+  const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.62, metalness: 0.16, clearcoat: 0.1, clearcoatRoughness: 0.6, side: THREE.FrontSide })
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, BODY_U)
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
-attribute float aU; attribute float aFib; attribute float aTendon; attribute float aGroove; attribute float aShorts; attribute float aTarget;
-varying float vU; varying float vFib; varying float vTendon; varying float vGroove; varying float vShorts; varying float vTarget;`)
+attribute float aU; attribute float aV; attribute float aFib; attribute float aTendon; attribute float aGroove; attribute float aShorts; attribute float aTarget;
+varying float vU; varying float vV; varying float vFib; varying float vTendon; varying float vGroove; varying float vShorts; varying float vTarget;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-vU = aU; vFib = aFib; vTendon = aTendon; vGroove = aGroove; vShorts = aShorts; vTarget = aTarget;`)
+vU = aU; vV = aV; vFib = aFib; vTendon = aTendon; vGroove = aGroove; vShorts = aShorts; vTarget = aTarget;`)
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
 uniform vec3 uSilver; uniform vec3 uTendon; uniform vec3 uTarget; uniform vec3 uShorts; uniform float uGlow;
-varying float vU; varying float vFib; varying float vTendon; varying float vGroove; varying float vShorts; varying float vTarget;
-float fiberWave() {
-  // ริ้วเส้นใย ~5.5 มม. + ริ้วละเอียด ; ลดความเข้มเมื่อเล็กกว่าพิกเซล (กัน moire)
-  float ph = vU * 1250.0;
-  float aa = clamp(1.6 - fwidth(ph) * 0.45, 0.0, 1.0);
-  return (sin(ph) * 0.75 + sin(ph * 2.7 + 1.3) * 0.25) * aa;
-}`)
+uniform sampler2D uFiber; uniform vec2 uFiberScale; uniform float uBump;
+varying float vU; varying float vV; varying float vFib; varying float vTendon; varying float vGroove; varying float vShorts; varying float vTarget;`)
       .replace('#include <color_fragment>', `#include <color_fragment>
+vec4 fx = texture2D(uFiber, vec2(vU, vV) * uFiberScale);
 float fib = vFib * (1.0 - vShorts);
-float w = fiberWave();
+float tend = clamp(vTendon, 0.0, 1.0) * (1.0 - vShorts);
 vec3 base = mix(uSilver, uTarget, vTarget);
-base *= 1.0 + fib * 0.1 * w;
-base = mix(base, uTendon, clamp(vTendon, 0.0, 1.0) * (1.0 - vShorts));
-base *= 1.0 - 0.5 * vGroove * (1.0 - vShorts);
-// กางเกง: ผ้าดำด้าน ; ถ้าคลุมมัดเป้าหมาย (เช่นก้น) ผ้าเป็นสีส้ม-แดงด้วย ให้เห็นว่ามัดนั้นทำงาน
-vec3 cloth = mix(uShorts, uTarget * 0.82, vTarget * 0.85);
+// color map: ริ้วมัดเส้นใย (เป้าหมายเข้มกว่าเล็กน้อย -> เห็นริ้วสีเข้มใต้สีส้มอิฐ)
+float strip = mix(1.0, 0.38 + 0.95 * fx.r, fib * mix(0.9, 1.0, vTarget));
+base *= strip;
+// เส้นเอ็น/พังผืด: ขาวนวลมีริ้วจาง ๆ ตามแนวเส้นใย
+base = mix(base, uTendon * (0.86 + 0.18 * fx.r), tend);
+// ร่องลึกระหว่างมัด (cavity)
+base *= 1.0 - 0.62 * vGroove * (1.0 - vShorts);
+// กางเกง: ผ้าดำด้าน ; ถ้าคลุมมัดเป้าหมาย (เช่นก้น) ผ้าเป็นสีส้มอิฐ ให้เห็นว่ามัดนั้นทำงาน
+vec3 cloth = mix(uShorts, uTarget * 0.8, vTarget * 0.85);
 base = mix(base, cloth, vShorts);
 diffuseColor.rgb = base;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
 {
-  float hgt = fib * w * 0.00028;
+  // bump map จาก fiberTex.g : มัดเส้นใยนูน ร่องระหว่างมัดลึก (เส้นเอ็นเรียบกว่า)
+  float hgt = (fx.g - 0.5) * uBump * fib * (1.0 - 0.7 * tend);
   vec3 dpdx = dFdx(-vViewPosition); vec3 dpdy = dFdy(-vViewPosition);
   float dhx = dFdx(hgt); float dhy = dFdy(hgt);
   vec3 r1 = cross(dpdy, normal); vec3 r2 = cross(normal, dpdx);
   float det = dot(dpdx, r1);
   vec3 grad = sign(det) * (dhx * r1 + dhy * r2);
-  normal = normalize(abs(det) * normal - grad);
+  vec3 nb = normalize(abs(det) * normal - grad);
+  if (all(equal(nb, nb))) normal = nb;
 }`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-totalEmissiveRadiance += uTarget * vTarget * uGlow;`)
+totalEmissiveRadiance += uTarget * vTarget * uGlow * (0.55 + 0.6 * fx.r);`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-roughnessFactor = mix(roughnessFactor, 0.85, vShorts);`)
+roughnessFactor = mix(roughnessFactor, 0.48, tend);
+roughnessFactor = mix(roughnessFactor, 0.88, vShorts);
+roughnessFactor += (0.5 - fx.g) * 0.12 * fib;`)
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
-metalnessFactor = mix(metalnessFactor, 0.0, max(vShorts, vTarget * 0.8));`)
+metalnessFactor = mix(metalnessFactor, 0.0, max(vShorts, vTarget * 0.85));`)
   }
   return mat
 }
 
 // ---------- ฉากพื้น ----------
-// พื้นล่องหน: รับแค่เงานุ่ม + วงเงาจาง ๆ (contact shadow) ใต้ตัว ไม่มีแท่นสี่เหลี่ยม
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.ShadowMaterial({ opacity: 0.5 }))
+// พื้นล่องหน: รับแค่เงาตกกระทบนุ่ม ๆ ใต้ตัว (สีเข้ม ไม่มีวง/แท่น) พื้นหลังเป็น #0e1a24 เรียบสนิท
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.ShadowMaterial({ opacity: 0.4 }))
 ground.rotation.x = -Math.PI / 2
 ground.receiveShadow = true
 scene.add(ground)
-const halo = new THREE.Mesh(new THREE.CircleGeometry(0.8, 48), new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false }))
-halo.scale.set(1, 1.35, 1)
-halo.renderOrder = -1
-halo.rotation.x = -Math.PI / 2
-halo.position.y = 0.002
-scene.add(halo)
 
 // ======================================================================
 // ร่างกาย (mesh ชิ้นเดียวจาก body.js) + rig
@@ -1177,7 +1213,6 @@ const PROP = {
   },
   water: () => {
     ground.visible = false
-    halo.visible = false
     const w = mk(new THREE.CircleGeometry(1.8, 64), new THREE.MeshBasicMaterial({ map: waterTex, transparent: true, depthWrite: false }))
     w.rotation.x = -Math.PI / 2
     w.position.y = 0.66
@@ -1419,7 +1454,7 @@ const v = V()
 function fitCamera(bodyPts, propPts, az, el, fill = 0.83) {
   const dir = V(Math.sin(rad(az)) * Math.cos(rad(el)), Math.sin(rad(el)), Math.cos(rad(az)) * Math.cos(rad(el)))
   const all = bodyPts.concat(propPts)
-  const target = new THREE.Box3().setFromPoints(bodyPts).getCenter(V())
+  const target = new THREE.Box3().setFromPoints(bodyPts.concat(propPts)).getCenter(V())
   const right = V()
   const upv = V()
   const bounds = (pts) => {
@@ -1438,21 +1473,16 @@ function fitCamera(bodyPts, propPts, az, el, fill = 0.83) {
     camera.position.copy(target).addScaledVector(dir, dist)
     camera.lookAt(target)
     camera.updateMatrixWorld()
-    const b = bounds(bodyPts)
     const a = bounds(all)
-    // จุดเล็ง: กึ่งกลางของ (ตัว + อุปกรณ์) ถ่วงไปทางตัว
-    const cx = (b.x0 + b.x1) / 2 * 0.65 + (a.x0 + a.x1) / 2 * 0.35
-    const cy = (b.y0 + b.y1) / 2 * 0.65 + (a.y0 + a.y1) / 2 * 0.35
+    // Bounding-box framing: กึ่งกลางกรอบรวม (ตัว + อุปกรณ์ ตลอดลูป) อยู่กลางภาพ
+    // ด้านที่ยาวกว่า (เทียบสัดส่วนเฟรม) กินพื้นที่ fill (83%) เท่ากันทุกท่า ไม่ว่าท่านอนหรือท่ายืน
+    const cx = (a.x0 + a.x1) / 2
+    const cy = (a.y0 + a.y1) / 2
     const halfH = Math.tan(rad(camera.fov / 2)) * dist
     right.setFromMatrixColumn(camera.matrixWorld, 0)
     upv.setFromMatrixColumn(camera.matrixWorld, 1)
     target.addScaledVector(right, cx * halfH * camera.aspect).addScaledVector(upv, cy * halfH)
-    const need = Math.max(
-      (b.y1 - b.y0) / 2 / fill,
-      (b.x1 - b.x0) / 2 / 0.9,
-      Math.max(a.y1 - cy, cy - a.y0) / 0.96,
-      Math.max(a.x1 - cx, cx - a.x0) / 1.0,
-    )
+    const need = Math.max((a.y1 - a.y0) / 2, (a.x1 - a.x0) / 2) / fill
     dist *= need
   }
   camera.position.copy(target).addScaledVector(dir, dist)
@@ -1482,8 +1512,6 @@ function frameCamera(boxes, az, el) {
   }
   camera.position.copy(target).addScaledVector(dir, dist)
   camera.lookAt(target)
-  halo.position.x = target.x
-  halo.position.z = target.z
 }
 
 // ======================================================================
@@ -1521,7 +1549,6 @@ window.setup = (spec) => {
   }
   fitCamera(bodyPts, propPts, az, el, M.cam?.fill ?? 0.83)
   feet.divideScalar(16)
-  halo.position.set(feet.x, 0.003, feet.z)
   shadowLight.position.set(feet.x + 0.15, 6, feet.z + 0.25)
   shadowLight.target.position.set(feet.x, 0, feet.z)
   return { frames }
@@ -1608,7 +1635,6 @@ window.still = (spec) => {
   paintAnatomy(spec.primary, spec.secondary || [])
   BODY_U.uGlow.value = 0.08
   ground.visible = false
-  halo.visible = false
   scene.background = null
   aimLights(spec.az)
   renderer.setClearColor(0x000000, 0)
@@ -1629,8 +1655,8 @@ window.still = (spec) => {
 try {
   buildRig()
   scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture
-  scene.environmentIntensity = 0.35
-  scene.background = backdrop
+  scene.environmentIntensity = 0.18
+  scene.background = new THREE.Color(BG)
   seatTop = () => (M?.seatTop ?? 0.43)
   window.ready = true
 } catch (e) {
