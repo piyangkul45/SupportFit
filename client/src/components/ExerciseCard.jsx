@@ -5,7 +5,7 @@ import ExerciseBadges from './ExerciseBadges'
 import { prefersReducedMotion } from '../utils/motion'
 import ExerciseVideo from './ExerciseVideo'
 
-// การ์ดท่าฝึกใน Exercise Library: แอนิเมชันหุ่นจำลอง 3D ของท่า (autoPlay loop muted playsInline) กล้ามเนื้อเป้าหมายเรืองแสงบนตัวหุ่น
+// การ์ดท่าฝึกใน Exercise Library: แอนิเมชันหุ่นจำลอง 3D ของท่า (autoPlay loop muted playsInline) ร่างนักกีฬา 3D ลายเส้นใยกล้ามเนื้อเทาเงิน มัดเป้าหมายสีส้ม-แดง
 // เล่นอัตโนมัติเฉพาะตอนการ์ดอยู่ในจอ (IntersectionObserver) เลื่อนพ้นจอ = pause (ประหยัดแบต/GPU มือถือ) ; ผู้ใช้ตั้ง Reduce Motion = ไม่เล่นเอง
 // ระหว่างโหลด = poster (เฟรมหุ่น 3D) ; ทุกการ์ดมีป้าย "► ดูท่า" ; กดการ์ด = onOpen(exercise) เปิดป๊อปอัปคลิปขยายใหญ่
 export default memo(function ExerciseCard({ exercise, anatomy, media, active, categoryNote, onOpen }) {

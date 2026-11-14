@@ -1,6 +1,10 @@
-// ฉากหุ่นจำลอง 3D (three.js) สำหรับเรนเดอร์วิดีโอสาธิตท่า — รันใน Chrome headless ผ่าน build-mannequin-videos.mjs
-// หุ่นแบบ Stylized Anatomy: ร่างสีเทา-ฟ้า (slate) มีมัดกล้ามเนื้อเป็นก้อนลายเส้นใย กล้ามเนื้อเป้าหมายเรืองแสงส้ม-แดง (bloom)
-// พื้นหลัง #0e1a24 เท่าสีการ์ดในแอป
+// ฉาก 3D (three.js) สำหรับเรนเดอร์วิดีโอสาธิตท่า — รันใน Chrome headless ผ่าน build-mannequin-videos.mjs
+//
+// ตัวละคร: ร่างนักกีฬาชายชิ้นเดียวทึบแสง (body.js) — โมเดลต้นฉบับ ไม่ใช้ไฟล์โมเดลภายนอก
+//   ผิวทั้งตัวเป็นลายเส้นใยกล้ามเนื้อเทาเงิน #94a3b8 + เส้นเอ็นขาวนวล #e2e8f0 ; มัดเป้าหมายส้ม-แดง #ea580c ; กางเกงขาสั้นดำ
+//   มือมีนิ้ว 3 ข้อ + นิ้วโป้ง กำอุปกรณ์ได้จริง ; ปลายแขนบิดคว่ำ-หงายผ่าน twist bone 3 ท่อน
+// การเคลื่อนไหว: FK + IK สองท่อน 3 มิติ (ทิศศอก/เข่าด้วย pole) ล็อกจุดกำของมือกับอุปกรณ์ ; เท้าวางราบด้วย leg IK ; หลัง/ก้นแนบเบาะ
+// พื้นหลัง #0e1a24 + Studio Lighting (key ด้านหน้า + rim อ่อน)
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
@@ -8,25 +12,29 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { MOTIONS, samplePose, contraction, resolvePose } from './motions.js'
+import { JOINTS, handLayout, FINGERS, SEG_FRAC, buildBodyMeshes } from './body.js'
 
 // 600×800 (3:4): การ์ด object-cover / ป๊อปอัปขนาดใหญ่ยังคมชัด
 const W = 600
 const H = 800
 const BG = '#0e1a24'
-const BASE_Y = 0.975 // ความสูงสะโพกตอนยืน (พื้นรองเท้าอยู่ y = 0)
-const L = { uarm: 0.29, farm: 0.33, thigh: 0.43, shin: 0.42 } // farm = ข้อศอก -> กลางฝ่ามือ
 const rad = THREE.MathUtils.degToRad
 const deg = THREE.MathUtils.radToDeg
 const norm = (a) => ((((a + 180) % 360) + 360) % 360) - 180
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
+const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z)
+const X = V(1, 0, 0)
+const Y = V(0, 1, 0)
+const SIDES = [['L', 0, 1], ['R', 1, -1]] // [ชื่อ, index, ทิศแกน x (ซ้ายของหุ่น = +x)]
 
 // ---------- renderer ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true })
 renderer.setPixelRatio(1)
 renderer.setSize(W, H)
 renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.VSMShadowMap // เงาเบลอนุ่ม (soft contact shadow) ไม่ใช่ขอบแข็ง
+renderer.shadowMap.type = THREE.VSMShadowMap // เงาเบลอนุ่ม (soft contact shadow)
 renderer.toneMapping = THREE.NoToneMapping // พื้นหลังต้องออกมาเป็น #0e1a24 ตรงเป๊ะ
 document.body.appendChild(renderer.domElement)
 
@@ -34,39 +42,39 @@ const scene = new THREE.Scene()
 scene.background = new THREE.Color(BG)
 const camera = new THREE.PerspectiveCamera(28, W / H, 0.05, 60)
 
-// Studio lighting: key ด้านหน้าเฉียงบน (ฝั่งกล้อง) + rim ฟ้า #38bdf8 สองข้างจากด้านหลัง ตัดขอบลำตัว/อุปกรณ์ให้แยกจากพื้นหลัง
-// + fill อุ่นอ่อน ๆ ฝั่งตรงข้าม ; ไฟทั้งชุดหมุนตามมุมกล้อง (aimLights) ทุกมุมมองจึงได้แสงแบบเดียวกัน
-const hemi = new THREE.HemisphereLight(0xd6e6ff, 0x0e1a24, 0.42)
+// Studio lighting: key อุ่นด้านหน้าเฉียงบน (ฝั่งกล้อง) + rim ฟ้า #38bdf8 สองข้างจากด้านหลังตัดขอบร่าง/อุปกรณ์ + fill อ่อน
+// ไฟทั้งชุดหมุนตามมุมกล้อง (aimLights) ทุกมุมมองจึงได้แสงแบบเดียวกัน
+const hemi = new THREE.HemisphereLight(0xdfe9f5, 0x0e1a24, 0.5)
 scene.add(hemi)
-const key = new THREE.DirectionalLight(0xffffff, 1.55)
+const key = new THREE.DirectionalLight(0xfff1e4, 1.9)
 scene.add(key)
-const rim = new THREE.DirectionalLight(0x38bdf8, 3.2)
+const rim = new THREE.DirectionalLight(0x38bdf8, 2.6)
 scene.add(rim)
-const rim2 = new THREE.DirectionalLight(0x38bdf8, 2.0)
+const rim2 = new THREE.DirectionalLight(0x7dd3fc, 1.5)
 scene.add(rim2)
-const fill = new THREE.DirectionalLight(0xffe2c8, 0.45)
+const fill = new THREE.DirectionalLight(0xffe2c8, 0.4)
 scene.add(fill)
-// ไฟเงาพื้น: ส่องจากด้านบนตรง ๆ ความสว่าง 0 (ไม่เพิ่มแสงบนตัว) ใช้สร้างเงาตกกระทบนุ่ม ๆ ใต้ตัวหุ่นเท่านั้น
+// ไฟเงาพื้น: ส่องจากด้านบนตรง ๆ ความสว่าง 0 ใช้สร้างเงาตกกระทบนุ่ม ๆ ใต้ตัว/อุปกรณ์เท่านั้น
 const shadowLight = new THREE.DirectionalLight(0xffffff, 0)
 shadowLight.position.set(0.15, 6, 0.25)
 shadowLight.castShadow = true
 shadowLight.shadow.mapSize.set(1024, 1024)
-Object.assign(shadowLight.shadow.camera, { left: -2.2, right: 2.2, top: 2.2, bottom: -2.2, near: 0.5, far: 9 })
-shadowLight.shadow.radius = 14
+Object.assign(shadowLight.shadow.camera, { left: -2.4, right: 2.4, top: 2.4, bottom: -2.4, near: 0.5, far: 9 })
+shadowLight.shadow.radius = 12
 shadowLight.shadow.blurSamples = 24
 shadowLight.shadow.bias = -0.0005
 scene.add(shadowLight)
 scene.add(shadowLight.target)
 function aimLights(az) {
   const at = (light, a, y, r) => light.position.set(Math.sin(rad(a)) * r, y, Math.cos(rad(a)) * r)
-  at(key, az + 32, 4.2, 4)
-  at(fill, az - 70, 1.4, 4)
+  at(key, az + 34, 4.0, 4)
+  at(fill, az - 75, 1.4, 4)
   at(rim, az + 150, 2.6, 4)
   at(rim2, az - 150, 2.2, 4)
 }
 aimLights(40)
 
-// Studio backdrop: แสงฟุ้งรัศมีนุ่ม ๆ ด้านหลังตัวหุ่น ไล่เป็น #0e1a24 ตรงเป๊ะที่ขอบ (กลืนกับพื้นการ์ด)
+// Studio backdrop: แสงฟุ้งรัศมีนุ่ม ๆ ด้านหลังตัว ไล่เป็น #0e1a24 ตรงเป๊ะที่ขอบ (กลืนกับพื้นการ์ด)
 function backdropTexture(w, h) {
   const c = document.createElement('canvas')
   c.width = w
@@ -79,8 +87,8 @@ function backdropTexture(w, h) {
   g.scale(1, 1.18)
   const r = w * 0.62
   const grad = g.createRadialGradient(0, 0, 0, 0, 0, r)
-  grad.addColorStop(0, 'rgba(46,92,122,0.55)')
-  grad.addColorStop(0.45, 'rgba(30,64,90,0.3)')
+  grad.addColorStop(0, 'rgba(46,92,122,0.5)')
+  grad.addColorStop(0.45, 'rgba(30,64,90,0.26)')
   grad.addColorStop(1, 'rgba(14,26,36,0)')
   g.fillStyle = grad
   g.fillRect(-r, -r, 2 * r, 2 * r)
@@ -99,44 +107,30 @@ composer.addPass(new ShaderPass({
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: 'uniform sampler2D tDiffuse; uniform vec3 bg; varying vec2 vUv; void main() { vec4 c = texture2D(tDiffuse, vUv); bool bad = any(isnan(c)) || any(isinf(c)); gl_FragColor = bad ? vec4(bg, 1.0) : min(c, vec4(64.0)); }',
 }))
-const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.75, 0.45, 0.66)
+const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.3, 0.28, 0.95)
 composer.addPass(bloom)
 composer.addPass(new OutputPass())
 
 // ---------- textures ----------
-function canvasTexture(draw, w = 64, h = 128) {
+function canvasTexture(draw, w = 64, h = 128, color = true) {
   const c = document.createElement('canvas')
   c.width = w
   c.height = h
   draw(c.getContext('2d'), w, h)
   const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
+  tex.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace
   tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.RepeatWrapping
   return tex
 }
-let seed = 7
-const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-// เส้นใยกล้ามเนื้อ: ริ้วแนวตั้ง (ตามแนวยาวของมัด)
-const fiberTex = canvasTexture((g, w, h) => {
-  for (let x = 0; x < w; x++) {
-    const v = 150 + Math.floor(rand() * 105)
-    g.fillStyle = `rgb(${v},${v},${v})`
-    g.fillRect(x, 0, 1, h)
-  }
-  g.fillStyle = 'rgba(0,0,0,0.25)'
-  for (let i = 0; i < 9; i++) g.fillRect(Math.floor(rand() * w), 0, 1, h)
-})
-// ซิกแพ็ก: กึ่งกลางด้านหน้าของทรงรีอยู่ที่ u = 0.25 (x = 16)
-const absTex = canvasTexture((g, w, h) => {
-  for (let x = 0; x < w; x++) {
-    const v = 175 + Math.floor(rand() * 70)
-    g.fillStyle = `rgb(${v},${v},${v})`
-    g.fillRect(x, 0, 1, h)
-  }
-  g.fillStyle = 'rgba(20,10,10,0.75)'
-  g.fillRect(15, 0, 3, h)
-  for (const y of [38, 62, 86]) g.fillRect(0, y, 32, 3)
-})
+const contactTex = canvasTexture((g, w, h) => {
+  const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
+  grad.addColorStop(0, 'rgba(2,6,10,0.55)')
+  grad.addColorStop(0.5, 'rgba(2,6,10,0.22)')
+  grad.addColorStop(1, 'rgba(2,6,10,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, w, h)
+}, 128, 128)
 const waterTex = canvasTexture((g, w, h) => {
   const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
   grad.addColorStop(0, 'rgba(40,140,210,0.42)')
@@ -151,322 +145,687 @@ const waterTex = canvasTexture((g, w, h) => {
     g.stroke()
   }
 }, 128, 128)
-// เส้นใยละเอียด คอนทราสต์ต่ำ สำหรับภาพนิ่งซูมใกล้ (ไม่เป็นลอนแบบฟักทอง)
-const fineFiberTex = canvasTexture((g, w, h) => {
-  for (let x = 0; x < w; x++) {
-    const v = 222 + Math.floor(rand() * 33)
-    g.fillStyle = `rgb(${v},${v},${v})`
-    g.fillRect(x, 0, 1, h)
+// ลายกากเพชร (knurling) บนด้ามจับบาร์/ดัมเบล
+const knurlTex = canvasTexture((g, w, h) => {
+  g.fillStyle = '#808080'
+  g.fillRect(0, 0, w, h)
+  g.strokeStyle = '#ffffff'
+  g.lineWidth = 1.2
+  for (let i = -h; i < w + h; i += 6) {
+    g.beginPath()
+    g.moveTo(i, 0)
+    g.lineTo(i + h, h)
+    g.stroke()
+    g.beginPath()
+    g.moveTo(i + h, 0)
+    g.lineTo(i, h)
+    g.stroke()
   }
-}, 512, 64)
+}, 64, 64, false)
 
 // ---------- materials ----------
+// อุปกรณ์: โทนเทาเมทัลลิก (โครงเหล็ก) + ดำด้าน (เบาะ/แผ่นน้ำหนักยาง) + โครเมียม (บาร์/ด้ามจับ)
 const MAT = {
-  skin: new THREE.MeshStandardMaterial({ color: 0x6c8198, roughness: 0.36, metalness: 0.28 }),
-  joint: new THREE.MeshStandardMaterial({ color: 0x3a4a5c, roughness: 0.45, metalness: 0.45 }),
-  equip: new THREE.MeshStandardMaterial({ color: 0x3a4b5e, roughness: 0.4, metalness: 0.6 }),
-  steel: new THREE.MeshStandardMaterial({ color: 0x9aa9b8, roughness: 0.25, metalness: 0.9 }),
-  plate: new THREE.MeshStandardMaterial({ color: 0x1b2633, roughness: 0.55, metalness: 0.4 }),
-  pad: new THREE.MeshStandardMaterial({ color: 0x3b5068, roughness: 0.7, metalness: 0.1 }),
-  glove: new THREE.MeshStandardMaterial({ color: 0x2f6fb0, roughness: 0.4, metalness: 0.2 }),
-}
-let theme = 'slate'
-function muscleMat(kind, tex) {
-  if (theme === 'silver') {
-    if (kind === 'primary') return new THREE.MeshStandardMaterial({ color: 0xff4a24, map: tex, emissive: 0xd8260c, emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.34, metalness: 0.08 })
-    return new THREE.MeshStandardMaterial({ color: 0xd9dfe6, map: tex, roughness: 0.3, metalness: 0.42 })
-  }
-  if (kind === 'primary') {
-    return new THREE.MeshStandardMaterial({
-      color: 0xff6a3a, map: tex, emissive: 0xff3a12, emissiveMap: tex, emissiveIntensity: 2.4, roughness: 0.32, metalness: 0.1,
-    })
-  }
-  if (kind === 'secondary') {
-    return new THREE.MeshStandardMaterial({ color: 0xffa585, map: tex, emissive: 0xff5a2a, emissiveMap: tex, emissiveIntensity: 0.55, roughness: 0.4 })
-  }
-  return new THREE.MeshStandardMaterial({ color: 0x8b9fb5, map: tex, roughness: 0.42, metalness: 0.18 })
+  frame: new THREE.MeshStandardMaterial({ color: 0x59626d, roughness: 0.36, metalness: 0.78 }),
+  frameDark: new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.45, metalness: 0.65 }),
+  chrome: new THREE.MeshStandardMaterial({ color: 0xd3d9e0, roughness: 0.2, metalness: 1 }),
+  knurl: new THREE.MeshStandardMaterial({ color: 0xbfc6ce, roughness: 0.34, metalness: 1, bumpMap: knurlTex, bumpScale: 1.2 }),
+  rubber: new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.86, metalness: 0.05 }),
+  pad: new THREE.MeshPhysicalMaterial({ color: 0x1b1e23, roughness: 0.58, metalness: 0.05, clearcoat: 0.35, clearcoatRoughness: 0.45 }),
+  plateRim: new THREE.MeshStandardMaterial({ color: 0x202328, roughness: 0.62, metalness: 0.3 }),
+  accent: new THREE.MeshStandardMaterial({ color: 0x8a949f, roughness: 0.3, metalness: 0.85 }),
+  cable: new THREE.MeshStandardMaterial({ color: 0x1d2126, roughness: 0.5, metalness: 0.4 }),
+  glove: new THREE.MeshPhysicalMaterial({ color: 0x1f5fa6, roughness: 0.42, clearcoat: 0.5, clearcoatRoughness: 0.3 }),
+  basketball: new THREE.MeshStandardMaterial({ color: 0xd2662a, roughness: 0.65 }),
+  football: new THREE.MeshStandardMaterial({ color: 0xe8edf2, roughness: 0.55 }),
+  racket: new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.3, metalness: 0.7 }),
+  string: new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.5, transparent: true, opacity: 0.55 }),
 }
 
-// ---------- rig ----------
-const SPHERE = new THREE.SphereGeometry(1, 44, 30)
-const J = {}
-const bodyMeshes = []
-const muscles = []
-const body = new THREE.Group()
-scene.add(body)
-
-function joint(name, parent, pos, order = 'XYZ') {
-  const g = new THREE.Group()
-  g.name = name
-  g.position.set(...pos)
-  g.rotation.order = order
-  parent.add(g)
-  J[name] = g
-  return g
+// ผิวร่างกาย (ทึบ 100%): ลายเส้นใยกล้ามเนื้อเทาเงิน #94a3b8 + เส้นเอ็นขาวนวล #e2e8f0 + ร่องแบ่งมัด
+// มัดเป้าหมาย = ส้ม-แดง #ea580c (ลายเส้นใยยังเห็นชัด) ; กางเกงขาสั้นดำด้าน
+// ลายวาดใน shader จาก attribute ต่อ vertex (body.js) ไม่ใช้ texture ภายนอก
+const BODY_U = {
+  uSilver: { value: new THREE.Color(0x94a3b8) },
+  uTendon: { value: new THREE.Color(0xe2e8f0) },
+  uTarget: { value: new THREE.Color(0xea580c) },
+  uShorts: { value: new THREE.Color(0x111317) },
+  uGlow: { value: 0.1 },
 }
-function add(parent, mesh, part) {
-  mesh.castShadow = true
-  mesh.userData.part = part
-  parent.add(mesh)
-  bodyMeshes.push(mesh)
-  return mesh
-}
-function capsule(parent, len, r, mat, part, up = false) {
-  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.001, len - 2 * r), 8, 20), mat)
-  m.position.y = up ? len / 2 : -len / 2
-  return add(parent, m, part)
-}
-function ellipsoid(parent, pos, scale, mat, part, rot = [0, 0, 0]) {
-  const m = new THREE.Mesh(SPHERE, mat)
-  m.position.set(...pos)
-  m.scale.set(...scale)
-  m.rotation.set(...rot)
-  return add(parent, m, part)
-}
-function muscle(parent, group, pos, scale, part, rot, tex = fiberTex) {
-  const m = ellipsoid(parent, pos, scale, muscleMat('base', tex), part, rot)
-  muscles.push({ mesh: m, group, tex })
-  return m
-}
-
-// DETAIL (scene.html?detail=1): กายวิภาคละเอียดสำหรับภาพนิ่งไอคอนหมวดกล้ามเนื้อ
-//   แยกมัดย่อย (อก 2 ส่วน, ไหล่ 3 หัว, ซิกแพ็ก 6 ก้อน, ปีกหลัง/ทราพีเซียส, ต้นขา 3 หัว ฯลฯ) และย่อโครงให้กล้ามเนื้อเป็นผิวนอก
-// ไม่มี detail = หุ่นแบบเดิมที่ใช้เรนเดอร์วิดีโอสาธิตท่า (คงรูปร่างให้ตรงกับคลิปที่เรนเดอร์ไว้)
-const DETAIL = new URLSearchParams(location.search).has('detail')
-const root = joint('root', body, [0, BASE_Y, 0])
-const spine = joint('spine', root, [0, 0.08, 0])
-const chest = joint('chest', spine, [0, 0.2, 0])
-const neck = joint('neck', chest, [0, 0.3, 0])
-if (!DETAIL) {
-  ellipsoid(root, [0, 0.0, 0], [0.165, 0.11, 0.115], MAT.skin, 'torso')
-  for (const s of [1, -1]) muscle(root, 'glutes', [0.075 * s, -0.035, -0.072], [0.085, 0.095, 0.062], 'torso')
-  capsule(spine, 0.2, 0.105, MAT.skin, 'torso', true).scale.set(1, 1, 0.82)
-  muscle(spine, 'abs', [0, 0.1, 0.076], [0.07, 0.11, 0.035], 'torso', [0, 0, 0], absTex)
-  for (const s of [1, -1]) muscle(spine, 'abs', [0.085 * s, 0.09, 0.03], [0.035, 0.09, 0.05], 'torso')
-  ellipsoid(chest, [0, 0.14, 0], [0.185, 0.2, 0.122], MAT.skin, 'torso')
-  for (const s of [1, -1]) {
-    muscle(chest, 'chest', [0.075 * s, 0.19, 0.083], [0.08, 0.066, 0.042], 'torso', [0, 0, 0.25 * s])
-    muscle(chest, 'back', [0.09 * s, 0.11, -0.07], [0.085, 0.15, 0.045], 'torso', [0, 0, -0.32 * s])
+function bodyMaterial() {
+  const mat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.22, clearcoat: 0.18, clearcoatRoughness: 0.55, side: THREE.FrontSide })
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, BODY_U)
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float aU; attribute float aFib; attribute float aTendon; attribute float aGroove; attribute float aShorts; attribute float aTarget;
+varying float vU; varying float vFib; varying float vTendon; varying float vGroove; varying float vShorts; varying float vTarget;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vU = aU; vFib = aFib; vTendon = aTendon; vGroove = aGroove; vShorts = aShorts; vTarget = aTarget;`)
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform vec3 uSilver; uniform vec3 uTendon; uniform vec3 uTarget; uniform vec3 uShorts; uniform float uGlow;
+varying float vU; varying float vFib; varying float vTendon; varying float vGroove; varying float vShorts; varying float vTarget;
+float fiberWave() {
+  // ริ้วเส้นใย ~5.5 มม. + ริ้วละเอียด ; ลดความเข้มเมื่อเล็กกว่าพิกเซล (กัน moire)
+  float ph = vU * 1250.0;
+  float aa = clamp(1.6 - fwidth(ph) * 0.45, 0.0, 1.0);
+  return (sin(ph) * 0.75 + sin(ph * 2.7 + 1.3) * 0.25) * aa;
+}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+float fib = vFib * (1.0 - vShorts);
+float w = fiberWave();
+vec3 base = mix(uSilver, uTarget, vTarget);
+base *= 1.0 + fib * 0.1 * w;
+base = mix(base, uTendon, clamp(vTendon, 0.0, 1.0) * (1.0 - vShorts));
+base *= 1.0 - 0.5 * vGroove * (1.0 - vShorts);
+// กางเกง: ผ้าดำด้าน ; ถ้าคลุมมัดเป้าหมาย (เช่นก้น) ผ้าเป็นสีส้ม-แดงด้วย ให้เห็นว่ามัดนั้นทำงาน
+vec3 cloth = mix(uShorts, uTarget * 0.82, vTarget * 0.85);
+base = mix(base, cloth, vShorts);
+diffuseColor.rgb = base;`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+{
+  float hgt = fib * w * 0.00028;
+  vec3 dpdx = dFdx(-vViewPosition); vec3 dpdy = dFdy(-vViewPosition);
+  float dhx = dFdx(hgt); float dhy = dFdy(hgt);
+  vec3 r1 = cross(dpdy, normal); vec3 r2 = cross(normal, dpdx);
+  float det = dot(dpdx, r1);
+  vec3 grad = sign(det) * (dhx * r1 + dhy * r2);
+  normal = normalize(abs(det) * normal - grad);
+}`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+totalEmissiveRadiance += uTarget * vTarget * uGlow;`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+roughnessFactor = mix(roughnessFactor, 0.85, vShorts);`)
+      .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+metalnessFactor = mix(metalnessFactor, 0.0, max(vShorts, vTarget * 0.8));`)
   }
-  muscle(chest, 'back', [0, 0.27, -0.055], [0.12, 0.06, 0.05], 'torso')
-} else {
-  // เชิงกราน + ก้น (glute max ใหญ่ + glute med ด้านข้าง)
-  ellipsoid(root, [0, 0.01, 0], [0.15, 0.1, 0.1], MAT.skin, 'torso')
-  for (const s of [1, -1]) {
-    muscle(root, 'glutes', [0.072 * s, -0.045, -0.068], [0.088, 0.1, 0.07], 'torso', [0.15, 0, 0.12 * s])
-    muscle(root, 'glutes', [0.125 * s, 0.03, -0.03], [0.05, 0.065, 0.055], 'torso', [0, 0, 0.3 * s])
-  }
-  // ลำตัวช่วงท้อง: ซิกแพ็ก 3 แถว x 2 + ท้องน้อย + กล้ามเนื้อข้างลำตัว (oblique) + กล้ามเนื้อหลังส่วนล่าง (erector)
-  capsule(spine, 0.2, 0.098, MAT.skin, 'torso', true).scale.set(1, 1, 0.78)
-  for (const s of [1, -1]) {
-    for (const [i, y] of [0.035, 0.095, 0.155].entries()) muscle(spine, 'abs', [0.031 * s, y, 0.07 + 0.004 * i], [0.03, 0.027, 0.017], 'torso')
-    muscle(spine, 'abs', [0.022 * s, -0.025, 0.068], [0.026, 0.035, 0.016], 'torso')
-    muscle(spine, 'abs', [0.083 * s, 0.07, 0.035], [0.034, 0.1, 0.045], 'torso', [0, 0, -0.12 * s])
-    muscle(spine, 'back', [0.03 * s, 0.09, -0.068], [0.03, 0.12, 0.026], 'torso')
-  }
-  // ซี่โครง/อก: โครงเล็กลงให้มัดกล้ามเนื้อเป็นผิวนอก
-  ellipsoid(chest, [0, 0.14, -0.005], [0.165, 0.19, 0.11], MAT.skin, 'torso')
-  for (const s of [1, -1]) {
-    // อกส่วนล่าง (sternal) + ส่วนบน (clavicular)
-    muscle(chest, 'chest', [0.078 * s, 0.175, 0.088], [0.094, 0.066, 0.036], 'torso', [0.1, 0.22 * s, 0.3 * s])
-    muscle(chest, 'chest', [0.07 * s, 0.232, 0.08], [0.078, 0.042, 0.03], 'torso', [0.2, 0.22 * s, 0.12 * s])
-    // serratus (ซี่โครงข้าง) ไม่เป็นเป้าหมาย
-    for (const y of [0.05, 0.085, 0.12]) muscle(chest, 'serratus', [0.138 * s, y, 0.055], [0.026, 0.016, 0.022], 'torso', [0, 0, -0.5 * s])
-    // ปีกหลัง (lats) + rhomboid
-    muscle(chest, 'back', [0.105 * s, 0.1, -0.055], [0.098, 0.17, 0.042], 'torso', [0, 0.25 * s, -0.36 * s])
-    muscle(chest, 'back', [0.055 * s, 0.19, -0.088], [0.055, 0.06, 0.025], 'torso')
-    // ทราพีเซียสลาดจากคอ
-    muscle(chest, 'back', [0.075 * s, 0.3, -0.03], [0.07, 0.035, 0.045], 'torso', [0, 0, -0.42 * s])
-  }
-  muscle(chest, 'back', [0, 0.235, -0.085], [0.09, 0.11, 0.03], 'torso')
-}
-capsule(neck, 0.09, 0.048, MAT.skin, 'torso', true)
-ellipsoid(neck, [0, 0.15, 0.005], [0.092, 0.105, 0.1], MAT.skin, 'torso')
-
-for (const [n, s] of [['L', 1], ['R', -1]]) {
-  const sh = joint(`shoulder${n}`, chest, [0.2 * s, 0.25, 0], 'YXZ')
-  const ur = joint(`uroll${n}`, sh, [0, 0, 0])
-  const el = joint(`elbow${n}`, ur, [0, -0.29, 0])
-  const hand = joint(`hand${n}`, el, [0, -0.33, 0])
-  const hip = joint(`hip${n}`, root, [0.095 * s, -0.04, 0], 'YXZ')
-  const knee = joint(`knee${n}`, hip, [0, -0.43, 0])
-  const ankle = joint(`ankle${n}`, knee, [0, -0.42, 0])
-  if (!DETAIL) {
-    muscle(ur, 'shoulders', [0.012 * s, -0.025, 0], [0.068, 0.078, 0.068], 'arm')
-    capsule(ur, 0.29, 0.048, MAT.skin, 'arm')
-    muscle(ur, 'biceps', [0, -0.15, 0.03], [0.042, 0.1, 0.038], 'arm')
-    muscle(ur, 'triceps', [0, -0.135, -0.032], [0.044, 0.11, 0.04], 'arm')
-    capsule(el, 0.26, 0.04, MAT.skin, 'arm')
-    muscle(el, 'forearms', [0, -0.085, 0.004], [0.046, 0.095, 0.046], 'arm')
-    capsule(hip, 0.43, 0.072, MAT.skin, 'leg')
-    muscle(hip, 'quads', [0, -0.2, 0.036], [0.068, 0.18, 0.052], 'leg')
-    muscle(hip, 'hamstrings', [0, -0.2, -0.034], [0.062, 0.17, 0.05], 'leg')
-    capsule(knee, 0.42, 0.052, MAT.skin, 'leg')
-    muscle(knee, 'calves', [0, -0.13, -0.032], [0.05, 0.11, 0.045], 'leg')
-  } else {
-    // ไหล่ 3 หัว (หน้า / ข้าง / หลัง)
-    muscle(ur, 'shoulders', [0.004 * s, -0.035, 0.034], [0.046, 0.085, 0.04], 'arm', [-0.2, 0, 0])
-    muscle(ur, 'shoulders', [0.03 * s, -0.04, 0], [0.045, 0.09, 0.05], 'arm', [0, 0, 0.12 * s])
-    muscle(ur, 'shoulders', [0.004 * s, -0.035, -0.034], [0.044, 0.08, 0.04], 'arm', [0.2, 0, 0])
-    capsule(ur, 0.29, 0.042, MAT.skin, 'arm')
-    // ต้นแขน: biceps + brachialis / triceps 2 หัว
-    muscle(ur, 'biceps', [0, -0.155, 0.03], [0.039, 0.095, 0.038], 'arm')
-    muscle(ur, 'biceps', [0.022 * s, -0.215, 0.012], [0.025, 0.05, 0.028], 'arm')
-    muscle(ur, 'triceps', [-0.006 * s, -0.13, -0.034], [0.04, 0.11, 0.036], 'arm')
-    muscle(ur, 'triceps', [0.027 * s, -0.11, -0.016], [0.028, 0.075, 0.03], 'arm')
-    capsule(el, 0.26, 0.035, MAT.skin, 'arm')
-    // ปลายแขน: กลุ่มงอ / กลุ่มเหยียด เรียวลงที่ข้อมือ
-    muscle(el, 'forearms', [0.012 * s, -0.075, 0.012], [0.036, 0.1, 0.036], 'arm')
-    muscle(el, 'forearms', [-0.012 * s, -0.07, -0.01], [0.032, 0.095, 0.032], 'arm')
-    capsule(hip, 0.43, 0.066, MAT.skin, 'leg')
-    // ต้นขาหน้า 3 หัว (vastus lateralis / rectus femoris / vastus medialis รูปหยดน้ำ) + ต้นขาด้านใน
-    muscle(hip, 'quads', [0.034 * s, -0.2, 0.012], [0.05, 0.17, 0.052], 'leg', [0, 0, 0.05 * s])
-    muscle(hip, 'quads', [0, -0.19, 0.046], [0.042, 0.18, 0.036], 'leg')
-    muscle(hip, 'quads', [-0.03 * s, -0.33, 0.035], [0.04, 0.07, 0.038], 'leg')
-    muscle(hip, 'adductors', [-0.04 * s, -0.12, 0], [0.036, 0.12, 0.045], 'leg')
-    // ต้นขาหลัง 2 หัว
-    muscle(hip, 'hamstrings', [0.022 * s, -0.21, -0.038], [0.038, 0.16, 0.038], 'leg')
-    muscle(hip, 'hamstrings', [-0.022 * s, -0.21, -0.036], [0.036, 0.16, 0.038], 'leg')
-    capsule(knee, 0.42, 0.046, MAT.skin, 'leg')
-    // น่อง: gastrocnemius 2 หัว + soleus + หน้าแข้ง (tibialis)
-    muscle(knee, 'calves', [0.021 * s, -0.105, -0.036], [0.033, 0.09, 0.04], 'leg')
-    muscle(knee, 'calves', [-0.021 * s, -0.115, -0.034], [0.032, 0.095, 0.04], 'leg')
-    muscle(knee, 'calves', [0, -0.21, -0.024], [0.04, 0.075, 0.03], 'leg')
-    muscle(knee, 'tibialis', [0.018 * s, -0.15, 0.03], [0.022, 0.12, 0.022], 'leg')
-  }
-  ellipsoid(el, [0, 0, 0], [0.046, 0.046, 0.046], MAT.joint, 'arm')
-  ellipsoid(hand, [0, 0.005, 0], [0.036, 0.062, 0.028], MAT.joint, 'arm')
-  ellipsoid(knee, [0, 0, 0.01], [0.058, 0.058, 0.058], MAT.joint, 'leg')
-  const foot = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.16, 6, 14), MAT.joint)
-  foot.rotation.x = Math.PI / 2
-  foot.position.set(0, -0.045, 0.055)
-  add(ankle, foot, 'leg')
+  return mat
 }
 
-// ---------- พื้น ----------
-// พื้นล่องหน: รับแค่เงานุ่มจาก shadowLight + วงเงาจาง ๆ (contact shadow) ใต้ตัวหุ่น ไม่มีแท่นสี่เหลี่ยม
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.ShadowMaterial({ opacity: 0.5 }))
+// ---------- ฉากพื้น ----------
+// พื้นล่องหน: รับแค่เงานุ่ม + วงเงาจาง ๆ (contact shadow) ใต้ตัว ไม่มีแท่นสี่เหลี่ยม
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.ShadowMaterial({ opacity: 0.5 }))
 ground.rotation.x = -Math.PI / 2
 ground.receiveShadow = true
 scene.add(ground)
-const contactTex = canvasTexture((g, w, h) => {
-  const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2)
-  grad.addColorStop(0, 'rgba(2,6,10,0.55)')
-  grad.addColorStop(0.5, 'rgba(2,6,10,0.22)')
-  grad.addColorStop(1, 'rgba(2,6,10,0)')
-  g.fillStyle = grad
-  g.fillRect(0, 0, w, h)
-}, 128, 128)
-const halo = new THREE.Mesh(new THREE.CircleGeometry(0.75, 48), new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false }))
+const halo = new THREE.Mesh(new THREE.CircleGeometry(0.8, 48), new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false }))
 halo.scale.set(1, 1.35, 1)
 halo.renderOrder = -1
 halo.rotation.x = -Math.PI / 2
 halo.position.y = 0.002
 scene.add(halo)
 
-// ---------- pose ----------
-const v = new THREE.Vector3()
-const wp = (o) => o.getWorldPosition(new THREE.Vector3())
-const dirAngle = (dy, dz) => deg(Math.atan2(-dz, -dy))
-// IK สองท่อนในระนาบด้านข้าง (y, z) -> มุมโลกของท่อนบนและท่อนล่าง
-function solve2(P, T, l1, l2, bend) {
-  const dy = T[0] - P.y
-  const dz = T[1] - P.z
-  const d = clamp(Math.hypot(dy, dz), Math.abs(l1 - l2) + 1e-4, l1 + l2 - 1e-4)
-  const base = dirAngle(dy, dz)
-  const alpha = deg(Math.acos(clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1)))
-  const a1 = base + bend * alpha
-  const ky = P.y - l1 * Math.cos(rad(a1))
-  const kz = P.z - l1 * Math.sin(rad(a1))
-  return [a1, dirAngle(T[0] - ky, T[1] - kz)]
+// ======================================================================
+// ร่างกาย (mesh ชิ้นเดียวจาก body.js) + rig
+// ======================================================================
+const J = {} // joints (THREE.Bone)
+const BIND = {} // ตำแหน่งโลกของข้อต่อในท่า bind (rotation = identity ทุกข้อ)
+const body = new THREE.Group()
+scene.add(body)
+const L = {} // ความยาวท่อน
+const HAND = {} // ข้อมูลมือ: จุดกำ / จุดฝ่ามือ / นิ้ว
+const FORE_AXIS = {} // แกนบิดปลายแขน (ข้อศอก -> ข้อมือ)
+let anat = null
+
+function buildRig() {
+  const S = {}
+  for (const [k, p] of Object.entries(JOINTS)) S[k] = V(...p)
+  const mkJ = (name, parent, p, pp, order = 'XYZ') => {
+    const g = new THREE.Bone()
+    g.name = name
+    g.rotation.order = order
+    g.position.copy(p).sub(pp)
+    parent.add(g)
+    J[name] = g
+    BIND[name] = p.clone()
+    return g
+  }
+  mkJ('root', body, S.hip, V())
+  mkJ('spine', J.root, S.l5, S.hip)
+  mkJ('chest', J.spine, S.t12, S.l5)
+  mkJ('neck', J.chest, S.c7, S.t12)
+  for (const [n] of SIDES) {
+    const e = S[`elbow${n}`]
+    const w = S[`wrist${n}`]
+    const a = e.clone().lerp(w, 1 / 3)
+    const b = e.clone().lerp(w, 2 / 3)
+    mkJ(`shoulder${n}`, J.chest, S[`shoulder${n}`], S.t12, 'YXZ')
+    mkJ(`uroll${n}`, J[`shoulder${n}`], S[`shoulder${n}`], S[`shoulder${n}`])
+    mkJ(`elbow${n}`, J[`uroll${n}`], e, S[`shoulder${n}`])
+    // twist bone 3 ท่อน แบ่งมุมคว่ำ-หงายมือเท่า ๆ กัน: ปลายแขนบิดนุ่มไม่ยุบ
+    mkJ(`tw1${n}`, J[`elbow${n}`], a, e)
+    mkJ(`tw2${n}`, J[`tw1${n}`], b, a)
+    mkJ(`hand${n}`, J[`tw2${n}`], w, b) // ข้อต่อมือ = ข้อมือ
+    FORE_AXIS[n] = w.clone().sub(e).normalize()
+    mkJ(`hip${n}`, J.root, S[`hip${n}`], S.hip, 'YXZ')
+    mkJ(`knee${n}`, J[`hip${n}`], S[`knee${n}`], S[`hip${n}`])
+    mkJ(`ankle${n}`, J[`knee${n}`], S[`ankle${n}`], S[`knee${n}`])
+    // นิ้ว: ข้อ MCP / PIP / DIP (นิ้วโป้ง CMC / MCP / IP)
+    const h = handLayout(n)
+    HAND[n] = { fingers: h.fingers, mcp: h.mcp, dir: h.dir, palmN: h.palmN, grip: h.grip.clone().sub(w), palm: h.palm.clone().sub(w), joints: {} }
+    for (const f of [...FINGERS, 'thumb']) {
+      const { base, axis, len, spread } = h.fingers[f]
+      let flex
+      if (f === 'thumb') {
+        // นิ้วโป้งพับเข้าหาจุดกำ (อ้อมด้ามจับด้านตรงข้ามนิ้วทั้งสี่)
+        const toGrip = h.grip.clone().sub(base)
+        const side = toGrip.addScaledVector(axis, -toGrip.dot(axis)).normalize()
+        flex = V().crossVectors(axis, side).normalize()
+      } else flex = V().crossVectors(axis, h.palmN).normalize()
+      const chain = []
+      let parent = J[`hand${n}`]
+      let pp = w
+      let p = base.clone()
+      SEG_FRAC[f === 'thumb' ? 'thumb' : 'finger'].forEach((frac, k) => {
+        const j = mkJ(`${n}:${f}:${k}`, parent, p, pp)
+        const q = p.clone().addScaledVector(axis, len * frac)
+        BIND[`${n}:${f}:${k}:end`] = q
+        chain.push(j)
+        parent = j
+        pp = p
+        p = q
+      })
+      HAND[n].joints[f] = { chain, flex, spread }
+    }
+  }
+  body.updateMatrixWorld(true)
+  L.uarm = S.shoulderL.distanceTo(S.elbowL)
+  L.farm = S.elbowL.distanceTo(S.wristL)
+  L.thigh = S.hipL.distanceTo(S.kneeL)
+  L.shin = S.kneeL.distanceTo(S.ankleL)
+  L.ankleY = S.ankleL.y // ความสูงข้อเท้าเมื่อเท้าวางราบ (ฝ่าเท้า y = 0)
+  L.hipY = S.hip.y
+  L.shoulderW = S.shoulderL.x
+
+  // ---- โครงกระดูกสำหรับ skinning + ช่วงของแต่ละท่อน ----
+  const up = (p, d) => p.clone().add(V(0, d, 0))
+  const BONES = { root: [J.root, S.hip, S.l5], spine: [J.spine, S.l5, S.t12], chest: [J.chest, S.t12, S.c7], neck: [J.neck, S.c7, up(S.c7, 0.25)] }
+  const RADIUS = { root: 0.1, spine: 0.11, chest: 0.13, neck: 0.04 }
+  const ALLOW = { head: ['neck'], neck: ['neck', 'chest'], chest: ['chest', 'spine', 'neck'], abdomen: ['spine', 'root', 'chest'], pelvis: ['root', 'spine', 'thighL', 'thighR'] }
+  for (const [n] of SIDES) {
+    const e = S[`elbow${n}`]
+    const w = S[`wrist${n}`]
+    BONES[`arm${n}`] = [J[`uroll${n}`], S[`shoulder${n}`], e]
+    BONES[`fore${n}`] = [J[`elbow${n}`], e, e.clone().lerp(w, 1 / 3)]
+    BONES[`tw1${n}`] = [J[`tw1${n}`], e.clone().lerp(w, 1 / 3), e.clone().lerp(w, 2 / 3)]
+    BONES[`tw2${n}`] = [J[`tw2${n}`], e.clone().lerp(w, 2 / 3), w]
+    BONES[`hand${n}`] = [J[`hand${n}`], w, HAND[n].mcp]
+    BONES[`thigh${n}`] = [J[`hip${n}`], S[`hip${n}`], S[`knee${n}`]]
+    BONES[`shin${n}`] = [J[`knee${n}`], S[`knee${n}`], S[`ankle${n}`]]
+    BONES[`foot${n}`] = [J[`ankle${n}`], S[`ankle${n}`], S[`toe${n}`]]
+    Object.assign(RADIUS, { [`arm${n}`]: 0.03, [`fore${n}`]: 0.028, [`tw1${n}`]: 0.026, [`tw2${n}`]: 0.022, [`hand${n}`]: 0.02, [`thigh${n}`]: 0.05, [`shin${n}`]: 0.04, [`foot${n}`]: 0.03 })
+    Object.assign(ALLOW, {
+      [`${n}shoulder`]: ['chest', `arm${n}`, 'neck'],
+      [`${n}upperarm`]: [`arm${n}`, `fore${n}`, 'chest'],
+      [`${n}forearm`]: [`fore${n}`, `tw1${n}`, `tw2${n}`, `hand${n}`, `arm${n}`],
+      [`${n}hand`]: [`hand${n}`, `tw2${n}`, `tw1${n}`],
+      [`${n}thigh`]: [`thigh${n}`, 'root', `shin${n}`],
+      [`${n}shin`]: [`shin${n}`, `thigh${n}`, `foot${n}`],
+      [`${n}foot`]: [`foot${n}`, `shin${n}`],
+    })
+    for (const f of [...FINGERS, 'thumb']) {
+      for (let k = 0; k < 3; k++) {
+        const key = `${n}:${f}:${k}`
+        BONES[key] = [J[key], BIND[key], BIND[`${key}:end`]]
+        RADIUS[key] = 0.006
+        ALLOW[key] = [key, k === 0 ? `hand${n}` : `${n}:${f}:${k - 1}`].concat(k < 2 ? [`${n}:${f}:${k + 1}`] : [])
+      }
+    }
+  }
+  const names = Object.keys(BONES)
+  const skeleton = new THREE.Skeleton(names.map((k) => BONES[k][0]))
+  skeleton.calculateInverses()
+  const segDist = (q, a, b) => {
+    const ab = V().subVectors(b, a)
+    const t = clamp(V().subVectors(q, a).dot(ab) / ab.lengthSq(), 0, 1)
+    return q.distanceTo(a.clone().addScaledVector(ab, t))
+  }
+
+  // ---- ผิวร่างกาย (ลำตัว+ศีรษะ+กางเกง / แขน / ขา ซ้อนกันเป็นร่างเดียว) ----
+  const allowIdx = {}
+  for (const [k, list] of Object.entries(ALLOW)) allowIdx[k] = list.map((b) => names.indexOf(b))
+  const material = bodyMaterial()
+  const samples = []
+  const meshes = []
+  const stats = []
+  const p = V()
+  for (const { layer, geometry: geo, vReg, vGroup, stats: st } of buildBodyMeshes()) {
+    // อก/ปีกหลังในชั้นลำตัวไม่ถูกแขนดึง (ไม่เกิดแผ่นยืดตอนยกแขน) ; หมวกไหล่ (deltoid) ในชั้นแขนปิดรอยต่อ
+    const regAllow = (r) => (layer === 'body' && /^[LR]shoulder$/.test(r) ? allowIdx.chest : layer !== 'body' && /^[LR]shoulder$/.test(r) ? [names.indexOf('arm' + r[0]), names.indexOf('chest')] : allowIdx[r] || allowIdx.chest)
+    stats.push({ layer, ...st })
+    const pos = geo.attributes.position
+    const nv = pos.count
+    const si = new Uint16Array(nv * 4)
+    const sw = new Float32Array(nv * 4)
+    for (let i = 0; i < nv; i++) {
+      p.fromBufferAttribute(pos, i)
+      const allow = regAllow(vReg[i])
+      // น้ำหนักตามระยะถึงผิวของแต่ละท่อน (ยกกำลัง 4 + เผื่อ) ; นิ้วใช้ระยะเผื่อเล็กให้ข้อนิ้วพับคม
+      const soft = vReg[i].includes(':') ? 0.004 : 0.02
+      const ws = allow.map((b) => [b, 1 / (Math.max(0, segDist(p, BONES[names[b]][1], BONES[names[b]][2]) - RADIUS[names[b]]) + soft) ** 4])
+      ws.sort((x, y) => y[1] - x[1])
+      const top = ws.slice(0, 4)
+      const tot = top.reduce((x, y) => x + y[1], 0)
+      top.forEach(([bi, w], k) => {
+        si[i * 4 + k] = bi
+        sw[i * 4 + k] = w / tot
+      })
+    }
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4))
+    geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4))
+    const mesh = new THREE.SkinnedMesh(geo, material)
+    mesh.bind(skeleton, new THREE.Matrix4())
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    mesh.frustumCulled = false
+    scene.add(mesh)
+    meshes.push({ mesh, geo, vGroup })
+    // จุดตัวอย่างบนผิว (ยึดพื้น / หาจุดสัมผัสเบาะ / จัดเฟรมกล้อง)
+    for (let i = 0; i < nv; i += 7) {
+      const region = vReg[i]
+      const side = region[0] === 'L' || region[0] === 'R' ? region[0] : ''
+      const arm = /hand|forearm|upperarm|:/.test(region)
+      const torso = /^(chest|abdomen|pelvis|neck|[LR]shoulder)$/.test(region)
+      // จุดนั่ง: ก้น + ต้นขาส่วนบน (ใกล้สะโพก)
+      const seat = region === 'pelvis' || (/^[LR]thigh$/.test(region) && pos.getY(i) > L.hipY - 0.2)
+      samples.push({ mesh, i, group: vGroup[i], region, side, arm, torso, seat })
+    }
+  }
+  window.bodyStats = stats
+  anat = { meshes, samples }
+
 }
 
-let M = null // motion ปัจจุบัน
-let fixPoint = null
+const samplePos = (s, out) => {
+  out.fromBufferAttribute(s.mesh.geometry.attributes.position, s.i)
+  return s.mesh.applyBoneTransform(s.i, out)
+}
 
+// องศางอนิ้วต่อข้อเมื่อ curl = 1 (กำด้ามจับ ~3 ซม.) ; นิ้วที่กางในท่า bind หุบเข้าหากันเมื่อกำ
+const CURL = { finger: [62, 92, 52], thumb: [24, 38, 42] }
+const SPREAD_W = { index: 1, middle: 0.3, ring: -0.4, little: -1 }
+function setCurl(n, g, spread = 0) {
+  const h = HAND[n]
+  for (const f of [...FINGERS, 'thumb']) {
+    const { chain, flex, spread: s0 } = h.joints[f]
+    const a = CURL[f === 'thumb' ? 'thumb' : 'finger']
+    chain.forEach((j, k) => j.quaternion.setFromAxisAngle(flex, rad(a[k] * g)))
+    if (f !== 'thumb') {
+      const add = -s0 * clamp(g, 0, 1) * 0.85 + spread * SPREAD_W[f] * (n === 'L' ? 1 : -1)
+      chain[0].quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(h.palmN, rad(add)))
+    }
+  }
+}
+
+// ---------- ระบายสีกล้ามเนื้อเป้าหมาย ----------
+// primary = ส้ม-แดงเต็ม #ea580c ; secondary = ส้มอ่อนลง (ยังเป็นสีไฮไลต์) ; ที่เหลือ = เทาเงิน
+function paintAnatomy(primary, secondary = []) {
+  const all = primary.includes('fullbody')
+  for (const { geo, vGroup } of anat.meshes) {
+    const arr = geo.attributes.aTarget.array
+    for (let i = 0; i < arr.length; i++) {
+      const g = vGroup[i]
+      arr[i] = g === 'base' ? 0 : all || primary.includes(g) ? 1 : secondary.includes(g) ? 0.62 : 0
+    }
+    geo.attributes.aTarget.needsUpdate = true
+  }
+}
+
+// ======================================================================
+// การจัดท่า
+// ======================================================================
+const wp = (o) => o.getWorldPosition(V())
+const wq = (o) => o.getWorldQuaternion(new THREE.Quaternion())
+let M = null // motion ปัจจุบัน
+// แกนบิดปลายแขน: หมุน tw1 / tw2 / มือ ข้อละ 1/3 ของมุม (องศา ; 0 = หงายมือแบบกายวิภาค, + = คว่ำมือ)
+function setPron(n, m, pronDeg) {
+  const a = rad(pronDeg * m) / 3
+  const ax = FORE_AXIS[n]
+  J[`tw1${n}`].quaternion.setFromAxisAngle(ax, a)
+  J[`tw2${n}`].quaternion.setFromAxisAngle(ax, a)
+  J[`hand${n}`].quaternion.setFromAxisAngle(ax, a)
+}
+
+// FK จากมุมในระนาบด้านข้าง (ดูคำอธิบายใน motions.js)
 function setAngles(o) {
   J.root.rotation.set(rad(o.pelvis), rad(o.pelvisYaw), rad(o.pelvisRoll))
-  J.spine.rotation.set(rad(norm(o.spine - o.pelvis)), 0, 0)
+  J.spine.rotation.set(rad(norm(o.spine - o.pelvis)), rad(o.spineTwist), 0)
   J.chest.rotation.set(rad(norm(o.chest - o.spine)), rad(o.chestTwist), rad(o.chestSide))
-  J.neck.rotation.set(rad(norm(o.head - o.chest)), 0, 0)
-  for (const [n, s] of [['L', 0], ['R', 1]]) {
-    const m = s ? -1 : 1
+  J.neck.rotation.set(rad(norm(o.head - o.chest)), rad(o.headTurn), 0)
+  for (const [n, s, m] of SIDES) {
     J[`shoulder${n}`].rotation.set(rad(norm(o.uarm[s] - o.chest)), m * rad(o.uarmT[s]), m * rad(o.uarmA[s]))
-    J[`uroll${n}`].rotation.y = m * rad(o.uarmRoll[s])
-    const elbow = o.elbowR[s] ?? clamp(norm(o.farm[s] - o.uarm[s]), -165, 4)
-    J[`elbow${n}`].rotation.x = rad(elbow)
+    J[`uroll${n}`].rotation.set(0, m * rad(o.uarmRoll[s]), 0)
+    const elbow = o.elbowR[s] ?? clamp(norm(o.farm[s] - o.uarm[s]), -150, 0)
+    J[`elbow${n}`].rotation.set(rad(clamp(elbow, -150, 0)), 0, 0)
+    setPron(n, m, o.pron[s])
     J[`hip${n}`].rotation.set(rad(norm(o.thigh[s] - o.pelvis)), m * rad(o.thighT[s]), m * rad(o.thighA[s]))
-    J[`knee${n}`].rotation.x = rad(clamp(norm(o.shin[s] - o.thigh[s]), -4, 165))
-    J[`ankle${n}`].rotation.x = rad(norm(o.foot[s] - o.shin[s]))
+    J[`knee${n}`].rotation.set(rad(clamp(norm(o.shin[s] - o.thigh[s]), 0, 155)), 0, 0)
+    J[`ankle${n}`].rotation.set(rad(norm(o.foot[s] - o.shin[s])), 0, 0)
+    setCurl(n, o.curl[s], o.spread[s])
   }
-  J.root.position.set(o.x, BASE_Y + o.y, o.z)
+  J.root.position.set(o.x, L.hipY + o.y, o.z)
+  if (o.hip) J.root.position.set(o.x, o.hip[0], o.hip[1])
   body.updateMatrixWorld(true)
 }
 
-const handIK = (o) => o.handFix || o.handC[0] || o.handC[1] || o.handW[0] || o.handW[1]
-function anchor(o) {
-  const mode = M.anchor || 'feet'
-  if (mode === 'fixed') return
-  const shift = new THREE.Vector3()
-  if (mode === 'hands') {
-    const mid = wp(J.handL).add(wp(J.handR)).multiplyScalar(0.5)
-    shift.set(...M.handsAt).sub(mid)
-  } else {
-    const box = bodyBox({ skipArms: !!handIK(o) })
-    shift.y = -box.min.y + o.lift
-    if (mode !== 'ground') {
-      const a = mode === 'footL' ? wp(J.ankleL) : mode === 'footR' ? wp(J.ankleR) : wp(J.ankleL).add(wp(J.ankleR)).multiplyScalar(0.5)
-      shift.x = o.x - a.x
-      shift.z = o.z - a.z
+// ---- IK สองท่อนแบบ 3 มิติ ----
+// upper: ข้อต่อต้น (หมุนอิสระ) ; mid: ข้อพับ (หมุนรอบแกน x ของตัวเอง) ; endBind: ตำแหน่ง bind ของปลายท่อน
+// target: ตำแหน่งโลกที่ต้องการ ; pole: ทิศโลกที่ข้อพับ (ศอก/เข่า) ควรชี้ ; range: ช่วงมุมพับ (องศา)
+function solveLimb(upper, mid, upperB, midB, endB, target, pole, range) {
+  const a0 = V().subVectors(midB, upperB)
+  const c0 = V().subVectors(endB, midB)
+  const S = wp(upper)
+  const T = V().subVectors(target, S)
+  const want = T.length()
+  // หามุมพับที่ทำให้ระยะต้น -> ปลาย เท่าระยะเป้า (ค้นหาละเอียด 1° แล้วประมาณเชิงเส้น)
+  const reach = (th) => a0.clone().add(c0.clone().applyAxisAngle(X, rad(th))).length()
+  let best = range[0]
+  let err = Infinity
+  for (let th = range[0]; th <= range[1]; th += 1) {
+    const e = Math.abs(reach(th) - want)
+    if (e < err) [err, best] = [e, th]
+  }
+  for (const step of [0.5, 0.25, 0.1, 0.05]) {
+    for (const th of [best - step, best + step]) {
+      if (th < range[0] || th > range[1]) continue
+      const e = Math.abs(reach(th) - want)
+      if (e < err) [err, best] = [e, th]
     }
+  }
+  mid.quaternion.setFromAxisAngle(X, rad(best))
+  const endL = a0.clone().add(c0.clone().applyAxisAngle(X, rad(best)))
+  // หมุนให้ปลายชี้เป้า แล้วบิดรอบแกนต้น -> เป้า ให้ข้อพับชี้ไปทาง pole
+  const Tn = T.clone().normalize()
+  const q1 = new THREE.Quaternion().setFromUnitVectors(endL.clone().normalize(), Tn)
+  const e1 = a0.clone().applyQuaternion(q1)
+  const perp = (v) => v.clone().addScaledVector(Tn, -v.dot(Tn))
+  const ep = perp(e1)
+  const pp = perp(pole)
+  let q = q1
+  if (ep.lengthSq() > 1e-10 && pp.lengthSq() > 1e-10) {
+    ep.normalize()
+    pp.normalize()
+    const ang = Math.atan2(V().crossVectors(ep, pp).dot(Tn), ep.dot(pp))
+    q = new THREE.Quaternion().setFromAxisAngle(Tn, ang).multiply(q1)
+  }
+  const parentQ = wq(upper.parent)
+  upper.quaternion.copy(parentQ.invert().multiply(q))
+  upper.updateMatrixWorld(true)
+}
+
+// วางมือให้แกนข้างมือขนานด้ามจับ (A) : เลือกมุมบิดปลายแขนที่ใกล้ hint (คว่ำ/หงาย) แล้วข้อมือแก้มุมที่เหลือ
+// palmN (ถ้ามี) = ทิศฝ่ามือที่ต้องการ (เช่น วางฝ่ามือราบกับพื้น)
+// palm (วางมือราบ/ประกบ): A = ทิศปลายนิ้ว, palmN = ทิศฝ่ามือ -> กำหนดเฟรมมือเต็ม ; เลือกมุมบิดปลายแขนที่ทำให้ข้อมือหมุนน้อยสุด
+const PRON_RANGE = [-35, 195] // ช่วงคว่ำ-หงายที่ทำได้จริง (รวมการหมุนต้นแขนเล็กน้อย)
+function orientHand(n, m, A, pronHint, palmN = null, palmHint = null) {
+  const elbow = J[`elbow${n}`]
+  const hand = J[`hand${n}`]
+  setPron(n, m, 0)
+  elbow.updateMatrixWorld(true)
+  const qe = wq(elbow)
+  const f = FORE_AXIS[n].clone().applyQuaternion(qe)
+  const hint = rad(pronHint * m)
+  const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a))
+  const inRange = (th) => {
+    const p = deg(th) * m
+    return p >= PRON_RANGE[0] && p <= PRON_RANGE[1]
+  }
+  if (palmN) {
+    // เฟรมมือที่ต้องการ: Z = ฝ่ามือ, Y = ทิศข้อมือ (ตรงข้ามปลายนิ้ว), X = Y × Z
+    const zd = palmN.clone().normalize()
+    const fing = (A || f).clone()
+    const yd = fing.addScaledVector(zd, -fing.dot(zd)).normalize().negate()
+    const xd = V().crossVectors(yd, zd).normalize()
+    const zb = HAND[n].palmN.clone().addScaledVector(X, -HAND[n].palmN.dot(X)).normalize()
+    const mb = new THREE.Matrix4().makeBasis(X, V().crossVectors(zb, X), zb)
+    const md = new THREE.Matrix4().makeBasis(xd, yd, zd)
+    const qd = new THREE.Quaternion().setFromRotationMatrix(md.multiply(mb.transpose()))
+    let best = 0
+    let cost = Infinity
+    for (let a = -180; a < 180; a += 4) {
+      const th = rad(a)
+      const qr = new THREE.Quaternion().setFromAxisAngle(f, th).multiply(qe)
+      const c = qr.angleTo(qd) + 0.15 * Math.abs(wrap(th - hint)) + (inRange(th) ? 0 : 3)
+      if (c < cost) [cost, best] = [c, th]
+    }
+    setPron(n, m, deg(best) * m)
+    hand.updateMatrixWorld(true)
+    hand.quaternion.copy(wq(hand.parent).invert().multiply(qd)) // ข้อมือรับส่วนที่เหลือ
+    hand.updateMatrixWorld(true)
+    return
+  }
+  let th = hint
+  if (A) {
+    const X1 = X.clone().applyQuaternion(qe)
+    const proj = (v) => v.clone().addScaledVector(f, -v.dot(f))
+    const ap = proj(A)
+    const xp = proj(X1)
+    if (ap.lengthSq() > 1e-8) {
+      const th0 = Math.atan2(V().crossVectors(xp, ap).dot(f), xp.dot(ap))
+      // palmHint (ทิศฝ่ามือโดยประมาณ) ตัดสินคำตอบที่กำกวม (ฝ่ามือหน้า/หลัง) ได้มั่นคงกว่ามุม pron
+      const Z1 = HAND[n].palmN.clone().applyQuaternion(qe)
+      const dist = (c) => (palmHint ? -Z1.clone().applyAxisAngle(f, c).dot(palmHint) * 4 : 0) + Math.abs(wrap(c - hint)) * (palmHint ? 0.05 : 1) + (inRange(c) ? 0 : 10)
+      th = [th0, th0 + Math.PI, th0 - Math.PI, th0 + 2 * Math.PI, th0 - 2 * Math.PI].reduce((b, c) => (dist(c) < dist(b) ? c : b))
+    }
+  }
+  setPron(n, m, deg(th) * m)
+  hand.updateMatrixWorld(true)
+  if (!A) return
+  // ข้อมือ: หมุนน้อยที่สุดให้แกนข้างมือขนานด้ามจับ
+  const qh = wq(hand)
+  const Xh = X.clone().applyQuaternion(qh)
+  const xd = A.clone().multiplyScalar(Math.sign(Xh.dot(A)) || 1)
+  const qd = new THREE.Quaternion().setFromUnitVectors(Xh, xd).multiply(qh)
+  hand.quaternion.copy(wq(hand.parent).invert().multiply(qd))
+  hand.updateMatrixWorld(true)
+}
+
+const gripWorld = (n, contact = 'grip') => J[`hand${n}`].localToWorld(HAND[n][contact].clone())
+const mirror = (v, m) => V(v[0] * m, v[1], v[2])
+function chestPoint(v) {
+  return J.chest.localToWorld(V(...v))
+}
+// พิกัดเป้าหมายของมือ: world | chest (เทียบข้อต่ออก T12 หมุนตามลำตัว) | root (เทียบสะโพก)
+function spacePoint(space, v) {
+  if (space === 'chest') return chestPoint(v)
+  if (space === 'root') return J.root.localToWorld(V(...v))
+  if (space === 'neck') return J.neck.localToWorld(V(...v))
+  return V(...v)
+}
+function spaceDir(space, v) {
+  const d = V(...v).normalize()
+  if (space === 'chest') return d.applyQuaternion(wq(J.chest))
+  if (space === 'root') return d.applyQuaternion(wq(J.root))
+  return d
+}
+
+// เป้าหมายมือของเฟรมนี้: { L: {at, axis, contact}, R: ... } หรือ null
+function handTargets(o) {
+  const out = {}
+  if (o.bar) {
+    // บาร์เบล / บาร์ยาว: จุดกึ่งกลาง [y, z] (+x) ; มือจับห่างกึ่งกลาง gw ; แกนบาร์ตามแนว x ของพื้นที่นั้น
+    const sp = M.barSpace || 'world'
+    const c = o.bar.length === 3 ? o.bar : [0, o.bar[0], o.bar[1]]
+    const pl = spacePoint(sp, [c[0] + o.gw, c[1], c[2]])
+    const pr = spacePoint(sp, [c[0] - o.gw, c[1], c[2]])
+    const axis = pl.clone().sub(pr).normalize()
+    const ph = (s, m) => (o.palmHint[s] ? spaceDir(M.axisSpace || 'world', mirror(o.palmHint[s], m)) : null)
+    out.L = { at: pl, axis, contact: 'grip', palmHint: ph(0, 1) }
+    out.R = { at: pr, axis, contact: 'grip', palmHint: ph(1, -1) }
+    return out
+  }
+  for (const [n, s, m] of SIDES) {
+    if (!o.grip[s]) continue
+    const sp = o.gripSpace || M.gripSpace || 'world'
+    const at = spacePoint(sp, mirror(o.grip[s], m))
+    const axis = o.gripAxis ? spaceDir(M.axisSpace || 'world', mirror(o.gripAxis, m)) : null
+    out[n] = { at, axis, palmHint: o.palmHint[s] ? spaceDir(M.axisSpace || 'world', mirror(o.palmHint[s], m)) : null, contact: o.palm[s] ? 'palm' : 'grip', palmN: o.palm[s] ? spaceDir(M.axisSpace || 'world', mirror(o.palm[s], m)) : null }
+  }
+  return out
+}
+
+function armIK(o) {
+  const T = handTargets(o)
+  for (const [n, s, m] of SIDES) {
+    const t = T[n]
+    if (!t) continue
+    const poleV = o.pole[s] ? spaceDir(M.poleSpace || 'chest', mirror(o.pole[s], m)) : spaceDir('chest', [m * 0.6, -0.4, -0.7])
+    J[`uroll${n}`].quaternion.identity()
+    // เดาเริ่ม: จุดกำอยู่เลยข้อมือไป ~10 ซม. ตามแนวไหล่ -> เป้า
+    const S0 = wp(J[`shoulder${n}`])
+    let Ht = t.at.clone().addScaledVector(t.at.clone().sub(S0).normalize(), t.contact === 'palm' ? -0.04 : -0.1)
+    // ปรับเป้าข้อมือแบบหน่วง (damped) + จำคำตอบที่ดีที่สุด: ทิศมือขึ้นกับตำแหน่งข้อมือ จึงไม่แกว่งไปมา
+    const solve = (H) => {
+      solveLimb(J[`shoulder${n}`], J[`elbow${n}`], BIND[`shoulder${n}`], BIND[`elbow${n}`], BIND[`hand${n}`], H, poleV, [-160, 0])
+      orientHand(n, m, t.axis, o.pron[s], t.palmN, t.palmHint)
+      if (o.wrist[s]) {
+        // เหยียดข้อมือ (หลังมือเข้าหาปลายแขน) เช่น ท่า front rack ; แกนข้างมือคงเดิม -> ยังขนานด้ามจับ
+        const h = J[`hand${n}`]
+        h.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(X, rad(o.wrist[s])))
+        h.updateMatrixWorld(true)
+      }
+      return t.at.clone().sub(gripWorld(n, t.contact))
+    }
+    let best = { e: Infinity, H: Ht.clone(), err: V() }
+    let k = 1
+    for (let it = 0; it < 24; it++) {
+      const err = solve(Ht)
+      const e = err.length()
+      if (window.__trace) window.__trace.push([n, it, +e.toFixed(4)])
+      if (e < best.e) best = { e, H: Ht.clone(), err }
+      else k *= 0.5
+      if (best.e < 3e-4 || k < 0.01) break
+      Ht = best.H.clone().addScaledVector(best.err, k)
+    }
+    solve(best.H)
+    if (window.__trace) window.__trace.push([n, 'final', +best.e.toFixed(4)])
+  }
+}
+
+// ---- เท้า: leg IK ไปยังจุดข้อเท้าที่กำหนด + วางเท้าราบ (หรือเอียงตาม footPitch) หมุนปลายเท้าออกตาม toe ----
+function legIK(o) {
+  for (const [n, s, m] of SIDES) {
+    if (!o.ft[s]) continue
+    const target = spacePoint(M.footSpace || 'world', mirror(o.ft[s], m))
+    const toe = o.toe[s]
+    const fwd = V(Math.sin(rad(toe)) * m, 0, Math.cos(rad(toe)))
+    const pole = o.kneeP[s] ? V(...mirror(o.kneeP[s], m)).normalize() : fwd.clone()
+    solveLimb(J[`hip${n}`], J[`knee${n}`], BIND[`hip${n}`], BIND[`knee${n}`], BIND[`ankle${n}`], target, pole, [0, 155])
+    // เท้า: ทิศปลายเท้าในโลก = หมุนรอบแกนตั้ง toe องศา จากทิศ bind ; เอียงตาม footPitch (+ = ปลายเท้าชี้ลง/ยกส้น)
+    const qd = new THREE.Quaternion().setFromAxisAngle(Y, rad(toe) * m)
+    if (o.footPitch[s]) {
+      const side = X.clone().applyQuaternion(qd)
+      qd.premultiply(new THREE.Quaternion().setFromAxisAngle(side, rad(o.footPitch[s])))
+    }
+    if (o.footRoll[s]) qd.premultiply(new THREE.Quaternion().setFromAxisAngle(fwd, rad(o.footRoll[s]) * m))
+    const ankle = J[`ankle${n}`]
+    ankle.quaternion.copy(wq(ankle.parent).invert().multiply(qd))
+    ankle.updateMatrixWorld(true)
+  }
+}
+
+// กล่องครอบร่างกายหลังจัดท่า (จุดตัวอย่างที่ผ่าน skinning)
+function bodyBox({ skipArms = false, groups = null, side = null, filter = null } = {}) {
+  const box = new THREE.Box3()
+  const p = V()
+  for (const s of anat.samples) {
+    if (skipArms && s.arm) continue
+    if (groups && !groups.includes(s.group)) continue
+    if (side && s.side !== side) continue
+    if (filter && !filter(s)) continue
+    box.expandByPoint(samplePos(s, p))
+  }
+  return box
+}
+// ระยะต่ำสุดของจุดผิว (ชุด torso / seat) ถึงระนาบ n·p = d
+function minPlaneDist(set, nrm, d) {
+  let min = Infinity
+  const p = V()
+  for (const s of anat.samples) {
+    if (!s[set]) continue
+    min = Math.min(min, samplePos(s, p).dot(nrm) - d)
+  }
+  return min
+}
+
+// ยึดตัว: feet/ground = จุดต่ำสุดแตะพื้น ; contact = หลัง/ก้นแนบระนาบเบาะ (แก้ตำแหน่งสะโพก) ; fixed = ตามคีย์
+// ระนาบสัมผัสของเฟรมนี้ ; edge = ขอบม้านั่ง [y, z]: ระนาบผ่านขอบ ตั้งฉากกับแนวหลัง (สะบักพาดขอบ หมุนรอบขอบได้)
+function contactPlanes() {
+  return (M.contact || []).map((c) => {
+    if (!c.edge) return { ...c, n: V(...c.n).normalize() }
+    const nrm = V(0, 0, 1).applyQuaternion(wq(J.chest)).setX(0).normalize()
+    return { ...c, n: nrm, d: nrm.dot(V(0, c.edge[0], c.edge[1])) }
+  })
+}
+function contactAnchor() {
+  const planes = contactPlanes()
+  if (!planes.length) return
+  const d = planes.map((c) => minPlaneDist(c.set, c.n, c.d) - (c.gap ?? -0.004))
+  let shift
+  if (planes.length === 1) shift = planes[0].n.clone().multiplyScalar(-d[0])
+  else {
+    // 2 ระนาบ (เบาะนั่ง + พนักพิง): แก้ระบบ 2x2 ในระนาบ y-z
+    const [a, b] = planes.map((c) => c.n)
+    const det = a.y * b.z - a.z * b.y
+    const dy = (-d[0] * b.z + d[1] * a.z) / det
+    const dz = (-a.y * d[1] + b.y * d[0]) / det
+    shift = V(0, dy, dz)
   }
   J.root.position.add(shift)
   body.updateMatrixWorld(true)
 }
-
-function ik(o) {
-  for (const [n, s] of [['L', 0], ['R', 1]]) {
-    let T = null
-    if (o.handFix && fixPoint) T = fixPoint
-    else if (o.handW[s]) T = o.handW[s]
-    else if (o.handC[s]) {
-      const p = J.chest.localToWorld(new THREE.Vector3((s ? -1 : 1) * 0.2, o.handC[s][0], o.handC[s][1]))
-      T = [p.y, p.z]
+function groundAnchor(o) {
+  const mode = M.anchor || 'feet'
+  if (mode === 'fixed' || mode === 'contact') return
+  const floor = M.floor ?? 0
+  if (mode === 'pivot') {
+    // ปลายเท้า (จุดต่ำสุดของเท้า) ยึดพื้นที่ z = pivotZ
+    let low = null
+    const p = V()
+    for (const s of anat.samples) {
+      if (!/foot$/.test(s.region || '')) continue
+      samplePos(s, p)
+      if (!low || p.y < low.y) low = p.clone()
     }
-    if (T) {
-      const [a1, a2] = solve2(wp(J[`shoulder${n}`]), T, L.uarm, L.farm, M.armBend ?? 1)
-      J[`shoulder${n}`].rotation.x = rad(norm(a1 - o.chest))
-      J[`elbow${n}`].rotation.x = rad(norm(a2 - a1))
-    }
-    if (o.footW[s]) {
-      const [a1, a2] = solve2(wp(J[`hip${n}`]), o.footW[s], L.thigh, L.shin, M.legBend ?? -1)
-      J[`hip${n}`].rotation.x = rad(norm(a1 - o.pelvis))
-      J[`knee${n}`].rotation.x = rad(norm(a2 - a1))
-      J[`ankle${n}`].rotation.x = rad(norm(o.foot[s] - a2))
-    }
+    J.root.position.add(V(0, floor - low.y, (M.pivotZ ?? 0) - low.z))
+    body.updateMatrixWorld(true)
+    return
   }
+  const box = bodyBox({ skipArms: !M.armsGround })
+  const shift = V(0, -box.min.y + o.lift + floor, 0)
+  if (mode === 'feet') {
+    const a = wp(J.ankleL).add(wp(J.ankleR)).multiplyScalar(0.5)
+    shift.x = o.x - a.x
+    shift.z = o.z - a.z
+  }
+  J.root.position.add(shift)
   body.updateMatrixWorld(true)
 }
 
 function pose(t) {
   const o = samplePose(M, t)
   setAngles(o)
-  anchor(o)
-  ik(o)
+  if (M.contact) {
+    // สลับ leg IK <-> ระนาบสัมผัส ให้ต้นขา/ก้นอยู่ในท่าจริงก่อนหาจุดแนบเบาะ
+    for (let it = 0; it < 5; it++) {
+      legIK(o)
+      contactAnchor()
+    }
+  }
+  legIK(o)
+  if (!o.ft[0] && !o.ft[1] && !o.hip) groundAnchor(o)
+  armIK(o)
+  body.updateMatrixWorld(true)
   return o
 }
 
-// ---------- props ----------
+// ======================================================================
+// อุปกรณ์ฟิตเนส (สัดส่วนจริง: บาร์โอลิมปิก 2.2 ม. / แผ่นยาง 45 ซม. / ม้านั่งสูง 43 ซม. ฯลฯ)
+// ======================================================================
 const props = []
 const propRoot = new THREE.Group()
 scene.add(propRoot)
-const Y = new THREE.Vector3(0, 1, 0)
-function cylBetween(mesh, a, b) {
-  const d = new THREE.Vector3().subVectors(b, a)
-  mesh.position.copy(a).addScaledVector(d, 0.5)
-  mesh.scale.set(1, Math.max(d.length(), 1e-3), 1)
-  mesh.quaternion.setFromUnitVectors(Y, d.normalize())
-}
 function mk(geo, mat, parent = propRoot) {
   const m = new THREE.Mesh(geo, mat)
   m.castShadow = true
@@ -474,667 +833,595 @@ function mk(geo, mat, parent = propRoot) {
   parent.add(m)
   return m
 }
-const unitCyl = (r) => new THREE.CylinderGeometry(r, r, 1, 16)
-function box(size, pos, mat = MAT.equip, rot = [0, 0, 0], parent) {
-  const m = mk(new THREE.BoxGeometry(...size), mat, parent)
+function cylBetween(mesh, a, b) {
+  const d = V().subVectors(b, a)
+  mesh.position.copy(a).addScaledVector(d, 0.5)
+  mesh.scale.set(1, Math.max(d.length(), 1e-3), 1)
+  mesh.quaternion.setFromUnitVectors(Y, d.normalize())
+}
+const unitCyl = (r, seg = 20) => new THREE.CylinderGeometry(r, r, 1, seg)
+function cyl(r, from, to, mat = MAT.frame, parent) {
+  const m = mk(unitCyl(r), mat, parent)
+  cylBetween(m, V(...from), V(...to))
+  return m
+}
+// ท่อเหล็กเหลี่ยม (โครงเครื่อง) ระหว่างสองจุด
+function tube(w, from, to, mat = MAT.frame, parent) {
+  const a = V(...from)
+  const b = V(...to)
+  const m = mk(new RoundedBoxGeometry(w, 1, w, 2, w * 0.18), mat, parent)
+  const d = V().subVectors(b, a)
+  m.position.copy(a).addScaledVector(d, 0.5)
+  m.scale.set(1, d.length(), 1)
+  m.quaternion.setFromUnitVectors(Y, d.normalize())
+  return m
+}
+function rbox(size, pos, mat = MAT.pad, rot = [0, 0, 0], parent, r = 0.02) {
+  const m = mk(new RoundedBoxGeometry(...size, 3, Math.min(r, ...size.map((s) => s / 2 - 1e-3))), mat, parent)
   m.position.set(...pos)
   m.rotation.set(...rot.map(rad))
   return m
 }
-function cyl(r, from, to, mat = MAT.equip) {
-  const m = mk(unitCyl(r), mat)
-  cylBetween(m, new THREE.Vector3(...from), new THREE.Vector3(...to))
-  return m
+// แผ่นน้ำหนัก (lathe): ขอบหนา ผิวในบางลง ดุมเหล็กตรงกลาง
+function plateGeo(R, T, hub = 0.026) {
+  const p = [[hub, -T / 2], [R * 0.32, -T / 2], [R * 0.36, -T * 0.32], [R * 0.86, -T * 0.32], [R * 0.9, -T / 2], [R - 0.004, -T / 2], [R, -T / 2 + 0.004], [R, T / 2 - 0.004], [R - 0.004, T / 2], [R * 0.9, T / 2], [R * 0.86, T * 0.32], [R * 0.36, T * 0.32], [R * 0.32, T / 2], [hub, T / 2]]
+  return new THREE.LatheGeometry(p.map(([x, y]) => new THREE.Vector2(x, y)), 48)
 }
-const handsMid = () => wp(J.handL).add(wp(J.handR)).multiplyScalar(0.5)
-const feetMid = () => wp(J.ankleL).add(wp(J.ankleR)).multiplyScalar(0.5)
-const point = (name) => (name === 'handsMid' ? handsMid() : name === 'feet' ? feetMid() : wp(J[name]))
-
-function barbellGroup(width, plates) {
+// บาร์เบลโอลิมปิก: แกน 28 มม. ลายกากเพชร + ปลอก (sleeve) 50 มม. + ปลอกล็อก + แผ่นยาง 45 ซม.
+function barbellGroup({ plates = 'bumper', len = 2.2 } = {}) {
   const g = new THREE.Group()
-  const bar = mk(new THREE.CylinderGeometry(0.014, 0.014, width, 14), MAT.steel, g)
-  bar.rotation.z = Math.PI / 2
-  if (plates) {
-    for (const s of [1, -1]) {
-      for (const [x, r, t] of [[0.72, 0.22, 0.05], [0.78, 0.17, 0.04]]) {
-        const p = mk(new THREE.CylinderGeometry(r, r, t, 32), MAT.plate, g)
+  const inner = 0.655
+  const shaft = mk(new THREE.CylinderGeometry(0.014, 0.014, inner * 2, 18), MAT.knurl, g)
+  shaft.rotation.z = Math.PI / 2
+  shaft.material = MAT.knurl.clone()
+  shaft.material.map = null
+  for (const s of [1, -1]) {
+    const collar = mk(new THREE.CylinderGeometry(0.031, 0.031, 0.026, 24), MAT.chrome, g)
+    collar.rotation.z = Math.PI / 2
+    collar.position.x = s * (inner + 0.013)
+    const sleeve = mk(new THREE.CylinderGeometry(0.025, 0.025, len / 2 - inner - 0.026, 24), MAT.chrome, g)
+    sleeve.rotation.z = Math.PI / 2
+    sleeve.position.x = s * (inner + 0.026 + (len / 2 - inner - 0.026) / 2)
+    if (plates) {
+      const stack = plates === 'bumper' ? [[0.225, 0.062], [0.225, 0.045]] : plates === 'light' ? [[0.225, 0.04]] : [[0.17, 0.035]]
+      let x = inner + 0.03
+      for (const [R, T] of stack) {
+        const p = mk(plateGeo(R, T), MAT.rubber, g)
         p.rotation.z = Math.PI / 2
-        p.position.x = x * s
+        p.position.x = s * (x + T / 2)
+        const hub = mk(new THREE.CylinderGeometry(0.05, 0.05, T + 0.002, 28, 1, true), MAT.chrome, g)
+        hub.rotation.z = Math.PI / 2
+        hub.position.x = p.position.x
+        x += T + 0.002
       }
-      const c = mk(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 14), MAT.steel, g)
-      c.rotation.z = Math.PI / 2
-      c.position.x = 0.66 * s
+      const clip = mk(new THREE.CylinderGeometry(0.034, 0.034, 0.03, 20), MAT.frameDark, g)
+      clip.rotation.z = Math.PI / 2
+      clip.position.x = s * (x + 0.015)
     }
   }
   propRoot.add(g)
   return g
 }
-const X = new THREE.Vector3(1, 0, 0)
-function alignToHands(g) {
-  const a = wp(J.handL)
-  const b = wp(J.handR)
+// แกนสั้น/ด้ามจับเคเบิล (ไม่มีแผ่นน้ำหนัก)
+function handleGroup(width, { ends = true, bend = 0 } = {}) {
+  const g = new THREE.Group()
+  const bar = mk(new THREE.CylinderGeometry(0.014, 0.014, width * (bend ? 0.62 : 1), 16), MAT.knurl, g)
+  bar.rotation.z = Math.PI / 2
+  if (bend) {
+    // ปลายบาร์ lat pulldown งอลง
+    for (const s of [1, -1]) {
+      const e = mk(new THREE.CylinderGeometry(0.014, 0.014, width * 0.22, 14), MAT.chrome, g)
+      e.position.set(s * width * 0.39, -width * 0.04, 0)
+      e.rotation.z = Math.PI / 2 + s * rad(bend)
+      const cap = mk(new THREE.CylinderGeometry(0.019, 0.019, 0.08, 14), MAT.rubber, g)
+      cap.position.set(s * width * 0.48, -width * 0.075, 0)
+      cap.rotation.z = Math.PI / 2 + s * rad(bend)
+    }
+  } else if (ends) {
+    for (const s of [1, -1]) {
+      const c = mk(new THREE.CylinderGeometry(0.02, 0.02, 0.02, 16), MAT.chrome, g)
+      c.rotation.z = Math.PI / 2
+      c.position.x = (s * width) / 2
+    }
+  }
+  const ring = mk(new THREE.TorusGeometry(0.018, 0.005, 8, 18), MAT.chrome, g)
+  ring.position.y = 0.024
+  propRoot.add(g)
+  return g
+}
+// ดัมเบล: ด้าม 3.1 ซม. ลายกากเพชร + หัวยางกลม (lathe) + ฝาโครเมียม ; แกนดัมเบล = แกน x ของกลุ่ม
+function dumbbellGroup(R = 0.058, T = 0.07) {
+  const g = new THREE.Group()
+  const h = mk(new THREE.CylinderGeometry(0.0155, 0.0155, 0.13, 16), MAT.knurl, g)
+  h.rotation.z = Math.PI / 2
+  for (const s of [1, -1]) {
+    const head = mk(plateGeo(R, T, 0.016), MAT.rubber, g)
+    head.rotation.z = Math.PI / 2
+    head.position.x = s * (0.065 + T / 2)
+    const cap = mk(new THREE.CylinderGeometry(R * 0.55, R * 0.55, 0.006, 24), MAT.chrome, g)
+    cap.rotation.z = Math.PI / 2
+    cap.position.x = s * (0.065 + T + 0.002)
+    const ring = mk(new THREE.CylinderGeometry(0.024, 0.024, 0.012, 18), MAT.chrome, g)
+    ring.rotation.z = Math.PI / 2
+    ring.position.x = s * 0.07
+  }
+  return g
+}
+// ทำให้กลุ่มอุปกรณ์อยู่กึ่งกลางระหว่างจุดกำของสองมือ แกน x ตามแนวมือ
+function alignToGrips(g) {
+  const a = gripWorld('L')
+  const b = gripWorld('R')
   g.position.copy(a).add(b).multiplyScalar(0.5)
   g.quaternion.setFromUnitVectors(X, a.sub(b).normalize())
 }
+const handsMid = () => gripWorld('L').add(gripWorld('R')).multiplyScalar(0.5)
+const feetMid = () => wp(J.ankleL).add(wp(J.ankleR)).multiplyScalar(0.5)
+const point = (name) => (name === 'handsMid' ? handsMid() : name === 'feet' ? feetMid() : name === 'gripL' ? gripWorld('L') : name === 'gripR' ? gripWorld('R') : wp(J[name]))
+
+// ม้านั่งปรับระดับ: โครงเหล็กเทา ขาตั้งหน้า/หลังมียางรอง เบาะดำด้านขอบมน ; back = มุมพนัก (0 = ราบ)
+// ตำแหน่งเบาะได้จาก contact plane ของท่า (หลัง/ก้นแนบเบาะพอดี)
+function benchModel({ top = 0.44, back = 0, seatZ = 0.12, backLen = 0.84, seatLen = 0.36, w = 0.27, uprights = false, machine = false }) {
+  if (machine) return machineSeat({ top, back, seatZ, backLen, seatLen, w: w + 0.1 })
+  const g = new THREE.Group()
+  propRoot.add(g)
+  const t = 0.07 // ความหนาเบาะ
+  // เบาะนั่ง: หน้าเบาะที่ z = seatZ + seatLen/2
+  rbox([w, t, seatLen], [0, top - t / 2, seatZ], MAT.pad, [0, 0, 0], g, 0.025)
+  // พนักพิง: หมุนรอบขอบหลังของเบาะนั่ง
+  const hingeZ = seatZ - seatLen / 2 - 0.01
+  const a = rad(back)
+  const bc = V(0, top - t / 2 + Math.sin(a) * backLen / 2, hingeZ - Math.cos(a) * backLen / 2)
+  rbox([w, t, backLen], bc.toArray(), MAT.pad, [back, 0, 0], g, 0.025)
+  // แผ่นรองใต้เบาะ (เหล็ก)
+  rbox([w * 0.62, 0.025, seatLen * 0.9], [0, top - t - 0.013, seatZ], MAT.frameDark, [0, 0, 0], g, 0.004)
+  rbox([w * 0.62, 0.025, backLen * 0.92], [0, bc.y - Math.cos(a) * (t / 2 + 0.013), bc.z - Math.sin(a) * (t / 2 + 0.013)], MAT.frameDark, [back, 0, 0], g, 0.004)
+  // คานหลัก + ขาตั้ง
+  const zFront = seatZ + seatLen / 2 - 0.04
+  const zBack = Math.min(hingeZ - backLen * 0.85, hingeZ - 0.55)
+  const beamY = 0.16
+  tube(0.07, [0, beamY, zFront], [0, beamY, zBack], MAT.frame, g).rotation.order = 'XYZ'
+  for (const z of [zFront, zBack]) {
+    tube(0.06, [0, 0.03, z], [0, beamY, z], MAT.frame, g)
+    rbox([0.5, 0.05, 0.07], [0, 0.025, z], MAT.frame, [0, 0, 0], g, 0.01)
+    for (const s of [1, -1]) rbox([0.06, 0.02, 0.08], [s * 0.24, 0.01, z], MAT.rubber, [0, 0, 0], g, 0.006)
+  }
+  // เสาค้ำเบาะนั่ง + เสาปรับพนัก (ladder)
+  tube(0.055, [0, beamY, seatZ], [0, top - t - 0.025, seatZ], MAT.frame, g)
+  if (back > 3) {
+    const sup = V(0, bc.y - 0.1, bc.z + 0.05)
+    tube(0.05, [0, beamY, sup.z + 0.18], sup.toArray(), MAT.frame, g)
+    for (let i = 0; i < 6; i++) rbox([0.075, 0.012, 0.03], [0, beamY + 0.04, hingeZ - 0.08 - i * 0.07], MAT.accent, [0, 0, 0], g, 0.004)
+  } else tube(0.055, [0, beamY, bc.z], [0, top - t - 0.025, bc.z], MAT.frame, g)
+  // ที่พักบาร์ (bench press)
+  if (uprights) {
+    const z = uprights.z
+    for (const s of [1, -1]) {
+      tube(0.06, [s * 0.56, 0.0, z], [s * 0.56, uprights.y + 0.12, z], MAT.frame, g)
+      rbox([0.09, 0.05, 0.16], [s * 0.56, 0.025, z], MAT.frame, [0, 0, 0], g, 0.01)
+      // J-hook
+      rbox([0.07, 0.03, 0.07], [s * 0.56, uprights.y - 0.03, z + 0.05], MAT.accent, [0, 0, 0], g, 0.008)
+      rbox([0.07, 0.06, 0.016], [s * 0.56, uprights.y, z + 0.085], MAT.accent, [0, 0, 0], g, 0.006)
+    }
+    tube(0.05, [0.56, 0.04, z], [-0.56, 0.04, z], MAT.frame, g)
+  }
+  return g
+}
+
+// เบาะนั่ง + พนักพิงของเครื่อง (leg press / leg extension): ฐานเหล็กปิด ค้ำพนักพิงด้วยท่อเฉียง
+function machineSeat({ top, back, seatZ, backLen, seatLen, w }) {
+  const g = new THREE.Group()
+  propRoot.add(g)
+  const t = 0.075
+  rbox([w, t, seatLen], [0, top - t / 2, seatZ], MAT.pad, [0, 0, 0], g, 0.03)
+  const hingeZ = seatZ - seatLen / 2 - 0.01
+  const a = rad(back)
+  const bc = V(0, top - t / 2 + Math.sin(a) * backLen / 2, hingeZ - Math.cos(a) * backLen / 2)
+  rbox([w, t, backLen], bc.toArray(), MAT.pad, [back, 0, 0], g, 0.03)
+  // ฐานใต้เบาะ + เสาค้ำพนัก
+  rbox([w * 0.8, top - t - 0.02, seatLen * 0.8], [0, (top - t - 0.02) / 2, seatZ], MAT.frameDark, [0, 0, 0], g, 0.02)
+  const backTop = bc.clone().add(V(0, Math.sin(a) * backLen * 0.3, -Math.cos(a) * backLen * 0.3))
+  const behind = backTop.clone().add(V(0, -Math.cos(a) * (t / 2 + 0.03), -Math.sin(a) * (t / 2 + 0.03)))
+  tube(0.06, [0, 0.0, behind.z - 0.05], behind.toArray(), MAT.frame, g)
+  rbox([0.5, 0.05, 0.12], [0, 0.025, behind.z - 0.05], MAT.frame, [0, 0, 0], g, 0.01)
+  rbox([0.5, 0.05, 0.12], [0, 0.025, seatZ], MAT.frame, [0, 0, 0], g, 0.01)
+  tube(0.06, [0, 0.03, behind.z - 0.05], [0, 0.03, seatZ], MAT.frame, g)
+  // มือจับข้างเบาะ
+  for (const s of [1, -1]) {
+    tube(0.04, [s * (w / 2 + 0.04), top - 0.12, seatZ - 0.05], [s * (w / 2 + 0.04), top - 0.02, seatZ + 0.1], MAT.frame, g)
+    cyl(0.017, [s * (w / 2 + 0.04), top - 0.02, seatZ + 0.1], [s * (w / 2 + 0.04), top - 0.02, seatZ + 0.22], MAT.rubber, g)
+  }
+  return g
+}
+
+// เครื่องเคเบิล: เสา + รอก + กองน้ำหนัก ; รอกที่ pulley ; สายจากรอกไปจุดกำ
+function cableTower(x, z, h = 2.15, face = 0) {
+  const g = new THREE.Group()
+  g.position.set(x, 0, z)
+  g.rotation.y = rad(face)
+  propRoot.add(g)
+  for (const s of [1, -1]) tube(0.07, [s * 0.16, 0, 0], [s * 0.16, h, 0], MAT.frame, g)
+  rbox([0.42, 0.06, 0.5], [0, 0.03, 0], MAT.frame, [0, 0, 0], g, 0.01)
+  rbox([0.42, 0.08, 0.14], [0, h, 0], MAT.frame, [0, 0, 0], g, 0.01)
+  // กองแผ่นน้ำหนัก + แกนนำ
+  for (let i = 0; i < 12; i++) rbox([0.26, 0.04, 0.12], [0, 0.12 + i * 0.044, 0], i > 8 ? MAT.accent : MAT.frameDark, [0, 0, 0], g, 0.006)
+  for (const s of [1, -1]) cyl(0.008, [s * 0.09, 0.06, 0], [s * 0.09, h - 0.05, 0], MAT.chrome, g)
+  // แผ่นปิดด้านข้าง
+  rbox([0.03, h * 0.62, 0.3], [0.2, h * 0.36, 0], MAT.frameDark, [0, 0, 0], g, 0.006)
+  rbox([0.03, h * 0.62, 0.3], [-0.2, h * 0.36, 0], MAT.frameDark, [0, 0, 0], g, 0.006)
+  return g
+}
+function pulleyAt(p, axis = 'x') {
+  const w = mk(new THREE.CylinderGeometry(0.045, 0.045, 0.025, 24), MAT.frameDark)
+  w.position.set(...p)
+  if (axis === 'x') w.rotation.z = Math.PI / 2
+  else w.rotation.x = Math.PI / 2
+  const hub = mk(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 12), MAT.chrome)
+  hub.position.copy(w.position)
+  hub.rotation.copy(w.rotation)
+}
+function cableLine(from, to) {
+  const m = mk(unitCyl(0.0035, 8), MAT.cable)
+  const a = V(...from)
+  return () => cylBetween(m, a, point(to))
+}
+// ห่วงจับเคเบิล (D-handle) ในมือ: แกนจับตามแกน x ของมือ
+function dHandle(n) {
+  const g = new THREE.Group()
+  const bar = mk(new THREE.CylinderGeometry(0.015, 0.015, 0.11, 14), MAT.rubber, g)
+  bar.rotation.z = Math.PI / 2
+  const loop = mk(new THREE.TorusGeometry(0.07, 0.006, 8, 24, Math.PI), MAT.chrome, g)
+  loop.rotation.x = Math.PI / 2
+  loop.rotation.z = 0
+  loop.position.z = 0
+  loop.scale.set(0.85, 1, 1)
+  loop.rotation.set(-Math.PI / 2, 0, 0)
+  loop.position.set(0, 0, 0)
+  g.position.copy(HAND[n].grip)
+  J[`hand${n}`].add(g)
+  return g
+}
 
 const PROP = {
-  barbell: () => {
-    const g = barbellGroup(1.9, true)
-    return () => alignToHands(g)
+  barbell: (d) => {
+    const g = barbellGroup(d)
+    return () => alignToGrips(g)
   },
-  handle: ({ width }) => {
-    const g = barbellGroup(width, false)
-    return () => alignToHands(g)
+  ezbar: () => {
+    const g = barbellGroup({ plates: 'small', len: 1.3 })
+    return () => alignToGrips(g)
   },
-  dumbbells: ({ axis }) => {
-    for (const n of ['L', 'R']) {
-      const g = new THREE.Group()
-      const h = mk(new THREE.CylinderGeometry(0.014, 0.014, 0.16, 12), MAT.steel, g)
-      for (const s of [1, -1]) {
-        const head = mk(new THREE.CylinderGeometry(0.05, 0.05, 0.07, 20), MAT.plate, g)
-        head.position.y = 0.105 * s
-      }
-      h.position.y = 0
-      if (axis === 'x') g.rotation.z = Math.PI / 2
-      else g.rotation.x = Math.PI / 2
+  handle: ({ width, bend }) => {
+    const g = handleGroup(width, { bend })
+    return () => alignToGrips(g)
+  },
+  dumbbells: ({ size = 1 }) => {
+    for (const [n] of SIDES) {
+      const g = dumbbellGroup(0.058 * size, 0.07 * size)
+      g.position.copy(HAND[n].grip)
       J[`hand${n}`].add(g)
     }
   },
+  dHandles: () => {
+    for (const [n] of SIDES) dHandle(n)
+  },
   kettlebell: () => {
     const g = new THREE.Group()
-    const b = mk(new THREE.SphereGeometry(0.1, 24, 18), MAT.plate, g)
-    b.position.y = -0.13
-    const handle = mk(new THREE.TorusGeometry(0.06, 0.012, 10, 24, Math.PI), MAT.plate, g)
-    handle.position.y = -0.05
+    const b = mk(new THREE.SphereGeometry(0.105, 32, 24), MAT.rubber, g)
+    b.position.y = -0.15
+    b.scale.y = 0.95
+    const base = mk(new THREE.CylinderGeometry(0.07, 0.07, 0.02, 24), MAT.rubber, g)
+    base.position.y = -0.245
+    const curve = new THREE.CatmullRomCurve3([V(-0.07, -0.09, 0), V(-0.07, -0.02, 0), V(-0.055, 0.012, 0), V(0, 0.018, 0), V(0.055, 0.012, 0), V(0.07, -0.02, 0), V(0.07, -0.09, 0)])
+    mk(new THREE.TubeGeometry(curve, 32, 0.013, 10), MAT.frameDark, g)
     propRoot.add(g)
     return () => {
-      g.position.copy(handsMid())
-      const d = handsMid().sub(wp(J.chest)).normalize()
-      g.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), d)
+      const a = gripWorld('L')
+      const c = gripWorld('R')
+      g.position.copy(a).add(c).multiplyScalar(0.5)
+      const xAxis = a.clone().sub(c).normalize()
+      // ห้อยตามแนวปลายแขน (ทิศจากข้อศอกไปมือ)
+      const down = handsMid().sub(wp(J.elbowL).add(wp(J.elbowR)).multiplyScalar(0.5)).normalize()
+      const yAxis = down.negate().addScaledVector(xAxis, -down.dot(xAxis)).normalize()
+      const zAxis = V().crossVectors(xAxis, yAxis)
+      g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis))
     }
   },
   gloves: () => {
-    for (const n of ['L', 'R']) ellipsoid(J[`hand${n}`], [0, 0, 0.01], [0.065, 0.075, 0.07], MAT.glove, 'arm')
+    for (const [n] of SIDES) {
+      const h = HAND[n]
+      const m = mk(new THREE.SphereGeometry(1, 28, 20), MAT.glove, J[`hand${n}`])
+      m.position.copy(h.palm).add(V(0, -0.025, 0.0)).addScaledVector(h.palmN, -0.008)
+      m.scale.set(0.058, 0.082, 0.062)
+      const cuff = mk(new THREE.CylinderGeometry(0.042, 0.046, 0.07, 20), MAT.glove, J[`hand${n}`])
+      cuff.position.set(0, 0.0, 0.004)
+    }
   },
   racket: () => {
     const g = new THREE.Group()
-    const h = mk(unitCyl(0.012), MAT.steel, g)
-    h.scale.y = 0.42
-    h.position.y = -0.21
-    const head = mk(new THREE.TorusGeometry(0.11, 0.008, 8, 32), MAT.steel, g)
-    head.scale.set(0.8, 1.15, 1)
-    head.position.y = -0.52
-    head.rotation.y = Math.PI / 2
+    const shaft = mk(new THREE.CylinderGeometry(0.0055, 0.0055, 0.3, 10), MAT.racket, g)
+    shaft.position.y = -0.2
+    const grip = mk(new THREE.CylinderGeometry(0.014, 0.014, 0.16, 12), MAT.rubber, g)
+    grip.position.y = 0.0
+    const head = mk(new THREE.TorusGeometry(0.1, 0.006, 8, 40), MAT.racket, g)
+    head.scale.set(0.8, 1.12, 1)
+    head.position.y = -0.46
+    const net = mk(new THREE.CircleGeometry(0.098, 32), MAT.string, g)
+    net.scale.set(0.8, 1.12, 1)
+    net.position.y = -0.46
+    // ด้ามแร็กเก็ตตั้งฉากกับแกนข้างมือ ผ่านจุดกำ
+    g.position.copy(HAND.R.grip)
+    g.rotation.z = Math.PI / 2
     J.handR.add(g)
   },
   ball: ({ kind, pos, follow, offset = [0, 0, 0] }) => {
     const r = kind === 'basketball' ? 0.12 : 0.11
-    const mat = new THREE.MeshStandardMaterial({ color: kind === 'basketball' ? 0xd9692b : 0xe8edf2, roughness: 0.6 })
-    const b = mk(new THREE.SphereGeometry(r, 28, 20), mat)
+    const b = mk(new THREE.SphereGeometry(r, 32, 24), kind === 'basketball' ? MAT.basketball : MAT.football)
     if (pos) b.position.set(...pos)
-    if (follow) return () => b.position.copy(point(follow)).add(new THREE.Vector3(...offset))
+    if (follow) return () => b.position.copy(point(follow)).add(V(...offset))
   },
   rope: () => {
-    const ring = mk(new THREE.TorusGeometry(1, 0.007, 6, 64, Math.PI), MAT.steel)
+    const ring = mk(new THREE.TorusGeometry(1, 0.006, 6, 64, Math.PI), MAT.cable)
     const g = new THREE.Group()
     propRoot.add(g)
     g.add(ring)
-    ring.scale.set(0.33, 0.95, 1)
+    ring.scale.set(0.36, 1.0, 1)
+    for (const [n] of SIDES) {
+      const h = mk(new THREE.CylinderGeometry(0.014, 0.014, 0.13, 12), MAT.frameDark, J[`hand${n}`])
+      h.position.copy(HAND[n].grip)
+      h.rotation.z = Math.PI / 2
+    }
     return (t) => {
-      alignToHands(g)
-      ring.rotation.x = 0
+      alignToGrips(g)
       g.rotateX(-Math.PI * 4 * t - Math.PI / 2)
     }
   },
   water: () => {
     ground.visible = false
     halo.visible = false
-    const w = mk(new THREE.CircleGeometry(1.7, 64), new THREE.MeshBasicMaterial({ map: waterTex, transparent: true, depthWrite: false }))
+    const w = mk(new THREE.CircleGeometry(1.8, 64), new THREE.MeshBasicMaterial({ map: waterTex, transparent: true, depthWrite: false }))
     w.rotation.x = -Math.PI / 2
-    w.position.y = 0.6
+    w.position.y = 0.66
     w.castShadow = false
     w.userData.noFrame = true
   },
   backpack: () => {
-    box([0.26, 0.34, 0.14], [0, 0.17, -0.18], MAT.pad, [0, 0, 0], J.chest)
+    const g = new THREE.Group()
+    J.chest.add(g)
+    rbox([0.28, 0.4, 0.15], [0, 0.17, -0.17], MAT.pad, [0, 0, 0], g, 0.05)
+    rbox([0.22, 0.14, 0.05], [0, 0.07, -0.25], MAT.frameDark, [0, 0, 0], g, 0.02)
   },
   treadmill: () => {
-    box([0.62, 0.08, 1.6], [0, 0.04, -0.12], MAT.equip)
-    box([0.52, 0.012, 1.5], [0, 0.085, -0.12], MAT.pad)
-    cyl(0.025, [0.34, 0.08, 0.6], [0.34, 1.15, 0.7])
-    cyl(0.025, [-0.34, 0.08, 0.6], [-0.34, 1.15, 0.7])
-    box([0.75, 0.12, 0.2], [0, 1.18, 0.72], MAT.equip)
-  },
-  bench: () => {
-    box([0.32, 0.08, 1.25], [0, 0.48, -0.32], MAT.pad)
-    box([0.1, 0.44, 0.1], [0, 0.22, 0.2], MAT.equip)
-    box([0.1, 0.44, 0.1], [0, 0.22, -0.82], MAT.equip)
-    box([0.5, 0.05, 0.1], [0, 0.025, 0.2], MAT.equip)
-    box([0.5, 0.05, 0.1], [0, 0.025, -0.82], MAT.equip)
-  },
-  rack: () => {
+    rbox([0.78, 0.12, 1.9], [0, 0.06, -0.15], MAT.frameDark, [0, 0, 0], undefined, 0.03)
+    rbox([0.56, 0.012, 1.7], [0, 0.126, -0.15], MAT.rubber, [0, 0, 0], undefined, 0.004)
     for (const s of [1, -1]) {
-      cyl(0.03, [0.55 * s, 0, -0.62], [0.55 * s, 1.35, -0.62])
-      box([0.08, 0.04, 0.12], [0.55 * s, 1.1, -0.56], MAT.equip)
+      tube(0.06, [0.36 * s, 0.1, 0.7], [0.36 * s, 1.1, 0.82])
+      cyl(0.016, [0.36 * s, 1.0, 0.8], [0.36 * s, 1.02, 0.45], MAT.chrome)
     }
+    rbox([0.8, 0.24, 0.12], [0, 1.18, 0.84], MAT.frameDark, [-18, 0, 0], undefined, 0.03)
   },
-  dipbars: () => {
-    for (const s of [1, -1]) {
-      cyl(0.022, [0.3 * s, 1.19, -0.5], [0.3 * s, 1.19, 0.5], MAT.steel)
-      cyl(0.03, [0.3 * s, 0, -0.5], [0.3 * s, 1.19, -0.5])
-      cyl(0.03, [0.3 * s, 0, 0.5], [0.3 * s, 1.19, 0.5])
+  // ม้านั่ง (ราบ/เอียง) วางตามระนาบสัมผัสของท่า
+  bench: (d) => {
+    let uprights = d.uprights
+    // ที่พักบาร์อัตโนมัติ: ตะขอ J-hook ต่ำกว่าบาร์ท่าแรก (แขนเหยียด) เล็กน้อย อยู่หลังแนวบาร์ฝั่งศีรษะ
+    if (uprights === 'auto') {
+      const hm = handsMid()
+      uprights = { z: hm.z - 0.075, y: hm.y - 0.06 }
     }
-  },
-  pullbar: () => {
-    const y = M.handsAt[1] + 0.005
-    cyl(0.018, [-0.75, y, M.handsAt[2]], [0.75, y, M.handsAt[2]], MAT.steel)
-    for (const s of [1, -1]) cyl(0.035, [0.75 * s, 0, M.handsAt[2]], [0.75 * s, y + 0.1, M.handsAt[2]])
-  },
-  lowbar: () => {
-    const [y, z] = fixPoint
-    cyl(0.018, [-0.75, y, z], [0.75, y, z], MAT.steel)
-    for (const s of [1, -1]) cyl(0.035, [0.75 * s, 0, z], [0.75 * s, y + 0.06, z])
-  },
-  cable: ({ from, to }) => {
-    const m = mk(unitCyl(0.006), MAT.steel)
-    const a = new THREE.Vector3(...from)
-    return () => cylBetween(m, a, point(to))
+    benchModel({ ...d, uprights })
   },
   box: ({ size, pos, rot, mat }) => {
-    box(size, pos, MAT[mat] || MAT.equip, rot)
+    rbox(size, pos, MAT[mat] || MAT.pad, rot, undefined, 0.03)
   },
-  cyl: ({ r, from, to }) => {
-    cyl(r, from, to)
+  tube: ({ w = 0.06, from, to, mat }) => {
+    tube(w, from, to, MAT[mat] || MAT.frame)
   },
-  plate: ({ follow, size, rot, offset }) => {
-    const m = box(size, [0, 0, 0], MAT.equip, rot)
-    return () => m.position.copy(point(follow)).add(new THREE.Vector3(...offset))
+  cyl: ({ r, from, to, mat }) => {
+    cyl(r, from, to, MAT[mat] || MAT.frame)
   },
-  roller: ({ follow, offset }) => {
-    const m = mk(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 20), MAT.pad)
-    m.rotation.z = Math.PI / 2
-    return () => m.position.copy(point(follow)).add(new THREE.Vector3(...offset))
+  tower: ({ x, z, h, face }) => {
+    cableTower(x, z, h, face)
+  },
+  pulley: ({ at, axis }) => {
+    pulleyAt(at, axis)
+  },
+  cable: ({ from, to }) => cableLine(from, to),
+  dipbars: ({ w = 0.25, y = 1.18, len = 0.6 }) => {
+    for (const s of [1, -1]) {
+      cyl(0.02, [w * s + 0.002 * s, y, -len / 2], [w * s, y, len / 2], MAT.knurl)
+      tube(0.055, [w * s + 0.06 * s, 0, -len / 2 + 0.04], [w * s + 0.06 * s, y - 0.03, -len / 2 + 0.04])
+      tube(0.055, [w * s + 0.06 * s, 0, len / 2 - 0.04], [w * s + 0.06 * s, y - 0.03, len / 2 - 0.04])
+      tube(0.05, [w * s, y - 0.03, -len / 2 + 0.04], [w * s + 0.06 * s, y - 0.03, -len / 2 + 0.04])
+      tube(0.05, [w * s, y - 0.03, len / 2 - 0.04], [w * s + 0.06 * s, y - 0.03, len / 2 - 0.04])
+      rbox([0.12, 0.04, len + 0.1], [w * s + 0.06 * s, 0.02, 0], MAT.frame, [0, 0, 0], undefined, 0.01)
+    }
+  },
+  pullbar: ({ y, z = 0, w = 0.62 }) => {
+    cyl(0.016, [-w, y, z], [w, y, z], MAT.knurl)
+    for (const s of [1, -1]) {
+      tube(0.07, [w * s + 0.04 * s, 0, z - 0.02], [w * s + 0.04 * s, y + 0.12, z - 0.02])
+      rbox([0.1, 0.06, 0.9], [w * s + 0.04 * s, 0.03, z - 0.02], MAT.frame, [0, 0, 0], undefined, 0.01)
+    }
+    tube(0.06, [-w - 0.04, y + 0.12, z - 0.02], [w + 0.04, y + 0.12, z - 0.02])
+  },
+  // ลูกกลิ้งเบาะ: ตำแหน่ง = จุด local ในข้อต่อ follow (กึ่งกลาง x = 0) ; fixed = วางครั้งเดียวตามท่าแรก
+  roller: ({ follow, local, offset = [0, 0, 0], len = 0.36, fixed }) => {
+    const g = new THREE.Group()
+    propRoot.add(g)
+    for (const s of [1, -1]) {
+      const r = mk(new THREE.CylinderGeometry(0.055, 0.055, len / 2 - 0.03, 24), MAT.pad, g)
+      r.rotation.z = Math.PI / 2
+      r.position.x = s * (len / 4 + 0.01)
+    }
+    const axle = mk(new THREE.CylinderGeometry(0.012, 0.012, len, 12), MAT.chrome, g)
+    axle.rotation.z = Math.PI / 2
+    const place = () => {
+      const p = local ? J[follow].localToWorld(V(...local)) : point(follow).add(V(...offset))
+      g.position.set(0, p.y, p.z)
+    }
+    place()
+    if (!fixed) return place
+  },
+  // แขนเครื่อง (leg extension / leg curl): จากแกนหมุนตรงข้อเข่า ไปที่ลูกกลิ้ง (ด้านนอกขา)
+  lever: ({ pivot, follow, local }) => {
+    const m = mk(new RoundedBoxGeometry(0.05, 1, 0.05, 2, 0.008), MAT.frame)
+    const p = wp(J[pivot])
+    const hub = mk(new THREE.CylinderGeometry(0.055, 0.055, 0.08, 24), MAT.frameDark)
+    hub.rotation.z = Math.PI / 2
+    hub.position.set(0.25, p.y, p.z)
+    const post = tube(0.06, [0.25, 0, p.z - 0.05], [0.25, p.y - 0.03, p.z - 0.05])
+    post.userData.noFrame = false
+    return () => {
+      const t = J[follow].localToWorld(V(...local))
+      t.x = 0.25
+      const a = V(0.25, p.y, p.z)
+      const d = V().subVectors(t, a)
+      m.position.copy(a).addScaledVector(d, 0.5)
+      m.scale.set(1, d.length(), 1)
+      m.quaternion.setFromUnitVectors(Y, d.normalize())
+    }
+  },
+  // แท่นถีบ leg press: วิ่งบนราง 45° ตามเท้า
+  sled: ({ angle = 45 }) => {
+    const g = new THREE.Group()
+    propRoot.add(g)
+    const a = rad(angle)
+    rbox([0.66, 0.5, 0.035], [0, 0, 0], MAT.frame, [0, 0, 0], g, 0.01)
+    rbox([0.6, 0.44, 0.012], [0, 0, 0.022], MAT.rubber, [0, 0, 0], g, 0.004)
+    for (const s of [1, -1]) {
+      rbox([0.06, 0.06, 0.4], [s * 0.38, -0.12, -0.2], MAT.frame, [0, 0, 0], g, 0.01)
+      const horn = mk(new THREE.CylinderGeometry(0.025, 0.025, 0.24, 16), MAT.chrome, g)
+      horn.rotation.z = Math.PI / 2
+      horn.position.set(s * 0.48, -0.12, -0.3)
+      const pl = mk(plateGeo(0.225, 0.05), MAT.rubber, g)
+      pl.rotation.z = Math.PI / 2
+      pl.position.set(s * 0.47, -0.12, -0.3)
+    }
+    return () => {
+      const f = feetMid()
+      // แผ่นเท้าตั้งฉากกับแนวราง ; ฝ่าเท้าแนบแผ่น
+      g.rotation.set(-(Math.PI / 2 - a), 0, 0)
+      const nrm = V(0, -Math.sin(Math.PI / 2 - a), -Math.cos(Math.PI / 2 - a)).negate()
+      g.position.copy(f).addScaledVector(nrm, 0.085).add(V(0, 0, 0))
+      g.position.x = 0
+    }
   },
   bike: () => {
-    const bb = [0, 0.32, 0.2]
-    const seat = [0, 0.9, -0.05]
-    const head = [0, 0.92, 0.6]
-    const rear = [0, 0.33, -0.42]
-    const front = [0, 0.33, 0.66]
+    const bb = [0, 0.3, 0.2]
+    const seat = [0, 0.86, -0.06]
+    const head = [0, 0.95, 0.62]
+    const rear = [0, 0.34, -0.42]
+    const front = [0, 0.34, 0.7]
     for (const c of [rear, front]) {
-      const w = mk(new THREE.TorusGeometry(0.33, 0.018, 10, 48), MAT.plate)
+      const w = mk(new THREE.TorusGeometry(0.33, 0.02, 10, 48), MAT.rubber)
       w.position.set(...c)
       w.rotation.y = Math.PI / 2
+      const rim0 = mk(new THREE.TorusGeometry(0.3, 0.006, 6, 48), MAT.chrome)
+      rim0.position.set(...c)
+      rim0.rotation.y = Math.PI / 2
     }
-    for (const [a, b] of [[bb, seat], [seat, head], [bb, [0, 0.8, 0.6]], [bb, rear], [seat, rear], [head, front]]) cyl(0.016, a, b)
-    box([0.12, 0.04, 0.24], [0, 0.92, -0.06], MAT.pad)
-    cyl(0.014, [-0.22, 1.0, 0.64], [0.22, 1.0, 0.64], MAT.steel)
-    cyl(0.016, head, [0, 1.0, 0.64])
+    for (const [a, b] of [[bb, seat], [seat, head], [bb, [0, 0.86, 0.6]], [bb, rear], [seat, rear], [head, front]]) cyl(0.017, a, b, MAT.frame)
+    rbox([0.13, 0.045, 0.26], [0, seat[1] + 0.03, seat[2] - 0.02], MAT.pad, [0, 0, 0], undefined, 0.02)
+    cyl(0.014, [-0.22, 1.0, 0.68], [0.22, 1.0, 0.68], MAT.rubber)
+    cyl(0.016, head, [0, 1.0, 0.68], MAT.frame)
     return crank(bb)
   },
   spinBike: () => {
     const bb = [0, 0.34, 0.22]
-    box([0.5, 0.06, 1.2], [0, 0.03, 0.1], MAT.equip)
-    const fw = mk(new THREE.CylinderGeometry(0.24, 0.24, 0.06, 40), MAT.plate)
+    rbox([0.55, 0.06, 1.2], [0, 0.03, 0.12], MAT.frame, [0, 0, 0], undefined, 0.02)
+    const fw = mk(new THREE.CylinderGeometry(0.25, 0.25, 0.06, 48), MAT.frameDark)
     fw.rotation.z = Math.PI / 2
-    fw.position.set(0, 0.34, 0.62)
-    cyl(0.03, [0, 0.06, -0.15], [0, 0.88, -0.05])
-    cyl(0.03, [0, 0.06, 0.55], [0, 1.0, 0.58])
-    box([0.14, 0.05, 0.26], [0, 0.9, -0.06], MAT.pad)
-    cyl(0.016, [-0.22, 1.06, 0.58], [0.22, 1.06, 0.58], MAT.steel)
+    fw.position.set(0, 0.34, 0.64)
+    tube(0.06, [0, 0.06, -0.12], [0, 0.86, -0.05])
+    tube(0.06, [0, 0.06, 0.52], [0, 1.0, 0.6])
+    rbox([0.15, 0.05, 0.27], [0, 0.89, -0.06], MAT.pad, [0, 0, 0], undefined, 0.02)
+    cyl(0.016, [-0.22, 1.06, 0.6], [0.22, 1.06, 0.6], MAT.rubber)
     return crank(bb)
   },
   elliptical: () => {
-    box([0.6, 0.12, 1.5], [0, 0.06, 0.15], MAT.equip)
-    box([0.4, 1.2, 0.12], [0, 0.66, 0.85], MAT.equip)
-    const poles = ['L', 'R'].map(() => mk(unitCyl(0.018), MAT.steel))
-    const pedals = ['L', 'R'].map(() => box([0.12, 0.03, 0.32], [0, 0, 0], MAT.pad))
+    rbox([0.64, 0.12, 1.6], [0, 0.06, 0.15], MAT.frameDark, [0, 0, 0], undefined, 0.03)
+    rbox([0.42, 1.2, 0.14], [0, 0.66, 0.9], MAT.frame, [0, 0, 0], undefined, 0.03)
+    const poles = SIDES.map(() => mk(unitCyl(0.018), MAT.chrome))
+    const pedals = SIDES.map(() => rbox([0.13, 0.035, 0.34], [0, 0, 0], MAT.rubber, [0, 0, 0], undefined, 0.01))
     return () => {
-      ;['L', 'R'].forEach((n, i) => {
-        const h = wp(J[`hand${n}`])
-        cylBetween(poles[i], h, new THREE.Vector3(h.x, 0.55, 0.7))
-        pedals[i].position.copy(wp(J[`ankle${n}`])).add(new THREE.Vector3(0, -0.09, 0.05))
+      SIDES.forEach(([n], i) => {
+        const h = gripWorld(n)
+        cylBetween(poles[i], h.clone().add(V(0, 0.08, 0)), V(h.x, 0.55, 0.78))
+        footPedal(pedals[i], n)
       })
     }
   },
   steps: () => {
-    for (let i = 0; i < 4; i++) box([0.7, 0.2, 0.3], [0, 0.1 + 0.2 * i, 0.2 + 0.3 * i - 0.3], MAT.equip)
-    for (const s of [1, -1]) cyl(0.02, [0.4 * s, 0.9, -0.2], [0.4 * s, 1.08, 0.6], MAT.steel)
-    const pedals = ['L', 'R'].map(() => box([0.14, 0.03, 0.3], [0, 0, 0], MAT.pad))
-    return () => ['L', 'R'].forEach((n, i) => pedals[i].position.copy(wp(J[`ankle${n}`])).add(new THREE.Vector3(0, -0.09, 0.05)))
+    for (let i = 0; i < 4; i++) rbox([0.72, 0.2, 0.3], [0, 0.1 + 0.2 * i, 0.2 + 0.3 * i - 0.3], MAT.frameDark, [0, 0, 0], undefined, 0.02)
+    for (const s of [1, -1]) {
+      cyl(0.018, [0.3 * s, 1.22, -0.2], [0.3 * s, 1.36, 0.65], MAT.knurl)
+      tube(0.05, [0.3 * s, 0.0, 0.65], [0.3 * s, 1.36, 0.65])
+    }
+    const pedals = SIDES.map(() => rbox([0.15, 0.03, 0.3], [0, 0, 0], MAT.rubber, [0, 0, 0], undefined, 0.01))
+    return () => SIDES.forEach(([n], i) => footPedal(pedals[i], n))
   },
   rower: () => {
-    box([0.14, 0.06, 2.0], [0, 0.24, 0.25], MAT.equip)
-    box([0.34, 0.42, 0.34], [0, 0.32, 1.28], MAT.equip)
-    box([0.42, 0.26, 0.04], [0, 0.32, 0.92], MAT.equip, [-35, 0, 0])
-    const seat = box([0.3, 0.05, 0.3], [0, 0, 0], MAT.pad)
-    const chain = mk(unitCyl(0.005), MAT.steel)
-    const hb = barbellGroup(0.5, false)
+    rbox([0.14, 0.06, 2.1], [0, 0.22, 0.25], MAT.frame, [0, 0, 0], undefined, 0.02)
+    rbox([0.4, 0.46, 0.4], [0, 0.32, 1.3], MAT.frameDark, [0, 0, 0], undefined, 0.06)
+    for (const s of [1, -1]) rbox([0.14, 0.03, 0.3], [s * 0.1, 0.3, 0.86], MAT.rubber, [-50, 0, 0], undefined, 0.01)
+    const seat = rbox([0.3, 0.05, 0.3], [0, 0, 0], MAT.pad, [0, 0, 0], undefined, 0.02)
+    const chain = mk(unitCyl(0.004), MAT.cable)
+    const hb = handleGroup(0.52)
     return () => {
-      seat.position.copy(wp(J.root)).add(new THREE.Vector3(0, -0.12, 0))
-      alignToHands(hb)
-      cylBetween(chain, handsMid(), new THREE.Vector3(0, 0.46, 1.1))
+      seat.position.set(0, seatTop() - 0.025, wp(J.root).z - 0.02)
+      alignToGrips(hb)
+      cylBetween(chain, handsMid(), V(0, 0.48, 1.12))
     }
   },
 }
+let seatTop = () => 0.43
+// แป้นเหยียบใต้ฝ่าเท้า (หมุนตามเท้า)
+function footPedal(m, n) {
+  const a = J[`ankle${n}`]
+  m.position.copy(a.localToWorld(V(0, -L.ankleY - 0.012, 0.06)))
+  m.quaternion.copy(wq(a))
+}
 function crank(bb) {
-  const c = new THREE.Vector3(...bb)
-  const arms = ['L', 'R'].map(() => mk(new THREE.BoxGeometry(0.02, 1, 0.03), MAT.steel))
-  const disk = mk(new THREE.CylinderGeometry(0.09, 0.09, 0.02, 28), MAT.steel)
+  const c = V(...bb)
+  const arms = SIDES.map(() => mk(new RoundedBoxGeometry(0.02, 1, 0.03, 1, 0.006), MAT.chrome))
+  const pedals = SIDES.map(() => rbox([0.1, 0.022, 0.12], [0, 0, 0], MAT.rubber, [0, 0, 0], undefined, 0.006))
+  const disk = mk(new THREE.CylinderGeometry(0.1, 0.1, 0.012, 32), MAT.chrome)
   disk.rotation.z = Math.PI / 2
   disk.position.copy(c)
-  return () => ['L', 'R'].forEach((n, i) => {
-    const a = wp(J[`ankle${n}`])
-    const d = new THREE.Vector3().subVectors(a, c)
-    arms[i].position.copy(c).addScaledVector(d, 0.5)
+  return () => SIDES.forEach(([n], i) => {
+    const p = J[`ankle${n}`].localToWorld(V(0, -L.ankleY - 0.01, 0.07))
+    const a = V(p.x, p.y, p.z)
+    a.x = c.x + (n === 'L' ? 0.09 : -0.09)
+    const d = V().subVectors(a, c.clone().setX(a.x))
+    arms[i].position.copy(c).setX(a.x).addScaledVector(d, 0.5)
     arms[i].scale.y = d.length()
     arms[i].quaternion.setFromUnitVectors(Y, d.normalize())
+    footPedal(pedals[i], n)
   })
 }
 
-// ---------- โมเดลกายวิภาคจริง (scene.html?model=anatomy) ----------
-// mesh กล้ามเนื้อ 467 ชิ้น + กระดูก 201 ชิ้นจาก BodyParts3D (CC BY-SA 2.1 JP) + Z-Anatomy (CC BY-SA 4.0)
-// ผ่าน anatomy.glb / skeleton.glb ของ BodyExplorer ; ผูก skinning กับ rig เดียวกับหุ่นเดิม (ท่าทั้ง 53 ใช้ได้ทันที)
-// ข้อต่อวัดจากกระดูกจริง (หัวกระดูกต้นแขน/ต้นขา, กระดูกสันหลัง L5/T12/C7 ฯลฯ) ; หุ่นทรงกลมเดิมซ่อนไว้
-const ANATOMY = new URLSearchParams(location.search).get('model') === 'anatomy'
-let anat = null
-
-const AMAT = {}
-function anatomyMaterials() {
-  // ลายเส้นใยกล้ามเนื้อ: bump map ริ้วละเอียดตามแนวยาวของมัด (uv ตามแกนหลักของแต่ละชิ้น)
-  const fiberBump = canvasTexture((g, w, h) => {
-    for (let x = 0; x < w; x++) {
-      const v = 70 + Math.floor(rand() * 150)
-      g.fillStyle = `rgb(${v},${v},${v})`
-      g.fillRect(x, 0, 1, h)
-    }
-  }, 256, 16)
-  fiberBump.colorSpace = THREE.NoColorSpace
-  fiberBump.wrapT = THREE.RepeatWrapping
-  // Solid matte: ทึบ 100% (ไม่มี transparent), เรนเดอร์สองหน้า (DoubleSide) ปิดรูรอยต่อของ mesh ที่ normal กลับด้าน
-  // โทนเงินด้าน #94a3b8 – #cbd5e1 (สะท้อนแสงต่ำ ไม่เป็นกระจกสะท้อนพื้นหลังมืดจนดูโปร่ง) + ริ้วเส้นใยชัด
-  const common = { bumpMap: fiberBump, bumpScale: 4.5, side: THREE.DoubleSide, transparent: false, opacity: 1 }
-  // vertexColors = กางเกงออกกำลังกายสีเข้ม (สีต่อ vertex) ; มัดเป้าหมาย (primary/secondary) ไม่ใช้ จึงเรืองแสงทับกางเกงได้
-  AMAT.base = new THREE.MeshPhysicalMaterial({ color: 0xa7b4c4, metalness: 0.28, roughness: 0.5, clearcoat: 0.18, clearcoatRoughness: 0.6, sheen: 0.25, sheenColor: 0xcbd5e1, vertexColors: true, ...common })
-  AMAT.tendon = new THREE.MeshPhysicalMaterial({ color: 0xcbd5e1, metalness: 0.2, roughness: 0.45, clearcoat: 0.25, vertexColors: true, side: THREE.DoubleSide })
-  AMAT.bone = new THREE.MeshPhysicalMaterial({ color: 0x94a3b8, metalness: 0.15, roughness: 0.6, vertexColors: true, side: THREE.DoubleSide })
-  // เป้าหมาย #f97316 เรืองแสงพอดี ๆ (ไม่ฟุ้งจนดูลอยเป็นแผ่น) ยังเห็นริ้วเส้นใยของมัด
-  AMAT.primary = new THREE.MeshPhysicalMaterial({ color: 0xf97316, emissive: 0xf25a12, emissiveIntensity: 0.55, metalness: 0.08, roughness: 0.46, clearcoat: 0.3, ...common })
-  const absBump = canvasTexture((g, w, h) => {
-    for (let x = 0; x < w; x++) {
-      const v = 120 + Math.floor(rand() * 90)
-      g.fillStyle = `rgb(${v},${v},${v})`
-      g.fillRect(x, 0, 1, h)
-    }
-    // แนวยาว v: 0 = หัวหน่าว (ล่าง) .. 1 = ซี่โครง (บน) ; canvas y กลับด้าน (flipY)
-    for (const t of [0.56, 0.72, 0.87]) {
-      const y = Math.round((1 - t) * h)
-      const grad = g.createLinearGradient(0, y - 7, 0, y + 7)
-      grad.addColorStop(0, 'rgba(0,0,0,0)')
-      grad.addColorStop(0.5, 'rgba(0,0,0,0.95)')
-      grad.addColorStop(1, 'rgba(0,0,0,0)')
-      g.fillStyle = grad
-      g.fillRect(0, y - 7, w, 14)
-    }
-  }, 256, 256)
-  absBump.colorSpace = THREE.NoColorSpace
-  // ร่องซิกแพ็กในสีด้วย (แสงเรืองไม่กลบร่อง)
-  const absMap = canvasTexture((g, w, h) => {
-    g.fillStyle = '#ffffff'
-    g.fillRect(0, 0, w, h)
-    for (const t of [0.56, 0.72, 0.87]) {
-      const y = Math.round((1 - t) * h)
-      const grad = g.createLinearGradient(0, y - 6, 0, y + 6)
-      grad.addColorStop(0, 'rgba(60,30,25,0)')
-      grad.addColorStop(0.5, 'rgba(60,30,25,0.75)')
-      grad.addColorStop(1, 'rgba(60,30,25,0)')
-      g.fillStyle = grad
-      g.fillRect(0, y - 6, w, 12)
-    }
-  }, 16, 256)
-  AMAT.secondary = new THREE.MeshPhysicalMaterial({ color: 0xfdba8c, emissive: 0xf97316, emissiveIntensity: 0.16, metalness: 0.15, roughness: 0.48, ...common })
-  for (const k of ['base', 'primary', 'secondary']) {
-    AMAT[`${k}Abs`] = AMAT[k].clone()
-    Object.assign(AMAT[`${k}Abs`], { bumpMap: absBump, bumpScale: 9, map: absMap, emissiveMap: absMap })
-  }
-}
-
-// uv ตามแกนหลักของชิ้น (PCA): v = ตามแนวยาว (ทิศเส้นใย), u = รอบแกน (ระยะโค้ง) -> ริ้วใน bump map วิ่งตามมัดกล้ามเนื้อ
-function fiberUV(geo, lengthwise01 = false) {
-  const p = geo.attributes.position
-  const n = p.count
-  const c = new THREE.Vector3()
-  for (let i = 0; i < n; i++) c.add(v.fromBufferAttribute(p, i))
-  c.divideScalar(n)
-  const cov = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-  for (let i = 0; i < n; i++) {
-    v.fromBufferAttribute(p, i).sub(c)
-    const a = [v.x, v.y, v.z]
-    for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) cov[r * 3 + k] += a[r] * a[k]
-  }
-  let axis = new THREE.Vector3(0.3, 1, 0.2).normalize()
-  for (let it = 0; it < 24; it++) {
-    axis = new THREE.Vector3(
-      cov[0] * axis.x + cov[1] * axis.y + cov[2] * axis.z,
-      cov[3] * axis.x + cov[4] * axis.y + cov[5] * axis.z,
-      cov[6] * axis.x + cov[7] * axis.y + cov[8] * axis.z,
-    ).normalize()
-  }
-  const b1 = new THREE.Vector3().crossVectors(axis, Math.abs(axis.y) < 0.9 ? Y : X).normalize()
-  const b2 = new THREE.Vector3().crossVectors(axis, b1)
-  let rSum = 0
-  for (let i = 0; i < n; i++) {
-    v.fromBufferAttribute(p, i).sub(c)
-    rSum += v.clone().addScaledVector(axis, -v.dot(axis)).length()
-  }
-  const R = rSum / n || 0.01
-  if (lengthwise01 && axis.y < 0) axis.negate()
-  let tMin = Infinity
-  let tMax = -Infinity
-  for (let i = 0; i < n; i++) {
-    const t = v.fromBufferAttribute(p, i).sub(c).dot(axis)
-    tMin = Math.min(tMin, t)
-    tMax = Math.max(tMax, t)
-  }
-  const uv = new Float32Array(n * 2)
-  for (let i = 0; i < n; i++) {
-    v.fromBufferAttribute(p, i).sub(c)
-    const t = v.dot(axis)
-    const ang = Math.atan2(v.dot(b2), v.dot(b1))
-    uv[i * 2] = (ang * R) / 0.012 / 256 // ริ้วละ ~1.2 มม. x 256 คอลัมน์
-    uv[i * 2 + 1] = lengthwise01 ? (t - tMin) / (tMax - tMin) : t / 0.05
-  }
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
-}
-
-async function loadAnatomy() {
-  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js')
-  const { muscleGroup, bodyRegion, HIDDEN } = await import('/anatomy/groups.js')
-  anatomyMaterials()
-  const loader = new GLTFLoader()
-  const [mus, bone] = await Promise.all(['/data/anatomy.glb', '/data/skeleton.glb'].map((u) => loader.loadAsync(u)))
-  // mm, Z ขึ้น, หน้า = -Y  ->  เมตร, Y ขึ้น, หน้า = +Z
-  const toWorld = new THREE.Matrix4().makeRotationX(-Math.PI / 2).premultiply(new THREE.Matrix4().makeScale(0.001, 0.001, 0.001))
-  const parts = []
-  for (const [gltf, isBone] of [[mus, false], [bone, true]]) {
-    gltf.scene.updateMatrixWorld(true)
-    gltf.scene.traverse((o) => {
-      if (!o.isMesh) return
-      const geo = o.geometry.clone().applyMatrix4(o.matrixWorld).applyMatrix4(toWorld)
-      parts.push({ name: o.name.replace(/_/g, ' '), geo, isBone }) // GLTFLoader แทนช่องว่างในชื่อด้วย _
-    })
-  }
-  // ยกให้ฝ่าเท้าอยู่ที่ y = 0 และสะโพกอยู่กลาง x/z
-  const all = new THREE.Box3()
-  for (const p of parts) {
-    p.geo.computeBoundingBox()
-    all.union(p.geo.boundingBox)
-  }
-  const byName = new Map(parts.map((p) => [p.name, p]))
-  // external oblique ของ BodyParts3D รวมเยื่อพังผืดด้านหน้า (aponeurosis) ที่คลุม rectus abdominis ทั้งแผ่น
-  // -> ตัดสามเหลี่ยมช่วงหน้าท้องตรงกลางออก ให้เห็นซิกแพ็กเหมือนร่างจริงที่ไขมันน้อย
-  for (const side of ['left', 'right']) {
-    const ob = byName.get(`${side} external oblique`)
-    const ra = byName.get(`${side} rectus abdominis`)
-    if (!ob || !ra) continue
-    ra.geo.computeBoundingBox()
-    const half = Math.max(Math.abs(ra.geo.boundingBox.min.x), Math.abs(ra.geo.boundingBox.max.x)) - 0.006
-    const zFront = ra.geo.boundingBox.min.z
-    const g = ob.geo.index ? ob.geo.toNonIndexed() : ob.geo
-    const pos = g.attributes.position
-    const nor = g.attributes.normal
-    const keepP = []
-    const keepN = []
-    for (let t = 0; t < pos.count; t += 3) {
-      let cx = 0
-      let cz = 0
-      for (let k = 0; k < 3; k++) {
-        cx += pos.getX(t + k) / 3
-        cz += pos.getZ(t + k) / 3
-      }
-      if (Math.abs(cx) < half && cz > zFront) continue
-      for (let k = 0; k < 3; k++) {
-        keepP.push(pos.getX(t + k), pos.getY(t + k), pos.getZ(t + k))
-        keepN.push(nor.getX(t + k), nor.getY(t + k), nor.getZ(t + k))
-      }
-    }
-    const cut = new THREE.BufferGeometry()
-    cut.setAttribute('position', new THREE.Float32BufferAttribute(keepP, 3))
-    cut.setAttribute('normal', new THREE.Float32BufferAttribute(keepN, 3))
-    ob.geo = cut
-  }
-  const verts = (name) => {
-    const g = byName.get(name)?.geo
-    if (!g) throw new Error(`missing bone ${name}`)
-    const out = []
-    for (let i = 0; i < g.attributes.position.count; i++) out.push(new THREE.Vector3().fromBufferAttribute(g.attributes.position, i))
-    return out
-  }
-  const centroid = (pts) => pts.reduce((a, b) => a.add(b), new THREE.Vector3()).divideScalar(pts.length)
-  const cap = (name, end, depth, filter = () => true) => {
-    const pts = verts(name)
-    const ys = pts.map((q) => q.y)
-    const lim = end === 'top' ? Math.max(...ys) - depth : Math.min(...ys) + depth
-    return centroid(pts.filter((q) => (end === 'top' ? q.y >= lim : q.y <= lim) && filter(q)))
-  }
-  const S = {}
-  for (const [n, side] of [['L', 'left'], ['R', 'right']]) {
-    const femurTop = verts(`${side} femur`).filter((q, _, arr) => q.y > Math.max(...arr.map((r) => r.y)) - 0.07)
-    const medX = femurTop.map((q) => Math.abs(q.x)).sort((a, b) => a - b)[Math.floor(femurTop.length / 2)]
-    S[`hip${n}`] = centroid(femurTop.filter((q) => Math.abs(q.x) < medX))
-    S[`knee${n}`] = cap(`${side} femur`, 'bottom', 0.03).add(cap(`${side} tibia`, 'top', 0.02)).multiplyScalar(0.5)
-    S[`ankle${n}`] = centroid(verts(`${side} talus`))
-    S[`toe${n}`] = centroid(verts(`distal phalanx of ${side} big toe`))
-    S[`shoulder${n}`] = cap(`${side} humerus`, 'top', 0.035)
-    S[`elbow${n}`] = cap(`${side} humerus`, 'bottom', 0.025)
-    S[`wrist${n}`] = cap(`${side} radius`, 'bottom', 0.015)
-    S[`hand${n}`] = centroid(verts(`${side} third metacarpal bone`))
-  }
-  S.hip = S.hipL.clone().add(S.hipR).multiplyScalar(0.5)
-  S.l5 = centroid(verts('fifth lumbar vertebra'))
-  S.t12 = centroid(verts('twelfth thoracic vertebra'))
-  S.c7 = centroid(verts('seventh cervical vertebra'))
-  const shift = new THREE.Vector3(-S.hip.x, -all.min.y, -S.hip.z)
-  for (const p of parts) p.geo.translate(shift.x, shift.y, shift.z)
-  for (const k of Object.keys(S)) S[k].add(shift)
-
-  // ตั้งตำแหน่งข้อต่อของ rig ตามกระดูกจริง (ท่ายืนตรง = bind pose)
-  const rel = (a, b) => new THREE.Vector3().subVectors(a, b)
-  J.root.rotation.set(0, 0, 0)
-  J.root.position.copy(S.hip)
-  J.spine.position.copy(rel(S.l5, S.hip))
-  J.chest.position.copy(rel(S.t12, S.l5))
-  J.neck.position.copy(rel(S.c7, S.t12))
-  for (const n of ['L', 'R']) {
-    J[`shoulder${n}`].position.copy(rel(S[`shoulder${n}`], S.t12))
-    J[`elbow${n}`].position.copy(rel(S[`elbow${n}`], S[`shoulder${n}`]))
-    J[`hand${n}`].position.copy(rel(S[`hand${n}`], S[`elbow${n}`]))
-    J[`hip${n}`].position.copy(rel(S[`hip${n}`], S.hip))
-    J[`knee${n}`].position.copy(rel(S[`knee${n}`], S[`hip${n}`]))
-    J[`ankle${n}`].position.copy(rel(S[`ankle${n}`], S[`knee${n}`]))
-  }
-  for (const k of Object.keys(J)) J[k].rotation.set(0, 0, 0)
-  body.updateMatrixWorld(true)
-  L.uarm = S.shoulderL.distanceTo(S.elbowL)
-  L.farm = S.elbowL.distanceTo(S.handL)
-  L.thigh = S.hipL.distanceTo(S.kneeL)
-  L.shin = S.kneeL.distanceTo(S.ankleL)
-  for (const m of bodyMeshes) m.visible = false // ซ่อนหุ่นทรงกลมเดิม
-
-  // กระดูกของ skeleton + ช่วงของแต่ละกระดูกไว้คำนวณน้ำหนัก
-  const up = (p, d) => p.clone().add(new THREE.Vector3(0, d, 0))
-  const BONES = {
-    root: [J.root, S.hip, S.l5], spine: [J.spine, S.l5, S.t12], chest: [J.chest, S.t12, S.c7], neck: [J.neck, S.c7, up(S.c7, 0.25)],
-  }
-  for (const n of ['L', 'R']) {
-    BONES[`arm${n}`] = [J[`uroll${n}`], S[`shoulder${n}`], S[`elbow${n}`]]
-    BONES[`fore${n}`] = [J[`elbow${n}`], S[`elbow${n}`], S[`wrist${n}`]]
-    BONES[`hand${n}`] = [J[`hand${n}`], S[`wrist${n}`], up(S[`wrist${n}`], -0.1)]
-    BONES[`thigh${n}`] = [J[`hip${n}`], S[`hip${n}`], S[`knee${n}`]]
-    BONES[`shin${n}`] = [J[`knee${n}`], S[`knee${n}`], S[`ankle${n}`]]
-    BONES[`foot${n}`] = [J[`ankle${n}`], S[`ankle${n}`], S[`toe${n}`]]
-  }
-  const names = Object.keys(BONES)
-  // รัศมีโดยประมาณของแต่ละท่อน: วัดระยะถึง "ผิว" ของท่อนแทนแกนกลาง -> เนื้อเยื่อลำตัว (อก ปีกหลัง) ยึดกับลำตัว ไม่ถูกแขนดึงเป็นแผ่น
-  const RADIUS = { root: 0.1, spine: 0.11, chest: 0.13, neck: 0.04 }
-  for (const n of ['L', 'R']) Object.assign(RADIUS, { [`arm${n}`]: 0.03, [`fore${n}`]: 0.03, [`hand${n}`]: 0.02, [`thigh${n}`]: 0.05, [`shin${n}`]: 0.04, [`foot${n}`]: 0.03 })
-  const skeleton = new THREE.Skeleton(names.map((k) => BONES[k][0]))
-  skeleton.calculateInverses()
-  const ALLOW = {
-    head: ['neck'], neck: ['neck', 'chest'], chest: ['chest', 'spine', 'neck'], abdomen: ['spine', 'root', 'chest'], pelvis: ['root', 'spine', 'thighL', 'thighR'],
-  }
-  for (const n of ['L', 'R']) {
-    Object.assign(ALLOW, {
-      [`${n}shoulder`]: ['chest', `arm${n}`, 'neck'], [`${n}upperarm`]: [`arm${n}`, `fore${n}`, 'chest'], [`${n}forearm`]: [`fore${n}`, `arm${n}`, `hand${n}`],
-      [`${n}hand`]: [`hand${n}`, `fore${n}`], [`${n}thigh`]: [`thigh${n}`, 'root', `shin${n}`], [`${n}shin`]: [`shin${n}`, `thigh${n}`, `foot${n}`], [`${n}foot`]: [`foot${n}`, `shin${n}`],
-    })
-  }
-  const segDist = (q, a, b) => {
-    const ab = new THREE.Vector3().subVectors(b, a)
-    const t = clamp(new THREE.Vector3().subVectors(q, a).dot(ab) / ab.lengthSq(), 0, 1)
-    return q.distanceTo(a.clone().addScaledVector(ab, t))
-  }
-
-  // กางเกงขาสั้นสีดำ: เอวต่ำกว่า L5 เล็กน้อย ถึงกลางต้นขา (สีคูณกับสีเงิน -> ดำด้าน)
-  const shortsTop = S.l5.y - 0.005
-  const shortsHem = S.hip.y - 0.5 * L.thigh
-  const SHORTS = [0.13, 0.135, 0.15]
-  anat = { meshes: [], samples: [] }
-  const q = new THREE.Vector3()
-  for (const part of parts) {
-    if (part.name === 'Skeleton' || HIDDEN.test(part.name.toLowerCase())) continue
-    let region = bodyRegion(part.name)
-    // ข้อมูลบางชิ้นติดป้ายซ้าย/ขวาสลับ (เช่น flexor pollicis brevis) -> เชื่อตำแหน่งจริง (ซ้ายของหุ่น = x บวก)
-    if (region && (region[0] === 'L' || region[0] === 'R')) {
-      part.geo.computeBoundingBox()
-      const cx = part.geo.boundingBox.getCenter(new THREE.Vector3()).x
-      if (Math.abs(cx) > 0.05 && (cx > 0) !== (region[0] === 'L')) region = (cx > 0 ? 'L' : 'R') + region.slice(1)
-    }
-    if (!region) {
-      part.geo.computeBoundingBox()
-      const c = part.geo.boundingBox.getCenter(new THREE.Vector3())
-      let best = 'chest'
-      let bd = Infinity
-      for (const k of names) {
-        const d = segDist(c, BONES[k][1], BONES[k][2])
-        if (d < bd) [bd, best] = [d, k]
-      }
-      const side = best.endsWith('L') ? 'L' : best.endsWith('R') ? 'R' : ''
-      region = { root: 'pelvis', spine: 'abdomen', chest: 'chest', neck: 'neck' }[best] ||
-        side + { arm: 'upperarm', fore: 'forearm', hand: 'hand', thigh: 'thigh', shin: 'shin', foot: 'foot' }[best.slice(0, -1)]
-    }
-    const allow = (ALLOW[region] || ALLOW.chest).map((k) => names.indexOf(k))
-    const geo = part.geo
-    const pos = geo.attributes.position
-    const n = pos.count
-    const si = new Uint16Array(n * 4)
-    const sw = new Float32Array(n * 4)
-    for (let i = 0; i < n; i++) {
-      q.fromBufferAttribute(pos, i)
-      if (part.isBone) {
-        si[i * 4] = allow[0]
-        sw[i * 4] = 1
-        continue
-      }
-      const ws = allow.map((b) => {
-        const [, a, e] = BONES[names[b]]
-        // ยกกำลัง 4 + ระยะเผื่อ 2 ซม.: น้ำหนักไล่นุ่มขึ้นรอบข้อต่อ -> มัดกล้ามเนื้อไม่ฉีกเป็นแผ่น/ลอยแยกเวลางอสะโพก-ไหล่ลึก
-        return 1 / (Math.max(0, segDist(q, a, e) - RADIUS[names[b]]) + 0.02) ** 4
-      })
-      const tot = ws.reduce((x, y) => x + y, 0)
-      allow.forEach((b, k) => {
-        si[i * 4 + k] = b
-        sw[i * 4 + k] = ws[k] / tot
-      })
-    }
-    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4))
-    geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4))
-    const col = new Float32Array(n * 3).fill(1)
-    if (/pelvis|thigh|abdomen/.test(region)) {
-      for (let i = 0; i < n; i++) {
-        const y = pos.getY(i)
-        if (y < shortsTop && y > shortsHem) col.set(SHORTS, i * 3)
-      }
-    }
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
-    const lower = part.name.toLowerCase()
-    const tendon = /tendon|aponeuros|fascia|retinacul|ligament|membrane|sheath|linea|arch/.test(lower)
-    const group = part.isBone || tendon ? null : muscleGroup(part.name)
-    const rectus = /rectus abdominis/.test(lower)
-    if (!part.isBone && !tendon) fiberUV(geo, rectus)
-    const mesh = new THREE.SkinnedMesh(geo, part.isBone ? AMAT.bone : tendon ? AMAT.tendon : AMAT.base)
-    mesh.bind(skeleton, new THREE.Matrix4())
-    mesh.castShadow = true
-    mesh.frustumCulled = false
-    scene.add(mesh)
-    const arm = /hand|forearm|upperarm/.test(region)
-    anat.meshes.push({ mesh, group, isBone: part.isBone, rectus, name: part.name, region })
-    // จุดตัวอย่างของผิว (คำนวณกล่องครอบหลัง skinning แบบเร็ว: ใช้ยึดพื้น / จัดเฟรมกล้อง)
-    const step = Math.max(1, Math.floor(n / 40))
-    const side = region[0] === 'L' || region[0] === 'R' ? region[0] : /left/.test(lower) ? 'L' : /right/.test(lower) ? 'R' : ''
-    for (let i = 0; i < n; i += step) anat.samples.push({ mesh, i, group, arm, side })
-  }
-}
-
-// กล่องครอบร่างกายหลังจัดท่า: โหมด anatomy ใช้จุดตัวอย่างที่ผ่าน skinning ; หุ่นเดิมใช้ mesh
-function bodyBox({ skipArms = false, groups = null, side = null } = {}) {
-  const box = new THREE.Box3()
-  if (anat) {
-    const p = new THREE.Vector3()
-    for (const s of anat.samples) {
-      if (skipArms && s.arm) continue
-      if (groups && !groups.includes(s.group)) continue
-      if (side && s.side !== side) continue
-      p.fromBufferAttribute(s.mesh.geometry.attributes.position, s.i)
-      s.mesh.applyBoneTransform(s.i, p)
-      box.expandByPoint(p)
-    }
-    return box
-  }
-  for (const mesh of bodyMeshes) {
-    if (skipArms && mesh.userData.part === 'arm') continue
-    if (groups && !muscles.some((m) => m.mesh === mesh && groups.includes(m.group))) continue
-    box.expandByObject(mesh)
-  }
-  return box
-}
-
-function paintAnatomy(primary, secondary) {
-  const all = primary.includes('fullbody')
-  for (const m of anat.meshes) {
-    if (!m.group) continue
-    // fullbody = มัดหลักทุกกลุ่ม (กล้ามเนื้อย่อยอื่นยังเป็นสีเงิน ให้เห็นรูปร่าง)
-    m.kind = (all && m.group !== 'base') || primary.includes(m.group) ? 'primary' : secondary.includes(m.group) ? 'secondary' : 'base'
-    m.mesh.material = AMAT[m.rectus ? `${m.kind}Abs` : m.kind]
-  }
-}
-
-// ---------- กล้องวิดีโอ: Tight hero framing จากจุดผิวจริงของท่าทั้งลูป (กล้องนิ่งทั้งคลิป) ----------
-// เดิมใช้มุม 8 จุดของกล่องครอบ 3 มิติ -> มุมเฉียงทำให้กล่อง (บาร์ยาว 1.9 ม. ฯลฯ) ใหญ่เกินตัวจริง หุ่นเหลือเล็กกลางการ์ด
-// ตอนนี้ฉายจุดผิวหุ่น + จุดยอดของอุปกรณ์ลงจอ แล้ว: หุ่นสูง ~83% ของกรอบ อยู่กึ่งกลาง ; อุปกรณ์ยาว ๆ ล้นขอบซ้าย-ขวาได้เล็กน้อย
+// ======================================================================
+// กล้อง: 3/4 perspective เฉียง 40° ; ตัวผู้เล่นสูง ~83% ของกรอบ (อุปกรณ์อยู่ในกรอบ)
+// ======================================================================
 function propPoints(out) {
   propRoot.updateMatrixWorld(true)
-  propRoot.traverse((o) => {
+  const visit = (root) => root.traverse((o) => {
     if (!o.isMesh || o.userData.noFrame) return
     const p = o.geometry.attributes.position
     const step = Math.max(1, Math.floor(p.count / 60))
-    for (let i = 0; i < p.count; i += step) out.push(new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld))
+    for (let i = 0; i < p.count; i += step) out.push(V().fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld))
   })
+  visit(propRoot)
 }
 function bodyPoints(out, stride = 3) {
-  const p = new THREE.Vector3()
-  for (let k = 0; k < anat.samples.length; k += stride) {
-    const s = anat.samples[k]
-    p.fromBufferAttribute(s.mesh.geometry.attributes.position, s.i)
-    s.mesh.applyBoneTransform(s.i, p)
-    out.push(p.clone())
-  }
+  for (let k = 0; k < anat.samples.length; k += stride) out.push(samplePos(anat.samples[k], V()))
 }
-function fitCamera(body, props, az, el) {
-  const dir = new THREE.Vector3(Math.sin(rad(az)) * Math.cos(rad(el)), Math.sin(rad(el)), Math.cos(rad(az)) * Math.cos(rad(el)))
-  const target = new THREE.Box3().setFromPoints(body).getCenter(new THREE.Vector3())
-  const right = new THREE.Vector3()
-  const up = new THREE.Vector3()
+const v = V()
+function fitCamera(bodyPts, propPts, az, el, fill = 0.83) {
+  const dir = V(Math.sin(rad(az)) * Math.cos(rad(el)), Math.sin(rad(el)), Math.cos(rad(az)) * Math.cos(rad(el)))
+  const all = bodyPts.concat(propPts)
+  const target = new THREE.Box3().setFromPoints(bodyPts).getCenter(V())
+  const right = V()
+  const upv = V()
   const bounds = (pts) => {
     let [x0, x1, y0, y1] = [Infinity, -Infinity, Infinity, -Infinity]
     for (const q of pts) {
@@ -1147,24 +1434,24 @@ function fitCamera(body, props, az, el) {
     return { x0, x1, y0, y1 }
   }
   let dist = 6
-  for (let it = 0; it < 10; it++) {
+  for (let it = 0; it < 12; it++) {
     camera.position.copy(target).addScaledVector(dir, dist)
     camera.lookAt(target)
     camera.updateMatrixWorld()
-    const b = bounds(body)
-    // เลื่อนจุดเล็งให้กึ่งกลางของหุ่นบนจอ = กึ่งกลางกรอบ
+    const b = bounds(bodyPts)
+    const a = bounds(all)
+    // จุดเล็ง: กึ่งกลางของ (ตัว + อุปกรณ์) ถ่วงไปทางตัว
+    const cx = (b.x0 + b.x1) / 2 * 0.65 + (a.x0 + a.x1) / 2 * 0.35
+    const cy = (b.y0 + b.y1) / 2 * 0.65 + (a.y0 + a.y1) / 2 * 0.35
     const halfH = Math.tan(rad(camera.fov / 2)) * dist
     right.setFromMatrixColumn(camera.matrixWorld, 0)
-    up.setFromMatrixColumn(camera.matrixWorld, 1)
-    target.addScaledVector(right, ((b.x0 + b.x1) / 2) * halfH * camera.aspect).addScaledVector(up, ((b.y0 + b.y1) / 2) * halfH)
-    const a = props.length ? bounds(props) : b
-    const cx = (b.x0 + b.x1) / 2
-    const cy = (b.y0 + b.y1) / 2
+    upv.setFromMatrixColumn(camera.matrixWorld, 1)
+    target.addScaledVector(right, cx * halfH * camera.aspect).addScaledVector(upv, cy * halfH)
     const need = Math.max(
-      (b.y1 - b.y0) / 2 / 0.83, // หุ่นสูง 83% ของกรอบ
+      (b.y1 - b.y0) / 2 / fill,
       (b.x1 - b.x0) / 2 / 0.9,
-      Math.max(a.y1 - cy, cy - a.y0) / 0.97, // อุปกรณ์ไม่ล้นบน-ล่าง
-      Math.max(a.x1 - cx, cx - a.x0) / 1.03, // ปลายบาร์ล้นขอบข้างได้เล็กน้อย
+      Math.max(a.y1 - cy, cy - a.y0) / 0.96,
+      Math.max(a.x1 - cx, cx - a.x0) / 1.0,
     )
     dist *= need
   }
@@ -1172,13 +1459,11 @@ function fitCamera(body, props, az, el) {
   camera.lookAt(target)
   camera.updateMatrixWorld()
 }
-
-// ---------- กล้องภาพนิ่ง: จัดเฟรมจากกล่องครอบ ----------
 function frameCamera(boxes, az, el) {
   const center = new THREE.Box3()
   for (const b of boxes) center.union(b)
-  const target = center.getCenter(new THREE.Vector3())
-  const dir = new THREE.Vector3(Math.sin(rad(az)) * Math.cos(rad(el)), Math.sin(rad(el)), Math.cos(rad(az)) * Math.cos(rad(el)))
+  const target = center.getCenter(V())
+  const dir = V(Math.sin(rad(az)) * Math.cos(rad(el)), Math.sin(rad(el)), Math.cos(rad(az)) * Math.cos(rad(el)))
   let dist = 5
   for (let i = 0; i < 5; i++) {
     camera.position.copy(target).addScaledVector(dir, dist)
@@ -1193,7 +1478,7 @@ function frameCamera(boxes, az, el) {
         my = Math.max(my, Math.abs(v.y))
       }
     }
-    dist *= Math.max(mx / 0.9, my / 0.88) // หุ่นสูง ~88% ของกรอบ อยู่กลางภาพ
+    dist *= Math.max(mx / 0.9, my / 0.88)
   }
   camera.position.copy(target).addScaledVector(dir, dist)
   camera.lookAt(target)
@@ -1201,26 +1486,16 @@ function frameCamera(boxes, az, el) {
   halo.position.z = target.z
 }
 
-// spec: { motion, primary: [...], secondary: [...], fps }
+// ======================================================================
+// API ที่สคริปต์เรนเดอร์เรียก
+// ======================================================================
+// spec: { motion, view: 'oblique'|'side', primary: [...], secondary: [...], fps }
 window.setup = (spec) => {
   M = MOTIONS[spec.motion]
   if (!M) throw new Error(`unknown motion ${spec.motion}`)
-  const all = spec.primary.includes('fullbody')
-  for (const m of muscles) {
-    const kind = all || spec.primary.includes(m.group) ? 'primary' : spec.secondary.includes(m.group) ? 'secondary' : 'base'
-    m.mesh.material = muscleMat(kind, m.tex)
-    m.kind = kind
-  }
-  if (anat) paintAnatomy(spec.primary, spec.secondary)
-  // จุดยึดมือ (พื้นใต้ไหล่ / บาร์เหนือไหล่) คำนวณจากท่าแรก
-  fixPoint = null
-  if (M.fix) {
-    const o = samplePose(M, 0)
-    setAngles(o)
-    anchor({ ...o, handFix: 1 })
-    const sh = wp(J.shoulderL).add(wp(J.shoulderR)).multiplyScalar(0.5)
-    fixPoint = M.fix === 'floor' ? [0.04, sh.z + 0.02] : [sh.y + 0.6, sh.z]
-  }
+  paintAnatomy(spec.primary, spec.secondary)
+  // อุปกรณ์สร้างหลังจัดท่าแรก (บางชิ้นอิงตำแหน่งร่างกาย)
+  pose(0)
   for (const p of M.props || []) {
     const def = typeof p === 'string' ? { type: p } : p
     const upd = PROP[def.type](def)
@@ -1228,25 +1503,23 @@ window.setup = (spec) => {
   }
   const fps = spec.fps || 24
   const frames = Math.max(12, Math.round(M.dur * fps))
-  // มุมกล้อง: oblique = 3/4 perspective เฉียง 40° ทุกท่า (เห็นแนวหลัง มุมเข่า และแนวบาร์พร้อมกัน) ; side = ด้านข้าง 68° (ตรง 90° แผ่นน้ำหนักบังตัวทั้งหมด)
-  // ท่านอน/นั่งบนเครื่องที่ยกกล้องสูงไว้ (M.cam.el) ใช้มุมเงยเดิม
+  // มุมกล้อง: oblique = 3/4 perspective เฉียง 40° ; side = ด้านข้าง 72° (ตรง 90° แผ่นน้ำหนักบังตัว)
   const view = spec.view || 'oblique'
-  const az = view === 'side' ? 68 : 40
-  const el = view === 'side' ? 8 : clamp(M.cam?.el ?? 12, 8, 22)
+  const az = view === 'side' ? (M.cam?.side ?? 72) : (M.cam?.az ?? 40)
+  const el = view === 'side' ? (M.cam?.sideEl ?? 8) : clamp(M.cam?.el ?? 12, 6, 24)
   aimLights(az)
   const bodyPts = []
   const propPts = []
-  const feet = new THREE.Vector3()
+  const feet = V()
   for (let i = 0; i < 16; i++) {
     const t = i / 16
     pose(t)
     props.forEach((u) => u(t))
-    if (anat) bodyPoints(bodyPts)
-    else for (const m of bodyMeshes) bodyPts.push(...[0, 1].map((k) => new THREE.Box3().setFromObject(m)[k ? 'max' : 'min']))
+    bodyPoints(bodyPts)
     propPoints(propPts)
     feet.add(wp(J.root))
   }
-  fitCamera(bodyPts, propPts, az, el)
+  fitCamera(bodyPts, propPts, az, el, M.cam?.fill ?? 0.83)
   feet.divideScalar(16)
   halo.position.set(feet.x, 0.003, feet.z)
   shadowLight.position.set(feet.x + 0.15, 6, feet.z + 0.25)
@@ -1259,65 +1532,110 @@ window.frame = (i, frames) => {
   pose(t)
   props.forEach((u) => u(t))
   const c = contraction(M, t)
-  for (const m of muscles) if (m.kind === 'primary') m.mesh.material.emissiveIntensity = 1.35 + 1.1 * c
-  if (anat) AMAT.primary.emissiveIntensity = AMAT.primaryAbs.emissiveIntensity = 0.32 + 0.3 * c
+  BODY_U.uGlow.value = 0.03 + 0.16 * c
   composer.render()
   return renderer.domElement.toDataURL('image/png')
+}
+
+// ภาพซูมตรวจทาน (มือ/เท้า/จุดสัมผัส): { t, at: ชื่อข้อต่อหรือ [x,y,z], az, el, dist }
+window.closeup = (spec) => {
+  pose(spec.t ?? 0)
+  props.forEach((u) => u(spec.t ?? 0))
+  const target = Array.isArray(spec.at) ? V(...spec.at) : spec.at === 'gripL' || spec.at === 'gripR' ? gripWorld(spec.at.slice(-1)) : wp(J[spec.at])
+  const dir = V(Math.sin(rad(spec.az)) * Math.cos(rad(spec.el)), Math.sin(rad(spec.el)), Math.cos(rad(spec.az)) * Math.cos(rad(spec.el)))
+  camera.position.copy(target).addScaledVector(dir, spec.dist ?? 0.5)
+  camera.lookAt(target)
+  camera.updateMatrixWorld()
+  aimLights(spec.az)
+  composer.render()
+  return renderer.domElement.toDataURL('image/png')
+}
+
+// ตรวจความถูกต้องเชิงตัวเลขทั้งลูป: มือ-อุปกรณ์ / เท้า-พื้น / หลัง-เบาะ / มุมกางศอก / เข่าหุบ / หลังงอ
+window.audit = (n = 24) => {
+  const out = { gripErr: 0, footLift: 0, footSink: 0, footTilt: 0, contactGap: 0, contactPen: 0, elbowFlare: [180, 0], kneeIn: 0, spineBend: 0, elbowMin: 0, kneeMax: 0 }
+  for (let i = 0; i < n; i++) {
+    const t = i / n
+    const o = pose(t)
+    props.forEach((u) => u(t))
+    const T = handTargets(o)
+    for (const [hn] of SIDES) if (T[hn]) out.gripErr = Math.max(out.gripErr, T[hn].at.distanceTo(gripWorld(hn, T[hn].contact)))
+    for (const [fn, s, m] of SIDES) {
+      if (o.ft[s] && !o.footPitch[s] && o.ft[s][1] < L.ankleY + 0.02) {
+        const box = bodyBox({ filter: (x) => x.region === `${fn}foot` })
+        out.footLift = Math.max(out.footLift, box.min.y)
+        out.footSink = Math.max(out.footSink, -box.min.y)
+        const up = Y.clone().applyQuaternion(wq(J[`ankle${fn}`]))
+        out.footTilt = Math.max(out.footTilt, deg(up.angleTo(Y)))
+      }
+      // เข่าหุบ: เข่าเข้าด้านในมากกว่าแนวสะโพก-ข้อเท้า (ในระนาบพื้น ตั้งฉากกับทิศปลายเท้า)
+      const hp = wp(J[`hip${fn}`])
+      const kn = wp(J[`knee${fn}`])
+      const an = wp(J[`ankle${fn}`])
+      const mid = hp.clone().lerp(an, 0.5)
+      out.kneeIn = Math.max(out.kneeIn, (mid.x - kn.x) * m)
+      const kneeAngle = 180 - deg(V().subVectors(hp, kn).angleTo(V().subVectors(an, kn)))
+      out.kneeMax = Math.max(out.kneeMax, kneeAngle)
+      // มุมกางศอก: มุมระหว่างต้นแขนกับแกนลำตัว (หัว -> สะโพก) ในระนาบหน้า-หลังของลำตัว
+      const sh = wp(J[`shoulder${fn}`])
+      const el = wp(J[`elbow${fn}`])
+      const qc = wq(J.chest)
+      const down = V(0, -1, 0).applyQuaternion(qc)
+      const fwd = V(0, 0, 1).applyQuaternion(qc)
+      const ua = el.clone().sub(sh)
+      const fr = ua.clone().addScaledVector(fwd, -ua.dot(fwd))
+      if (T[fn] && fr.length() > 0.05) {
+        const a = deg(fr.angleTo(down))
+        out.elbowFlare = [Math.min(out.elbowFlare[0], a), Math.max(out.elbowFlare[1], a)]
+      }
+    }
+    out.spineBend = Math.max(out.spineBend, Math.abs(o.chest - o.pelvis))
+    if (M.armsGround) out.armMinY = Math.min(out.armMinY ?? 9, bodyBox({ filter: (x) => x.arm }).min.y)
+    for (const c of contactPlanes()) {
+      const d = minPlaneDist(c.set, c.n, c.d)
+      out.contactGap = Math.max(out.contactGap, d)
+      out.contactPen = Math.max(out.contactPen, -d)
+    }
+  }
+  for (const k of Object.keys(out)) out[k] = Array.isArray(out[k]) ? out[k].map((x) => +x.toFixed(1)) : +(/Err|foot[LS]|contact|kneeIn/.test(k) ? out[k] * 1000 : out[k]).toFixed(1)
+  return out
 }
 
 // ---------- ภาพนิ่งไอคอนหมวดกล้ามเนื้อ: หุ่นกล้ามเนื้อสีเงิน พื้นโปร่งใส ซูมเฉพาะส่วน ----------
 // spec: { pose, primary, az, el, focus: [กลุ่มกล้ามเนื้อที่ใช้จัดเฟรม], pad, width, height }
 window.still = (spec) => {
-  theme = 'silver'
   M = { anchor: 'feet' }
-  Object.assign(MAT.skin, { color: new THREE.Color(0xb8c1cb), roughness: 0.28, metalness: 0.5 })
-  Object.assign(MAT.joint, { color: new THREE.Color(0x8a96a3), roughness: 0.35, metalness: 0.55 })
-  const all = spec.primary.includes('fullbody')
-  for (const m of muscles) {
-    m.kind = all || spec.primary.includes(m.group) ? 'primary' : 'base'
-    m.mesh.material = muscleMat(m.kind, m.tex === absTex ? absTex : fineFiberTex)
-  }
-  if (anat) {
-    paintAnatomy(spec.primary, spec.secondary || [])
-    AMAT.primary.emissiveIntensity = 0.55
-  }
+  paintAnatomy(spec.primary, spec.secondary || [])
+  BODY_U.uGlow.value = 0.08
   ground.visible = false
   halo.visible = false
   scene.background = null
-  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture
-  scene.environmentIntensity = 0.55
-  rim.color.set(0xcfe6ff)
-  rim.intensity = 2.2
-  key.intensity = 2.3
+  aimLights(spec.az)
   renderer.setClearColor(0x000000, 0)
   renderer.setSize(spec.width, spec.height)
   camera.aspect = spec.width / spec.height
   camera.updateProjectionMatrix()
   const o = resolvePose(spec.pose || {})
   setAngles(o)
-  anchor(o)
+  groundAnchor(o)
   const focus = spec.focus.includes('body') ? bodyBox() : bodyBox({ groups: spec.focus, side: spec.side || null })
   focus.expandByScalar(spec.pad ?? 0.04)
   frameCamera([focus], spec.az, spec.el)
   renderer.render(scene, camera)
-  window.lastFocus = focus.getSize(new THREE.Vector3()).toArray()
+  window.lastFocus = focus.getSize(V()).toArray()
   return renderer.domElement.toDataURL('image/png')
 }
 
-if (ANATOMY) {
-  loadAnatomy()
-    .then(() => {
-      scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture
-      scene.environmentIntensity = 0.3
-      // bloom เฉพาะจุดที่สว่างจัด (กล้ามเนื้อเรืองแสง/ขอบ rim) ไม่ให้ทั้งร่างฟุ้ง
-      Object.assign(bloom, { threshold: 0.95, strength: 0.32, radius: 0.28 })
-      // พื้นหลังแสงฟุ้งรัศมีด้านหลังตัวหุ่น + เงาตกกระทบนุ่มบนพื้น (ไม่มีแท่น)
-      scene.background = backdrop
-      ground.visible = true
-      halo.visible = true
-      window.ready = true
-    })
-    .catch((e) => {
-      window.loadError = String(e && e.stack ? e.stack : e)
-    })
-} else window.ready = true
+try {
+  buildRig()
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture
+  scene.environmentIntensity = 0.35
+  scene.background = backdrop
+  seatTop = () => (M?.seatTop ?? 0.43)
+  window.ready = true
+} catch (e) {
+  window.loadError = String(e && e.stack ? e.stack : e)
+}
+
+// ดีบัก (สคริปต์ตรวจทานเรียกผ่าน page.evaluate)
+window.__dbg = { J, HAND, L, BIND, pose, gripWorld, handTargets, contactPlanes, minPlaneDist, wp, V, get M() { return M } }

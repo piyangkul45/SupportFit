@@ -176,7 +176,7 @@ export default function ExerciseDetailModal({ exercise, categoryLabel, onSelect,
                   {t(playing ? 'exerciseLibrary.pauseShort' : 'exerciseLibrary.playShort')}
                 </button>
 
-                {/* ป้ายกล้ามเนื้อหลักที่ทำงาน (สีเดียวกับมัดที่เรืองแสงบนหุ่น) */}
+                {/* ป้ายกล้ามเนื้อหลักที่ทำงาน (สีเดียวกับมัดที่ไฮไลต์บนตัวละคร) */}
                 {anatomy?.primary.length > 0 && (
                   <div className="pointer-events-none absolute left-2 top-2 max-w-[70%] rounded-lg bg-black/60 px-2 py-1 ring-1 ring-orange-500/30 backdrop-blur-sm">
                     <p className="text-[9px] font-semibold uppercase tracking-wider text-orange-300/90">{t('exerciseLibrary.primaryWorking')}</p>

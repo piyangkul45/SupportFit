@@ -2,7 +2,7 @@
 //   - การ์ดหมวดกล้ามเนื้อ (MuscleCategorySelector / BodyPartFilter) -> public/muscles/<key>.webp
 //   - กล้ามเนื้อเดี่ยว (ชิปใน MuscleTargetCard) -> public/muscles/m-<muscle>.webp
 //   - รูปกล้ามเนื้อเป้าหมายของแต่ละท่า ด้านหน้า+หลัง (MuscleTargetCard / AI Coach) -> public/mannequin/<slug>-target.webp
-// โมเดลกายวิภาคจริง (BodyParts3D + Z-Anatomy) ร่างสีเทาเงินเมทัลลิก ลายเส้นใยกล้ามเนื้อ มัดเป้าหมายเรืองแสงส้ม-แดง
+// ร่างนักกีฬา 3D ชิ้นเดียวทึบ (scripts/mannequin/body.js) ลายเส้นใยกล้ามเนื้อเทาเงิน #94a3b8 + เส้นเอ็นขาวนวล มัดเป้าหมายส้ม-แดง #ea580c
 // พื้นโปร่งใส (cutout) 720×540 (4:3) ซูมเฉพาะส่วนตามหมวด ; ใช้ฉากเดียวกับวิดีโอสาธิตท่า (scripts/mannequin/scene.js โหมด still)
 //
 // ใช้งาน: npm i --prefix <tools-dir> three@0.170.0 puppeteer-core@23 ffmpeg-static@5
@@ -12,7 +12,7 @@ import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ensureAnatomyData, launchBrowser, openScene, startServer, toolsRequire } from './mannequin/render-server.mjs'
+import { launchBrowser, openScene, startServer, toolsRequire } from './mannequin/render-server.mjs'
 import { EXERCISES } from '../src/utils/exerciseCatalog.js'
 import { MUSCLES, getAnatomy } from '../src/utils/exerciseAnatomy.js'
 import { mediaSlug } from '../src/utils/exerciseMedia.js'
@@ -45,7 +45,6 @@ export const ICONS = {
   legs: { primary: ['quads', 'hamstrings', 'calves'], focus: ['quads', 'calves'], az: 20, el: 2, pad: 0.03, pose: { uarmA: 10, thighA: 4 } },
 }
 
-await ensureAnatomyData()
 const { server, base } = await startServer()
 const work = mkdtempSync(join(tmpdir(), 'muscle-icons-'))
 const browser = await launchBrowser()

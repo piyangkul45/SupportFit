@@ -1,17 +1,19 @@
 // เรนเดอร์วิดีโอสาธิตท่า 3D (MP4 + WebM วนซ้ำ) + poster (WebP) ของทุกท่าใน exerciseCatalog
-// โมเดลกายวิภาคจริง (BodyParts3D + Z-Anatomy) ผูก skinning กับ rig ท่าเคลื่อนไหวใน scripts/mannequin (three.js)
-// ร่างสีเทาเงิน มัดกล้ามเนื้อเป้าหมายเรืองแสงส้ม-แดง ; ผลลัพธ์ -> client/public/mannequin/<slug>.{mp4,webm} และ <slug>-poster.webp
+// ร่างนักกีฬา 3D ชิ้นเดียวทึบ (scripts/mannequin/body.js) ผูก skinning กับ rig ท่าเคลื่อนไหวใน scripts/mannequin (three.js)
+// ตัวละครผิวจริงแบบ cutaway (ไม่วาดกระดูก) เปิดผิวเฉพาะมัดเป้าหมายส้ม-แดง #d9532f ; มุมเฉียง 3/4 + มุมด้านข้าง (<slug>-side.*) ; ผลลัพธ์ -> client/public/mannequin/<slug>.{mp4,webm} และ <slug>-poster.webp
 //
 // ใช้งาน (เครื่องมือไม่ได้อยู่ใน dependencies ของโปรเจกต์):
 //   npm i --prefix <tools-dir> three@0.170.0 puppeteer-core@23 ffmpeg-static@5
 //   TOOLS_DIR=<tools-dir> CHROME_PATH=<path to chrome> node scripts/build-mannequin-videos.mjs [ชื่อท่า ...]
 //   --preview <out.png>  เรนเดอร์แค่ 3 เฟรมต่อท่าแล้วรวมเป็นภาพตรวจทาน (ไม่เขียนวิดีโอ)
+//   --audit              ตรวจท่าเชิงตัวเลขทุกท่า (มือ-อุปกรณ์ / เท้า-พื้น / หลัง-เบาะ / มุมกางศอก / เข่าหุบ) ไม่เขียนไฟล์
+//   --closeup <out.png> '<json>'  ภาพซูมตรวจทาน เช่น '{"t":0.5,"at":"gripL","az":40,"el":10,"dist":0.45}'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { ensureAnatomyData, launchBrowser, openScene, startServer, toolsRequire } from './mannequin/render-server.mjs'
+import { launchBrowser, openScene, startServer, toolsRequire } from './mannequin/render-server.mjs'
 import { EXERCISES } from '../src/utils/exerciseCatalog.js'
 import { getAnatomy } from '../src/utils/exerciseAnatomy.js'
 import { mediaSlug, motionFor } from '../src/utils/exerciseMedia.js'
@@ -24,12 +26,15 @@ const FPS = 24
 const args = process.argv.slice(2)
 const previewAt = args.indexOf('--preview')
 const previewOut = previewAt >= 0 ? args.splice(previewAt, 2)[1] : null
+const auditMode = args.includes('--audit')
+if (auditMode) args.splice(args.indexOf('--audit'), 1)
+const closeAt = args.indexOf('--closeup')
+const closeup = closeAt >= 0 ? args.splice(closeAt, 3).slice(1) : null
 const viewAt = args.indexOf('--views')
-const VIEWS = viewAt >= 0 ? args.splice(viewAt, 2)[1].split(',') : ['oblique', 'side']
+const VIEWS = auditMode || closeup ? ['oblique'] : viewAt >= 0 ? args.splice(viewAt, 2)[1].split(',') : ['oblique', 'side']
 const only = new Set(args)
 const jobs = EXERCISES.filter((e) => !only.size || only.has(e.name)).map((e) => ({ name: e.name, motion: motionFor(e.name) }))
 
-await ensureAnatomyData()
 const { server, base: BASE } = await startServer()
 
 const run = (a) => execFileSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', ...a])
@@ -50,6 +55,17 @@ try {
     const anatomy = getAnatomy(name) || { primary: [], secondary: [] }
     await openScene(page, BASE)
     const { frames } = await page.evaluate((spec) => window.setup(spec), { motion, view, primary: anatomy.primary, secondary: anatomy.secondary, fps: FPS })
+    if (auditMode) {
+      const a = await page.evaluate(() => window.audit(32))
+      console.log(name.padEnd(22), JSON.stringify(a))
+      continue
+    }
+    if (closeup) {
+      const url = await page.evaluate((s) => window.closeup(s), JSON.parse(closeup[1]))
+      writeFileSync(closeup[0], Buffer.from(url.split(',')[1], 'base64'))
+      console.log(`closeup -> ${closeup[0]}`)
+      continue
+    }
     // มุมเฉียง 3/4 = ไฟล์หลัก <slug>.* ; มุมด้านข้าง = <slug>-side.mp4 + <slug>-side-poster.webp (MP4 อย่างเดียว ประหยัดขนาด repo)
     const slug = mediaSlug(name) + (view === 'side' ? '-side' : '')
     const dir = join(work, slug)

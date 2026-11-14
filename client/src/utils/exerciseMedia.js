@@ -1,12 +1,13 @@
 // วิดีโอสาธิตท่าแบบหุ่นจำลอง 3D (3D Mannequin) + กลุ่มรูปแบบการเคลื่อนไหว (ใช้เลือกคำแนะนำสำหรับมือใหม่)
 //
 // วิดีโอวนซ้ำ (MP4 + WebM) และ poster (WebP) อยู่ใน client/public/mannequin สร้างด้วย scripts/build-mannequin-videos.mjs
-// เรนเดอร์จากหุ่น 3D ของแอปเอง (scripts/mannequin: three.js) พื้นหลัง #0e1a24 เท่าสีการ์ด กล้ามเนื้อเป้าหมายเรืองแสงส้ม-แดง
+// เรนเดอร์จากร่างนักกีฬา 3D ชิ้นเดียวทึบของแอปเอง (scripts/mannequin/body.js: three.js) ลายเส้นใยกล้ามเนื้อเทาเงิน #94a3b8 + เอ็นขาวนวล
+// มัดเป้าหมายส้ม-แดง #ea580c ; มือกำอุปกรณ์จริง (IK) เท้าราบพื้น หลังแนบเบาะ ; พื้นหลัง #0e1a24 เท่าสีการ์ด
 // มาตรฐานสื่อทั้งเว็บ: ทุกท่าในรายการต้องมีแอนิเมชันหุ่น 3D ห้ามภาพถ่ายคนจริง และห้ามหุ่นอนาโตมีนิ่งยืนตรงแทนคลิป
 // (มีเทสต์บังคับใน exerciseMedia.test.js)
 import { findExercise } from './exerciseCatalog.js'
 
-export const MEDIA_SOURCE = { name: 'BodyParts3D (DBCLS) + Z-Anatomy', license: 'CC BY-SA', url: null }
+export const MEDIA_SOURCE = { name: 'SupportFit 3D athlete model', license: 'original', url: null }
 const VIDEO_BASE = '/mannequin'
 
 // ชื่อท่า -> ชื่อไฟล์ ("Bench Press" -> "bench-press")

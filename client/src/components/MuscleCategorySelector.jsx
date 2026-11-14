@@ -4,8 +4,8 @@ import { motion } from 'framer-motion'
 import { exercisesForBodyPart } from '../utils/exerciseAnatomy'
 import { EXERCISES } from '../utils/exerciseCatalog'
 
-// การ์ดภาพเรนเดอร์กายวิภาค 3D สมจริง (BodyParts3D + Z-Anatomy: public/muscles/<key>.webp สร้างด้วย scripts/build-muscle-icons.mjs)
-// ร่างสีเทาเงินเมทัลลิก เห็นลายเส้นใยกล้ามเนื้อ มัดเป้าหมายเรืองแสงส้ม-แดง ; ภาพพื้นโปร่งใส 720×540 (4:3) ซูมเฉพาะส่วน
+// การ์ดภาพเรนเดอร์ร่างนักกีฬา 3D (โมเดลของแอปเอง: public/muscles/<key>.webp สร้างด้วย scripts/build-muscle-icons.mjs)
+// ร่างกล้ามเนื้อทึบสีเทาเงินด้าน (#8e9aa6) ไม่มีกระดูก ลายเส้นใยชัด พังผืดขาวนวล มัดเป้าหมายส้มอิฐ (#d9532f) ; ภาพพื้นโปร่งใส 720×540 (4:3) ซูมเฉพาะส่วน
 // "ทั้งหมด" = ร่างเต็มตัวด้านหน้า + หลังคู่กัน
 // มือถือ 3 คอลัมน์: "ทั้งหมด" กว้าง 2 ช่อง (สูงเท่าการ์ดอื่นในแถว) ให้ 8 การ์ดเต็ม 3 แถวพอดี ; ภาพ object-contain ทุกใบ = สัดส่วนเท่ากัน
 const CARDS = ['all', 'chest', 'back', 'shoulders', 'arms', 'core', 'glutes', 'legs'].map((key) => ({ key, img: `/muscles/${key}.webp` }))

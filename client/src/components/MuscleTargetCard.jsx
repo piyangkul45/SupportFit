@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { mediaSlug } from '../utils/exerciseMedia'
 
-// ภาพกายวิภาค 3D สมจริง (BodyParts3D + Z-Anatomy) สร้างด้วย scripts/build-muscle-icons.mjs:
+// ภาพร่างนักกีฬา 3D (โมเดลของแอปเอง) สร้างด้วย scripts/build-muscle-icons.mjs:
 // - public/mannequin/<slug>-target.webp = ร่างด้านหน้า + หลังของท่านั้น (หลักส้ม-แดง / รองส้มอ่อน) พื้นโปร่งใส 1:1
 // - public/muscles/m-<muscle>.webp = ร่างเต็มตัวที่ไฮไลต์กล้ามเนื้อมัดเดียว (ชิปรายชื่อกล้ามเนื้อ) 1:2
 

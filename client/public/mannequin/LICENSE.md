@@ -1,18 +1,13 @@
-# 3D anatomy exercise animations
+# 3D exercise animations
 
-The `*.mp4`, `*.webm` and `*-poster.webp` files in this folder are rendered for SupportFit from real human
-anatomy meshes:
+The `*.mp4`, `*.webm`, `*-poster.webp` and `*-target.webp` files in this folder (and `public/muscles/*.webp`) are
+rendered for SupportFit from its own procedural 3D athlete model. No third-party model files are used.
 
-- **BodyParts3D**, © The Database Center for Life Science, [CC BY-SA 2.1 JP](https://creativecommons.org/licenses/by-sa/2.1/jp/deed.en)
-- **Z-Anatomy**, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+- Model: `client/scripts/mannequin/body.js`. About 150 named muscle, tendon and body-core shapes are blended into one
+  opaque surface (signed-distance field + Surface Nets) with articulated fingers. The surface has a striated
+  muscle-fibre shading in `#94a3b8` with `#e2e8f0` tendons, target muscles in `#ea580c`, and black shorts.
+- Rig, motions (3D two-bone IK, grip, foot and bench contact), equipment, studio lighting and camera:
+  `client/scripts/mannequin/` (three.js, MIT).
 
-The meshes come from [BodyExplorer](https://github.com/JohanBellander/BodyExplorer)'s `anatomy.glb` /
-`skeleton.glb` (commit `cd2a639`).
-
-Changes: the meshes are skinned to SupportFit's own rig. The joints are measured from the skeleton
-(femoral and humeral heads, L5/T12/C7). The motions, props and camera are original
-(`client/scripts/mannequin/`, three.js, MIT). The rendering uses a matte silver body with `#f97316` glowing
-target muscles, studio key + `#38bdf8` rim lighting and a soft radial glow on `#0e1a24`, in a 3/4 view
-(`<slug>.*`) and a side view (`<slug>-side.*`). These adapted animations are shared under **CC BY-SA 4.0**.
-
-Regenerate with `client/scripts/build-mannequin-videos.mjs`.
+Regenerate with `client/scripts/build-mannequin-videos.mjs` (clips) and `client/scripts/build-muscle-icons.mjs`
+(muscle icons and target figures).

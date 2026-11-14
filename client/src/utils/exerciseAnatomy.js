@@ -47,16 +47,16 @@ const a = (primary, secondary, level, equipment) => ({ primary, secondary, level
 
 const ANATOMY = {
   // ---- เวทเทรนนิ่ง ----
-  'Squat': a(['quads', 'glutes'], ['hamstrings', 'abs'], 'intermediate', true),
-  'Bench Press': a(['chest'], ['triceps', 'shoulders'], 'intermediate', true),
-  'Deadlift': a(['back', 'hamstrings', 'glutes'], ['forearms', 'quads'], 'intermediate', true),
-  'Overhead Press': a(['shoulders'], ['triceps', 'abs'], 'intermediate', true),
-  'Barbell Row': a(['back'], ['biceps', 'forearms'], 'intermediate', true),
+  'Squat': a(['quads', 'glutes'], [], 'intermediate', true),
+  'Bench Press': a(['chest'], ['shoulders', 'triceps'], 'intermediate', true),
+  'Deadlift': a(['back', 'glutes', 'hamstrings'], [], 'intermediate', true),
+  'Overhead Press': a(['shoulders', 'triceps'], [], 'intermediate', true),
+  'Barbell Row': a(['back'], ['glutes', 'hamstrings'], 'intermediate', true),
   'Romanian Deadlift': a(['hamstrings', 'glutes'], ['back'], 'intermediate', true),
-  'Leg Press': a(['quads'], ['glutes', 'hamstrings'], 'beginner', true),
+  'Leg Press': a(['quads', 'glutes'], [], 'beginner', true),
   'Lat Pulldown': a(['back'], ['biceps'], 'beginner', true),
   'Incline Bench Press': a(['chest'], ['shoulders', 'triceps'], 'intermediate', true),
-  'Dumbbell Bench Press': a(['chest'], ['triceps', 'shoulders'], 'beginner', true),
+  'Dumbbell Bench Press': a(['chest'], ['shoulders', 'triceps'], 'beginner', true),
   'Hip Thrust': a(['glutes'], ['hamstrings'], 'beginner', true),
   'Lunge': a(['quads', 'glutes'], ['hamstrings', 'calves'], 'beginner', false),
   'Bicep Curl': a(['biceps'], ['forearms'], 'beginner', true),
@@ -66,7 +66,7 @@ const ANATOMY = {
   'Leg Curl': a(['hamstrings'], ['calves'], 'beginner', true),
   'Cable Fly': a(['chest'], ['shoulders'], 'beginner', true),
   'Clean and Jerk': a(['quads', 'glutes', 'shoulders'], ['back', 'triceps'], 'advanced', true),
-  'Kettlebell Swing': a(['glutes', 'hamstrings'], ['back', 'shoulders', 'abs'], 'intermediate', true),
+  'Kettlebell Swing': a(['glutes', 'hamstrings'], ['back'], 'intermediate', true),
 
   // ---- คาร์ดิโอ ----
   'Running': a(['quads', 'calves'], ['hamstrings', 'glutes', 'abs'], 'beginner', false),
@@ -90,18 +90,18 @@ const ANATOMY = {
 
   // ---- สตรีทเวิร์กเอาต์ ----
   'Push Up': a(['chest'], ['triceps', 'shoulders', 'abs'], 'beginner', false),
-  'Pull Up': a(['back'], ['biceps', 'forearms'], 'intermediate', true),
-  'Chin Up': a(['back', 'biceps'], ['forearms'], 'intermediate', true),
+  'Pull Up': a(['back'], ['biceps'], 'intermediate', true),
+  'Chin Up': a(['back', 'biceps'], [], 'intermediate', true),
   'Dips': a(['triceps', 'chest'], ['shoulders'], 'intermediate', true),
   'Muscle Up': a(['back', 'chest'], ['triceps', 'biceps', 'shoulders'], 'advanced', true),
   'Inverted Row': a(['back'], ['biceps'], 'beginner', true),
-  'Handstand Push Up': a(['shoulders'], ['triceps', 'abs'], 'advanced', false),
+  'Handstand Push Up': a(['shoulders', 'triceps'], [], 'advanced', false),
   'Pistol Squat': a(['quads', 'glutes'], ['hamstrings', 'abs'], 'advanced', false),
   'Bodyweight Squat': a(['quads', 'glutes'], ['hamstrings'], 'beginner', false),
   'Jump Squat': a(['quads', 'glutes'], ['calves'], 'intermediate', false),
   'Burpee': a(['fullbody'], [], 'intermediate', false),
   'Mountain Climber': a(['abs'], ['shoulders', 'quads'], 'beginner', false),
-  'Hanging Leg Raise': a(['abs'], ['forearms'], 'intermediate', true),
+  'Hanging Leg Raise': a(['abs'], [], 'intermediate', true),
   'Plank': a(['abs'], ['shoulders', 'glutes'], 'beginner', false),
   'Crunch': a(['abs'], [], 'beginner', false),
 }
